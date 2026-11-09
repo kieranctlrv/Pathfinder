@@ -393,6 +393,7 @@ const artPool=k=>Object.values(ART).filter(a=>a.status==='built'&&hasArt(a)&&(a.
 /* a location is exactly one asset: a planet, a model, a field, or a shader scene */
 function worldAsset(id){
   const s=SYS[id];if(!s)return null;
+  if(R2.live&&typeof r2WorldArt==='function'){const ra=r2WorldArt(id);if(ra)return ra;}   /* a Run hostile shows the same ship as its combat art */
   const art=artFind('system',id);if(art)return {id:id,art:art};
   if(S.run&&s.type){
     if(s.type==='colony'){const h=hashStr(id),r=h%100,pool=artPool('colony');

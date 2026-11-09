@@ -83,6 +83,7 @@ function foldCost(R, base) {
 }
 function threatCost(R, base) { return Math.round(base * stat(R, 'foldThreat', 1) * 10) / 10; }
 function nextCards(R) {
+  R.resume = null;
   R.passage++;
   if (R.passage > PASSAGES || (R.sector === 5 && R.passage > GUARDIAN)) return;
   const sec = SECTORS[R.sector - 1], cards = [];
@@ -124,29 +125,22 @@ function fold(R, ix, opts) {
   if (R.phase !== 'choose') return { ok: false, why: 'nothing to fold to' };
   const c = R.cards[ix]; if (!c) return { ok: false, why: 'no such card' };
   if (c.p && !c.found) return { ok: false, why: 'not detected yet' };
+  if (!opts.noIntercept) { const ic = meetIntercept(R, { kind: 'fold', ix, factor: opts.factor }); if (ic && !ic.slipped) return ic; }
   applyPending(R);
   const cost = Math.round(c.fuel * foldFuelMult(opts.factor) * 100) / 100;
   if (R.ship.lumite + 1e-9 < cost) { if (stat(R, 'hullFold', 0) && !R.flags.hullFold) { R.flags.hullFold = 1; R.ship.hull = Math.max(1, R.ship.hull - 15); log(R, 'hullFold', {}); } else return { ok: false, why: 'not enough lumite' }; }
   else R.ship.lumite = Math.max(0, R.ship.lumite - cost);
   R.flags['fold' + R.sector] = 1; R.stats.folds++;
-  let hunt = null;
-  if (c.type !== 'gate') {
-    const first = !R.flags['threatFold' + R.sector]; R.flags['threatFold' + R.sector] = 1;
-    const silent = stat(R, 'silentAtSensors', 0) > 0 && C.channelPower(pseudoFight(R), 'sensors') >= stat(R, 'silentAtSensors', 0);
-    const noHunt = (first && stat(R, 'noHuntFirstFold', 0) > 0) || silent;
-    let idx = -1; MARKS.forEach((m, i) => { if (i >= R.marks && R.threat >= m) idx = i; });
-    if (idx >= 0) { R.marks = Math.max(R.marks, idx + 1); if (!noHunt) hunt = idx; }
-    if (R.threat >= 100 && hunt === null && !noHunt) hunt = 2;
-    if (R.threat >= 100 && R.marks >= 3) R.marks = 3;
-  }
+  const hunt = null;
+  if (c.type !== 'gate') R.flags['threatFold' + R.sector] = 1;
+  R.resume = null;
   log(R, 'fold', { type: c.type, threat: Math.round(R.threat) });
   R.cur = { type: c.type, card: c, hunt: hunt };
   if (hunt !== null) { R.cur.then = c; return arriveHunt(R, hunt); }
   return arrive(R, c);
 }
 function scale(R, guardian) { const k = 1 + 0.18 * (R.sector - 1); return { hp: k * (guardian ? GUARDIAN_SCALE.hp : 1), dmg: (1 + 0.1 * (R.sector - 1)) * (guardian ? GUARDIAN_SCALE.dmg : 1) }; }
-function startFight(R, foe, guardian, hunt) {
-  redAlertPower(R);
+function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routing (step 5); a queued reroute lands at the first round */
   const sc = scale(R, guardian);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
@@ -306,7 +300,8 @@ function claim(R, offerId) {
   if (paid) { if (paid.sold) return { ok: false, why: 'sold' }; if (R.ship.salvage < paid.price) return { ok: false, why: 'not enough salvage' }; const r = applyOffer(R, paid); if (r.ok) { R.ship.salvage -= paid.price; paid.sold = true; log(R, 'buy', { kind: paid.kind }); } return r; }
   return { ok: false, why: 'unknown offer' };
 }
-function after(R) {            // after a hunt, carry on into the passage that was chosen; otherwise move to the next cards
+function after(R) {            // after an intercept, hand the choice back (the action is offered again, never started); otherwise move to the next cards
+  if (R.cur && R.cur.type === 'intercept') { const rs = R.cur.resume || null; R.cur = null; R.offers = null; R.event = null; R.phase = 'choose'; R.resume = rs; return { ok: true, phase: 'choose', resume: rs }; }
   if (R.cur && R.cur.then) { const c = R.cur.then; R.cur.then = null; R.offers = null; return arrive(R, c); }
   return advance(R);
 }
@@ -412,6 +407,30 @@ function passTime(R, minutes, idle) {
   if (R.over || !(minutes > 0)) return;
   R.shipMin = (R.shipMin || 0) + minutes;
   R.threat = Math.min(100, R.threat + minutes / 60 * THREAT_PER_HOUR * (idle ? IDLE_THREAT : 1) * stat(R, 'foldThreat', 1));
+  checkMarks(R);
+}
+/* ---- intercepts (core loop step 5): a crossed threat mark sends the Rearguard. It shows as a fast blip aft,
+   and reaches you on your next scan or fold. That action waits until the fight is over and is then offered again. ---- */
+function checkMarks(R) {
+  if (R.over || R.intercept) return null;
+  let idx = -1; MARKS.forEach((m, i) => { if (i >= R.marks && R.threat >= m) idx = i; });
+  if (idx < 0 && R.threat >= 100) idx = 2;
+  if (idx < 0) return null;
+  R.marks = Math.max(R.marks, Math.min(3, idx + 1));
+  const n = unit(R.nose || [1, 0, 0]), p = [-n[0] * 6.5, -n[1] * 6.5, -n[2] * 6.5 + 0.8];
+  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0 };
+  log(R, 'interceptWarn', { idx }); emit(R, 'intercept.warn', { idx });
+  return R.intercept;
+}
+function meetIntercept(R, resume) {
+  const I = R.intercept; if (!I || R.over || R.phase !== 'choose') return null;
+  const first = resume && resume.kind === 'fold' && !R.flags['threatFold' + R.sector];
+  const silent = stat(R, 'silentAtSensors', 0) > 0 && C.channelPower(pseudoFight(R), 'sensors') >= stat(R, 'silentAtSensors', 0);
+  R.intercept = null;
+  if ((first && stat(R, 'noHuntFirstFold', 0) > 0) || silent) { log(R, 'interceptSlipped', { idx: I.idx }); R.slipNote = I.idx + 1; return { ok: true, slipped: true, idx: I.idx }; }
+  R.stats.hunts++; R.cur = { type: 'intercept', hunt: I.idx, resume: resume || null };
+  const r = startFight(R, HUNT_FOE[I.idx], false, I.idx);
+  return Object.assign(r, { intercept: true, idx: I.idx });
 }
 /* faster folds burn more lumite: fold 5 costs the card's base, fold 9 about 2.4 times, fold 2 about a quarter */
 /* ---- scan navigation (core loop step 3) ----
@@ -458,6 +477,8 @@ function scan(R, opts) {
   if (R.over) return { ok: false, why: 'run over' };
   if (R.phase !== 'choose') return { ok: false, why: 'not now' };
   const mode = opts.mode === 'focus' ? 'focus' : 'sweep', dir = unit(opts.dir || R.nose || [1, 0, 0]);
+  { const ic = meetIntercept(R, { kind: 'scan', dir, mode }); if (ic && !ic.slipped) return ic; }
+  R.resume = null;
   applyPending(R);   /* a scan is a turn: a queued reroute lands now */
   const pv = scanPreview(R, dir, mode), reach = scanReach(R, mode);
   passTime(R, pv.turnMin + pv.scanMin, false);
@@ -486,7 +507,7 @@ function foldFuelMult(factor) { if (!(factor > 0)) return 1; return Math.max(0.2
 function save(R) { return JSON.stringify(R); }
 function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; if (R.phase === 'choose' && R.cards && R.cards.some(c => !c.p)) { placeCards(R, R.cards); R.cards.forEach(c => { c.found = true; c.id = true; }); } return R; }
 
-const api = { scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
+const api = { meetIntercept, checkMarks, scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunMap = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

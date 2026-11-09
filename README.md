@@ -68,7 +68,7 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Ship time is the Run's clock (day 1, 06:00). It runs slowly on station, fast while folding, and stops in fights, offers, events, the gate, menus, and when paused (header button or P).
 - Threat follows ship time (10 per ship-hour folding, a fifth of that idle) instead of a flat cost per fold.
 - Lumite per fold scales with fold factor (factor 5 = base, factor 9 about 2.4 times).
-- Power routing changes are queued: they land when your next fold begins, or at the next combat round. Red alert sets Defence at once.
+- Power routing changes are queued: they land when your next fold begins, or at the next combat round. (Step 5: red alert no longer changes routing.)
 - The fights at threat marks are called intercepts on screen; "The Hunt" is only the charter.
 
 ## Core loop, step 2 (the ship's feed, first version)
@@ -97,6 +97,15 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Drag to turn the ship. View presets (3/4, side, top, front, aft) turn it smoothly. The model fits itself to the frame from each angle.
 - Tap a marker to open that system in the list (and the reverse: opening a row highlights its marker). The caption names the slot, where it is and its department.
 - Same drag and preset controls as the scan space on Home, so the two can later merge into one constant 3D ship view.
+
+## Core loop, step 5 (combat alignment)
+
+- Red alert keeps your routing. Being ready for a fight is a choice you make before it; a queued reroute lands at the first round.
+- Intercepts no longer ambush a fold. When threat crosses a mark, Security warns in the feed, the alert goes yellow, and a pulsing Rearguard blip appears aft in the scan space. It reaches you on your next scan or fold: that fight comes first, and afterwards the action is offered again ("Resume fold to ...") and never starts on its own. A fold already under way finishes first. The no-intercept perks still let you slip past.
+- Home in a fight shows the same stage as Tactical in place of the map, and the feed dock carries quick picks: fire any ready weapon in one tap, brace the arc they are aiming at, scan them, or open Tactical.
+- Weapons are off the shield ring: numbered hardpoints on the hull, and a weapon strip under the stage on both screens (name, ready, charging, loaded and torpedoes left, locked). The ring shows only the four shield arcs.
+- Every round opens with a turn banner, range changes slide the enemy between rings with a banner, the acting ship lunges, and beams and hits draw above both ships. Each finished round writes one card to the ship's feed.
+- One enemy, one picture: the Home viewer and the scan space show an identified hostile with the same model as its combat art.
 
 ## History
 

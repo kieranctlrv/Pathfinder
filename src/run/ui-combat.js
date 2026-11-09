@@ -191,6 +191,14 @@ const R2_ARTDEF={
   kael:{kit:'hull',params:{arch:'ring',len:2.8,pods:2},skin:'ashkar'}
 };
 const R2_FOESZ={cutter:.72,picket:.78,raider:.9,lancer:.95,screenship:1,ironclad:1.12,kael:1.25};
+/* one enemy, one picture (playtest #4): the viewer uses the same model as the combat stage, seen from the side */
+const R2_WART={};
+function r2WorldArt(id){
+  const R=R2.R;if(!R||!/^c\d$/.test(id))return null;const c=R.cards[+id.slice(1)];
+  if(!c||!c.foe||!(c.type==='contact'||c.type==='guardian')||(c.p&&!c.id))return null;
+  const d=R2_ARTDEF[c.foe]||R2_ARTDEF.raider;
+  return R2_WART[c.foe]||(R2_WART[c.foe]={id:id,art:{id:'R2-FOE-'+c.foe,model:MD(d.kit,d.params,d.skin,SHV),scene:{kind:'model'}}});
+}
 function r2ArtDef(k){const d=R2_ARTDEF[k]||R2_ARTDEF.raider;return Object.assign({},d,R2_SV);}
 function r2ArtLoop(){
   requestAnimationFrame(r2ArtLoop);
@@ -212,21 +220,24 @@ function r2Pt(a,x,y){const t=a*Math.PI/180;return [R2_ST.cx+x*Math.cos(t),R2_ST.
 function r2FoePos(range){const k={close:0,standard:1,long:2}[range];const r=R2_ST.rings[k==null?1:k];return r2Pt(40,r[0],r[1]);}
 /* what the stage shows while a round plays out: start values plus the steps shown so far */
 function r2Disp(f,v){
-  const d={eh:v.enemy.hull,es:null,ph:v.hull,arcs:{}};v.arcs.forEach(a=>d.arcs[a.arc]=a.pct);
+  const d={eh:v.enemy.hull,es:null,ph:v.hull,arcs:{},range:v.range};v.arcs.forEach(a=>d.arcs[a.arc]=a.pct);
   if(!(R2.busy&&R2.pre))return d;
-  const P=R2.pre;d.eh=P.eh;d.es=P.es;d.ph=P.ph;Object.keys(P.arcs).forEach(k=>d.arcs[k]=P.arcs[k]);
-  R2.feed.slice(0,R2.feedN).forEach(l=>{const x=l.fx;if(!x||!x.d)return;
+  const P=R2.pre,RG=['long','standard','close'];d.eh=P.eh;d.es=P.es;d.ph=P.ph;d.range=P.range||v.range;Object.keys(P.arcs).forEach(k=>d.arcs[k]=P.arcs[k]);
+  R2.feed.slice(0,R2.feedN).forEach(l=>{const e=l.ev;
+    if(e&&e.t==='range'&&e.range)d.range=e.range;
+    if(e&&e.t==='enemy'&&!e.atk&&(e.intent==='close'||e.intent==='open'))d.range=RG[clamp(RG.indexOf(d.range)+(e.intent==='close'?1:-1),0,2)];
+    const x=l.fx;if(!x||!x.d)return;
     if(x.d.eh)d.eh=Math.max(0,d.eh-x.d.eh);if(x.d.es)d.es=Math.max(0,d.es-x.d.es);if(x.d.ph)d.ph=Math.max(0,d.ph-x.d.ph);
     if(x.d.arc)d.arcs[x.d.arc]=Math.max(0,d.arcs[x.d.arc]-x.d.ap);});
   return d;
 }
 function r2WShort(f,sl){const x=f.ship.fitted[sl],p=x&&r2Part(x.part);if(!p)return '';return r2U(p.name).replace(/ ARRAY| LAUNCHER/,'')+' '+R2_MK[x.tier-1];}
-function r2Stage(host,f,v){
+function r2Stage(host,f,v,opt){
   const E=v.enemy,def=RD.ENEMIES[f.enemyId],S0=R2_ST,{cx,cy,rx,ry}=S0;
   const D=r2Disp(f,v),cur=R2.busy&&R2.feedN>0?R2.feed[R2.feedN-1]:null,fx=cur&&cur.fx;
   const wrap=el('div','r2-stage');
-  const rg={close:0,standard:1,long:2}[v.range];
-  const ep=r2FoePos(v.range),fsz=R2_FOESZ[f.enemyId]||1;
+  const rg={close:0,standard:1,long:2}[D.range];
+  const ep=r2FoePos(D.range),fsz=R2_FOESZ[f.enemyId]||1;
   const known=E.intent&&E.intent.arc?E.intent.arc:null;
   const sel=R2.sel;
   const P=n=>n.toFixed(1);
@@ -250,22 +261,17 @@ function r2Stage(host,f,v){
     g+='<ellipse cx="'+P(ep[0])+'" cy="'+P(ep[1])+'" rx="'+P(112*fsz)+'" ry="'+P(66*fsz)+'" fill="none" stroke="'+((D.es==null?E.screenPips:Math.ceil(D.es/RC.PIP))>0?'rgba(79,209,197,.6)':'rgba(130,140,180,.25)')+'" stroke-width="2.5" stroke-dasharray="7 7" class="'+(fx&&fx.hitFoe?'r2-esh':'')+'"/>';
     if(known&&!R2.busy){const tp=r2Pt(R2_ARCANG[known],rx,ry);g+='<line x1="'+P(ep[0])+'" y1="'+P(ep[1])+'" x2="'+P(tp[0])+'" y2="'+P(tp[1])+'" stroke="var(--salmon)" stroke-width="4" stroke-dasharray="14 10" opacity=".8"/>';}
   }
-  // weapon nodes with labels
-  const wn=[];
+  // weapons sit on the hull now (playtest #7): small numbered hardpoints, drawn in the effects layer above the ships
+  const wn=R2_HP.map(h=>[cx+h[0],cy+h[1]]);
+  let fxg='';
   for(let i=0;i<4;i++){
-    const sl='sec.w'+(i+1),w=v.weapons.find(x=>x.slot===sl),unl=R2.R.ship.unlocked.indexOf(sl)>=0,pos=r2Pt(R2_WANG[i],rx,ry);wn[i]=pos;
-    const on=sel&&((sel.type==='fire'&&sel.slot===sl)||(sel.type==='alpha'&&w&&w.ready));
-    const firing=fx&&fx.slot===sl;
-    const col=!w?'rgba(130,140,180,.45)':w.offline?'#7a4a52':w.ready?'var(--blue)':'rgba(150,160,200,.75)';
-    const kin=w&&RC.wstat(f,sl,'w.kinetic',0);
-    const st=!w?(unl?'EMPTY':'LOCKED'):w.offline?'OFFLINE':on?'ARMED':w.ready?(kin?'LOADED · '+(Math.round(v.torpedoes*10)/10):'READY'+(w.charge>1?' X'+w.charge:'')):(kin?'RELOADING':'CHARGING');
-    const nm=w?r2WShort(f,sl):'SLOT '+(i+1);
-    const la=[[0,-48,'middle'],[0,-48,'middle'],[0,50,'middle'],[0,50,'middle']][i];
-    g+='<g class="r2-wn'+(on?' on':'')+(firing?' fire':'')+(w&&w.ready&&!R2.busy&&!v.over?' can':'')+'" data-sl="'+sl+'" transform="translate('+P(pos[0])+' '+P(pos[1])+')">'+(on||firing?'<circle r="40" fill="url(#r2glow)"/>':'')+'<circle r="24" fill="'+(on?'rgba(79,209,197,.3)':'#05080f')+'" stroke="'+col+'" stroke-width="'+(on?5:3)+'"'+(w?'':' stroke-dasharray="4 5"')+'/><text y="9" text-anchor="middle" font-size="26" fill="'+(on?'#fff':col)+'">'+(i+1)+'</text>'+
-      (w?'<text class="r2-wl2'+(on?' on':'')+'" x="'+la[0]+'" y="'+la[1]+'" text-anchor="'+la[2]+'">'+nm+'</text><text class="r2-ws2'+(on?' on':'')+'" x="'+la[0]+'" y="'+(la[1]+22)+'" text-anchor="'+la[2]+'">'+st+'</text>':'')+'</g>';
+    const sl='sec.w'+(i+1),w=v.weapons.find(x=>x.slot===sl);if(!w)continue;
+    const on=sel&&((sel.type==='fire'&&sel.slot===sl)||(sel.type==='alpha'&&w.ready)),firing=fx&&fx.slot===sl;
+    const col=w.offline?'#c0606e':w.ready?'var(--blue)':'rgba(170,180,215,.85)';
+    fxg+='<g class="r2-hp'+(on?' on':'')+(firing?' fire':'')+'" transform="translate('+P(wn[i][0])+' '+P(wn[i][1])+')">'+(on||firing?'<circle r="26" fill="url(#r2glow2)"/>':'')+'<circle r="13" fill="#05080f" stroke="'+col+'" stroke-width="'+(on?4:2.5)+'"/><text y="6" text-anchor="middle" font-size="17" fill="'+(on?'#fff':col)+'">'+(i+1)+'</text></g>';
   }
   // effects for the step being shown
-  if(fx){
+  if(fx){let g='';
     if(fx.beam==='you'&&fx.slot){const wi=['sec.w1','sec.w2','sec.w3','sec.w4'].indexOf(fx.slot);if(wi>=0){const a=wn[wi],kin=fx.kin;
       g+='<line class="r2-beam'+(fx.miss?' miss':'')+(kin?' kin':'')+'" x1="'+P(a[0])+'" y1="'+P(a[1])+'" x2="'+P(ep[0]+(fx.miss?40:0))+'" y2="'+P(ep[1]-(fx.miss?50:0))+'"/>';
       if(!fx.miss)g+='<circle class="r2-boom" cx="'+P(ep[0])+'" cy="'+P(ep[1])+'" r="36"/>';}}
@@ -273,16 +279,22 @@ function r2Stage(host,f,v){
     if(fx.glow&&fx.arc){const tp=r2Pt(R2_ARCANG[fx.arc],rx,ry);g+='<circle class="r2-boom you" cx="'+P(tp[0])+'" cy="'+P(tp[1])+'" r="34"/>';}
     const base=fx.at==='foe'?[ep[0],ep[1]-86*fsz]:fx.at==='arc'&&fx.arc?(()=>{const t=r2Pt(R2_ARCANG[fx.arc],rx+30,ry+30);return [t[0],t[1]-10];})():[cx,cy-ry-40];
     (fx.n||[]).forEach((t,i)=>{g+='<text class="r2-fl'+(/HULL/.test(t)?' hull':/MISS|EVADED|NO EFFECT/.test(t)?' miss':/BRACE/.test(t)?' br':'')+'" x="'+P(base[0])+'" y="'+P(base[1]-i*40)+'" text-anchor="middle">'+t+'</text>';});
+    fxg=g+fxg;
   }
   g+='</svg>';
   wrap.innerHTML=g;
   // ships: the Pathfinder in the middle, the enemy on its range ring
   const pct=(x,W)=>(x/W*100).toFixed(3)+'%';
   const pfW=380;
-  const pf=el('canvas','r2-art r2-pf'+(fx&&fx.hitYou?' r2-flash':''));pf.dataset.art='pf';
+  const pf=el('canvas','r2-art r2-pf'+(fx&&fx.hitYou?' r2-flash':'')+(R2.busy&&fx&&fx.beam==='you'?' r2-act':''));pf.dataset.art='pf';
   pf.style.left=pct(cx-pfW/2,S0.W);pf.style.top=pct(cy-pfW*80/128/2,S0.H);pf.style.width=pct(pfW,S0.W);wrap.appendChild(pf);
   if(alive){const fw=270*fsz,fe=el('canvas','r2-art r2-foe'+(fx&&fx.hitFoe?' r2-flash':'')+(R2.busy&&fx&&fx.beam==='foe'?' r2-act':''));fe.dataset.art=f.enemyId;
-    fe.style.left=pct(ep[0]-fw/2,S0.W);fe.style.top=pct(ep[1]-fw*80/128/2,S0.H);fe.style.width=pct(fw,S0.W);wrap.appendChild(fe);}
+    fe.style.left=pct(ep[0]-fw/2,S0.W);fe.style.top=pct(ep[1]-fw*80/128/2,S0.H);fe.style.width=pct(fw,S0.W);wrap.appendChild(fe);
+    const was=R2.foeAt&&R2.foeAt.f===f.seed?R2.foeAt.r:null;
+    if(was&&was!==D.range&&!REDUCED&&fe.animate){const o=r2FoePos(was);try{fe.animate([{left:pct(o[0]-fw/2,S0.W),top:pct(o[1]-fw*80/128/2,S0.H)},{left:fe.style.left,top:fe.style.top}],{duration:650,easing:'cubic-bezier(.3,.7,.3,1)'});}catch(e){}}
+    R2.foeAt={f:f.seed,r:D.range};}
+  // the effects layer: hardpoints, beams, hits and numbers, above both ships
+  {const ov=el('div','r2-fxl');ov.innerHTML='<svg viewBox="0 0 '+S0.W+' '+S0.H+'" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><radialGradient id="r2glow2"><stop offset="0" stop-color="rgba(79,209,197,.35)"/><stop offset="1" stop-color="rgba(79,209,197,0)"/></radialGradient></defs>'+fxg+'</svg>';wrap.appendChild(ov);}
   // enemy readout
   const es=D.es==null?E.screenPips:Math.ceil(D.es/RC.PIP);
   const info=el('div','r2-ei');
@@ -296,9 +308,9 @@ function r2Stage(host,f,v){
   wrap.appendChild(info);
   // banner and perk callout for this step
   if(fx&&fx.banner){const b=el('div','r2-ban '+(fx.who||''));b.textContent=fx.banner;wrap.appendChild(b);}
+  else if(!R2.busy&&!v.over){const b=el('div','r2-ban idle');b.textContent='TURN '+v.turn+' · '+(v.first==='you'?'YOU MOVE FIRST':'THEY MOVE FIRST');wrap.appendChild(b);}
   if(fx&&fx.call){const c=el('div','r2-call');c.textContent=fx.call;wrap.appendChild(c);}
   // clicks: weapon nodes pick a weapon, arcs pick a brace, the stage skips a playing round
-  wrap.querySelectorAll('.r2-wn.can').forEach(n=>n.addEventListener('click',e=>{e.stopPropagation();r2Snd('tap');r2Pick({type:'fire',slot:n.dataset.sl});}));
   if(!R2.busy&&!v.over)wrap.querySelectorAll('.r2-ah').forEach(a=>a.addEventListener('click',e=>{e.stopPropagation();r2Snd('tap');r2Pick({type:'brace',arc:a.dataset.arc});}));
   if(R2.busy)wrap.addEventListener('click',r2Skip);
   host.appendChild(wrap);
@@ -306,15 +318,34 @@ function r2Stage(host,f,v){
   const svg=wrap.querySelector('svg');
   SHIELD_ARCS.forEach(q=>{const arc=q[0]==='star'?'stbd':q[0],g2=svg.querySelector('.arc[data-q="'+q[0]+'"]');if(!g2)return;const p=clamp(D.arcs[arc]/100,0,1);g2.querySelector('.val').style.strokeDasharray=(p*100)+' 100';g2.classList.toggle('low',p<.35);g2.classList.toggle('threat',!R2.busy&&known===arc);});
   svg.classList.add('up');
+  r2WStrip(host,f,v,sel,fx);
   // under the stage: range, order, your hull, the feed
   const rw=el('div','r2-rt');
-  const rl=el('div','r2-rg');rl.innerHTML='<small>RANGE</small>';['long','standard','close'].forEach(b=>{const x=el('span',v.range===b?'on':'');x.textContent=r2U(b);rl.appendChild(x);});rw.appendChild(rl);
+  const rl=el('div','r2-rg');rl.innerHTML='<small>RANGE</small>';['long','standard','close'].forEach(b=>{const x=el('span',D.range===b?'on':'');x.textContent=r2U(b);rl.appendChild(x);});rw.appendChild(rl);
   const od=el('div','r2-od');const first=v.first==='you';
   od.innerHTML='<span>TURN '+v.turn+'</span><span>SPEED YOU <b>'+v.speed.you+'</b> · FOE <b>'+v.speed.enemy+'</b></span><i class="'+(first?'you':'enemy')+'">'+(first?'YOU MOVE FIRST':'THEY MOVE FIRST')+'</i>';
   rw.appendChild(od);host.appendChild(rw);
   host.appendChild(r2Qrow('YOUR HULL',D.ph/v.hullMax*100,Math.round(D.ph)+' / '+v.hullMax,'blue'));
   if(v.offline.length){const o=el('p','note bad');o.textContent='OFFLINE: '+v.offline.map(x=>r2U((RC.slotById(x)||{}).name||x)).join(', ');host.appendChild(o);}
-  r2CombatFeed(host,true);
+  if(!(opt&&opt.home))r2CombatFeed(host,true);
+}
+/* hardpoints on the Pathfinder sprite (stage units from its centre): 1-2 fore, 3-4 aft */
+const R2_HP=[[72,-30],[72,30],[-58,-34],[-58,34]];
+/* the weapon strip under the stage: the same four slots as the Armament list */
+function r2WStrip(host,f,v,sel,fx){
+  const ws=el('div','r2-wstrip');
+  for(let i=0;i<4;i++){
+    const sl='sec.w'+(i+1),w=v.weapons.find(x=>x.slot===sl),unl=R2.R.ship.unlocked.indexOf(sl)>=0;
+    const kin=w&&RC.wstat(f,sl,'w.kinetic',0),on=!!(w&&sel&&((sel.type==='fire'&&sel.slot===sl)||(sel.type==='alpha'&&w.ready))),firing=!!(fx&&fx.slot===sl);
+    const st=!w?(unl?'EMPTY':'LOCKED'):w.offline?'OFFLINE':on?'ARMED':w.ready?(kin?'LOADED · '+(Math.round(v.torpedoes*10)/10)+' LEFT':'READY'+(w.charge>1?' X'+w.charge:'')):(kin?'RELOADING':'CHARGING'+(w.cd?' · '+w.cd:''));
+    const can=!!(w&&w.ready&&!R2.busy&&!v.over);
+    const b=el('button','r2-wc'+(w?'':' none')+(w&&w.offline?' off':'')+(w&&w.ready?' ready':'')+(on?' on':'')+(firing?' fire':''));b.disabled=!can;
+    b.innerHTML='<i></i><span><b></b><small></small></span>';b.children[0].textContent=i+1;
+    b.querySelector('b').textContent=w?r2WShort(f,sl):'SLOT '+(i+1);b.querySelector('small').textContent=st;
+    if(can)b.addEventListener('click',e=>{e.stopPropagation();r2Snd('tap');r2Pick({type:'fire',slot:sl});});
+    ws.appendChild(b);
+  }
+  host.appendChild(ws);
 }
 function r2TacPanel(host,f,v){
   const over=!!f.over,dis=R2.busy||over,def=RD.ENEMIES[f.enemyId],E=v.enemy,legal=RC.legal(f),can=(t,k,val)=>legal.some(a=>a.type===t&&(k==null||a[k]===val)),sel=R2.sel;
@@ -414,27 +445,34 @@ function r2Pick(sel,noCommit){
 function r2Commit(){
   const R=R2.R,f=R.fight,s=R2.sel;if(!f||!s||R2.busy||f.over)return;
   const n0=f.log.length,hull0=f.ship.hull,v0=RC.view(f);
-  R2.pre={eh:f.enemy.hull,es:f.enemy.screen,ph:f.ship.hull,arcs:{}};v0.arcs.forEach(x=>R2.pre.arcs[x.arc]=x.pct);
+  R2.pre={eh:f.enemy.hull,es:f.enemy.screen,ph:f.ship.hull,arcs:{},range:v0.range,turn:v0.turn};v0.arcs.forEach(x=>R2.pre.arcs[x.arc]=x.pct);
   const r=RC.act(f,s);
   if(!r.ok){r2Snd('err');R2.sel=null;r2Say(r.why,true);r2Render();return;}
   if(!f.over&&R.pendPower&&RM.applyPending(R))r2Say('REROUTE COMPLETE');
   const evs=f.log.slice(n0);for(let i=0;i<evs.length-1;i++){if((evs[i].t==='screenBreak'||evs[i].t==='weakPoint')&&evs[i+1].t==='hit'){const t=evs[i];evs[i]=evs[i+1];evs[i+1]=t;i++;}}
-  const lines=[];evs.forEach(e=>{const l=r2Line(e,f);if(l){l.fx=r2Fx(e,f);l.ms=(l.fx&&l.fx.ms)||480;lines.push(l);}});
+  const lines=[{t:'TURN '+v0.turn,k:'turn',fx:{banner:'TURN '+v0.turn,who:'turn',ms:700},ms:700}];evs.forEach(e=>{const l=r2Line(e,f);if(l){l.ev=e;l.fx=r2Fx(e,f);if(e.t==='range'&&!l.fx)l.fx={banner:'RANGE: '+r2U(e.range),ms:650};if(e.t==='enemy'&&!e.atk&&(e.intent==='close'||e.intent==='open'))l.fx={banner:l.t,who:'enemy',ms:750};l.ms=(l.fx&&l.fx.ms)||480;lines.push(l);}});
   f.log.slice(n0).forEach(()=>{});
   if(f.ship.hull<hull0)setTimeout(()=>r2Snd('hullHit'),250);
   R2.sel=null;R2.pop=null;R2.feed=lines;R2.feedN=0;R2.busy=lines.length>0;
+  R2.roundLog={turn:v0.turn,lines:lines.slice(1).map(l=>l.t)};
   r2Save();
-  if(R2.busy)r2Feed();else r2Render();
+  if(R2.busy)r2Feed();else{r2RoundCard();r2Render();}
 }
 function r2Feed(){
   clearTimeout(R2.feedT);
   R2.feedN++;r2Render();
-  if(R2.feedN>=R2.feed.length){R2.busy=false;R2.feedT=setTimeout(()=>{if(!R2.busy)r2Render();},0);return;}
+  if(R2.feedN>=R2.feed.length){R2.busy=false;r2RoundCard();R2.feedT=setTimeout(()=>{if(!R2.busy)r2Render();},0);return;}
   const cur=R2.feed[R2.feedN-1];r2StepSnd(cur);
   R2.feedT=setTimeout(r2Feed,window.__FASTFEED__?0:((cur&&cur.ms)||480));
 }
 function r2StepSnd(l){const x=l&&l.fx;if(!x)return;try{if(x.beam==='you')r2Snd(x.kin?'torp':'phaser');else if(x.beam==='foe')r2Snd(x.kin?'torp':'phaser');else if(x.hitYou)r2Snd('hullHit');}catch(e){}}
-function r2Skip(){if(!R2.busy)return;clearTimeout(R2.feedT);R2.feedN=R2.feed.length;R2.busy=false;r2Render();}
+function r2Skip(){if(!R2.busy)return;clearTimeout(R2.feedT);R2.feedN=R2.feed.length;R2.busy=false;r2RoundCard();r2Render();}
+/* one card per round in the ship's feed, written when the round finishes playing */
+function r2RoundCard(){
+  const L=R2.roundLog;if(!L)return;R2.roundLog=null;
+  const f=R2.R.fight,E=f&&RC.view(f).enemy,tone=L.lines.some(t=>/ENEMY HITS/.test(t))?'red':'';
+  r2VoxCard('TURN '+L.turn+(E?' · '+E.name:''),L.lines.slice(0,7),tone);
+}
 function r2Finish(){
   const R=R2.R,f=R.fight;if(!f||!f.over)return;
   const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}};

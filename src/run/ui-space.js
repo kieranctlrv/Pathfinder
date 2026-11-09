@@ -60,6 +60,7 @@ function r2Space(c){
   const sel=S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):null,dest=S.dest&&/^c\d$/.test(S.dest.id)?+S.dest.id.slice(1):null;
   const ship=spShipPos();
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found){const A=spProj(c,ship),B=spProj(c,cc.p);x.strokeStyle='rgba('+spHex('orange')+',.9)';x.lineWidth=2*d;x.setLineDash([6*d,4*d]);x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke();x.setLineDash([]);}}
+  try{mdPump(4);}catch(_){}
   const boxes=[],list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)):[];
   list.sort((a,b)=>spProj(c,a.cc.p)[2]-spProj(c,b.cc.p)[2]).forEach(({cc,ix})=>{
     const P=spProj(c,cc.p),B=spProj(c,[cc.p[0],cc.p[1],0]),col=cc.id?(COL[SP_TCOL[cc.type]]||COL.orange):'#9aa6cc';
@@ -67,12 +68,18 @@ function r2Space(c){
     x.fillStyle='rgba(143,155,196,.5)';x.beginPath();x.ellipse(B[0],B[1],3*d,1.5*d,0,0,7);x.fill();
     const s=(shown.has(ix)?9:7)*d;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();
     if(cc.id){x.fillStyle=col;x.fill();}else{x.strokeStyle=col;x.lineWidth=2*d;x.stroke();}
+    if(cc.id&&cc.foe&&(cc.type==='contact'||cc.type==='guardian')){try{const art=mdCanvas(r2ArtDef(cc.foe),now);if(art){const w=(cc.type==='guardian'?64:50)*d,h=w*art.height/art.width;x.imageSmoothingEnabled=false;x.drawImage(art,P[0]-w/2,P[1]-h-10*d,w,h);}}catch(_){}}
     if(sel===ix||dest===ix){x.strokeStyle=COL.peach||'#fff';x.lineWidth=1.5*d;x.beginPath();x.arc(P[0],P[1],13*d,0,7);x.stroke();}
     const lab=(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(cc.d)+' LY';x.font=(13*d)+'px "Barlow Condensed",sans-serif';
     const lw=x.measureText(lab).width;let ly=P[1]+4*d;
     for(let k=0;k<6&&boxes.some(b=>P[0]+12*d<b[0]+b[2]&&P[0]+12*d+lw>b[0]&&Math.abs(ly-b[1])<15*d);k++)ly+=15*d;
     boxes.push([P[0]+12*d,ly,lw]);x.fillStyle=cc.id?col:'#9aa6cc';x.fillText(lab,P[0]+12*d,ly);
   });
+  if(R.intercept&&R.intercept.p&&!R.over){const I=R.intercept,P=spProj(c,I.p),O=spProj(c,ship),pu=REDUCED?.6:.5+.5*Math.sin(now/220),s=8*d;
+    x.strokeStyle='rgba('+sal+','+(.35+.4*pu)+')';x.lineWidth=1.5*d;x.setLineDash([3*d,5*d]);x.beginPath();x.moveTo(P[0],P[1]);x.lineTo(O[0],O[1]);x.stroke();x.setLineDash([]);
+    x.fillStyle=COL.salmon;x.globalAlpha=.55+.45*pu;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();x.fill();
+    x.globalAlpha=pu*.6;x.strokeStyle=COL.salmon;x.beginPath();x.arc(P[0],P[1],(12+8*pu)*d,0,7);x.stroke();x.globalAlpha=1;
+    x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';x.fillText('REARGUARD · INBOUND',P[0]+14*d,P[1]+4*d);}
   /* the ship: a line along the nose from wherever it is; a dashed ghost for a planned turn */
   const drawShip=(dir,col,dash)=>{const O=spProj(c,ship),T=spProj(c,ship.map((q,i)=>q+dir[i]*1.7));x.strokeStyle=col;x.fillStyle=col;x.lineWidth=3*d;x.setLineDash(dash||[]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(T[0],T[1]);x.stroke();x.setLineDash([]);x.beginPath();x.arc(T[0],T[1],3.5*d,0,7);x.fill();return T;};
   if(turning)drawShip(aim,'rgba('+sal+',.9)',[4*d,3*d]);
@@ -109,6 +116,7 @@ function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p)
 /* the scan: run it in the engine, then play it out on the map and in the feed */
 function r2DoScan(){
   const R=R2.R;if(!R||R.phase!=='choose'||R.over||SP.anim||S.engaged)return;
+  if(R.intercept&&r2MeetIntercept({kind:'scan',dir:spAim().slice(),mode:SP.mode}))return;
   const dir=spAim(),r=RM.scan(R,{dir,mode:SP.mode});
   if(!r.ok){r2Snd('err');r2Say(r.why||'CANNOT SCAN',true);return;}
   SP.aim=null;

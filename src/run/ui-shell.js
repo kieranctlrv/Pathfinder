@@ -167,6 +167,7 @@ function r2Start(o){
     if(!R2.live||R2.pause||document.hidden||!R2.R||R2.R.over)return;
     R2.R.secs++;
     if(R2.R.phase==='choose'&&!S.engaged)RM.passTime(R2.R,.25,true);
+    r2Watch();
     r2Hdr();
     if(Date.now()-R2.lastSave>15000)r2Save();
   },1000);
@@ -242,6 +243,7 @@ function r2Render(){
   if(R.over)r2Record();
   if(R.phase==='fight'&&!R.over&&R2.lastPh!=='fight'){R2.lastPh='fight';R2.sel=null;R2.feed=[];R2.feedN=0;R2.busy=false;R2.pop=null;r2Alert('red');if(curView!=='tactical')go('tactical');}
   R2.lastPh=R.phase;
+  r2Watch(true);
   r2Bridge();r2Hdr();r2Res();
   {const pf=$('.p-feed');if(pf){pf.hidden=false;$$('.p-actions,.p-contacts').forEach(x=>x.hidden=true);}const hm=$('#hdr-mid');if(hm)hm.hidden=true;document.body.classList.add('r2feed');}
   $$('.tab').forEach(t=>t.classList.toggle('glow',t.dataset.go==='tactical'&&R.phase==='fight'));
@@ -277,6 +279,7 @@ function r2FdNow(){
 }
 function r2FdDock(){
   const host=$('#fd-dock');if(!host)return;
+  if(R2.R&&R2.R.phase==='fight'&&R2.R.fight&&!R2.R.over){r2FightDock(host);return;}
   const acts=r2Actions().slice(0,3),key=acts.map(x=>x.t).join('|');if(host.dataset.k===key)return;host.dataset.k=key;
   host.innerHTML='';
   acts.forEach(x=>{const bt=el('button','btn');bt.textContent=x.t;bt.style.setProperty('--bc','var('+x.c+')');bt.addEventListener('click',()=>{SND.tap();x.fn();host.dataset.k='';refreshHome();});host.appendChild(bt);});
@@ -337,7 +340,9 @@ function r2SettingsTweak(root){
 function r2PhaseText(){
   const R=R2.R;
   if(R.over)return R.over==='won'?'THE RUN IS WON.':'THE PATHFINDER IS LOST.';
-  if(R.phase==='fight')return 'BATTLE STATIONS.';
+  if(R.phase==='fight'){const f=R.fight,v=f&&RC.view(f);return v?'BATTLE STATIONS. TURN '+v.turn+' AGAINST '+r2U(v.enemy.name)+'.':'BATTLE STATIONS.';}
+  if(R.phase==='choose'&&R.intercept)return 'REARGUARD INBOUND, AFT. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.';
+  if(R.phase==='choose'&&R.resume)return 'BACK ON STATION. '+r2ResumeText(R.resume)+' IS READY TO RESUME.';
   if(R.phase==='offers')return 'OFFERS ARE WAITING AT '+(R.cur?r2U(R2_TYPE[R.cur.type]):'THIS SITE')+'.';
   if(R.phase==='event')return 'AN EVENT NEEDS A DECISION.';
   if(R.phase==='refit')return 'THE REFIT GATE IS OPEN.';
@@ -351,7 +356,8 @@ function r2OrderLine(){
 function r2Actions(){
   const R=R2.R,a=[];
   if(R.over){a.push({t:'VIEW THE RESULT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:0});return a;}
-  if(R.phase==='fight'){a.push({t:'ENGAGED: OPEN TACTICAL',c:'--salmon',fn:()=>go('tactical'),p:0});return a;}
+  if(R.phase==='fight'){a.push({t:'OPEN TACTICAL',c:'--salmon',fn:()=>go('tactical'),p:0});return a;}
+  if(R.phase==='choose'&&R.resume&&!S.engaged){const rs=R.resume;a.push({t:'RESUME '+r2ResumeText(rs),c:'--orange',fn:()=>r2Resume(),p:0});}
   if(R.phase==='offers')a.push({t:'OPEN THE OFFERS',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='event')a.push({t:'RESPOND TO THE EVENT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='refit'){a.push({t:'OPEN REQUISITION',c:'--yellow',fn:()=>{S.cargoTab='req';go('cargo');},p:1});a.push({t:R.sector>=5?'LEAVE THE GATE':'LEAVE THE GATE: SECTOR '+(R.sector+1),c:'--orange',fn:()=>r2LeaveGate(),p:2});}
@@ -359,7 +365,7 @@ function r2Actions(){
     const can=R.cards.some(c=>R.ship.lumite+1e-9>=c.fuel*RM.foldFuelMult(2))||r2Stat('hullFold',0)>0;
     const known=R.cards.map((c,i)=>({c,i})).filter(o=>!o.c.p||o.c.found);
     if(!known.length&&!S.engaged)a.push({t:'SCAN AHEAD',c:'--blue',fn:()=>r2DoScan(),p:1});
-    known.forEach(({c,i})=>{const hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');a.push({t:'FOLD: '+r2NodeName(c,i,R.cards),c:hostile?'--salmon':'--orange',fn:()=>{S.homeSel='c'+i;goTo('c'+i,true);r2Render();},p:3+i});});
+    known.forEach(({c,i})=>{if(R.resume&&R.resume.kind==='fold'&&R.resume.ix===i&&!S.engaged)return;const hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');a.push({t:'FOLD: '+r2NodeName(c,i,R.cards),c:hostile?'--salmon':'--orange',fn:()=>{S.homeSel='c'+i;goTo('c'+i,true);r2Render();},p:3+i});});
     if(known.length&&!S.engaged&&R.cards.some(c=>c.p&&!c.id))a.push({t:'SCAN AGAIN',c:'--blue',fn:()=>r2DoScan(),p:6});
     if(!can)a.push({t:'ACCEPT THE STRANDING',c:'--salmon',fn:()=>{RM.endRun(R,'lost','STRANDED. NO LUMITE LEFT TO FOLD.');r2Save();r2Render();},p:1});
   }
@@ -382,6 +388,7 @@ function r2CardTags(c){
   return L;
 }
 function r2HomeMap(){
+  if(r2HomeStage())return;
   const R=R2.R,choose=R.phase==='choose'&&!R.over,sel=S.homeSel&&SYS[S.homeSel]&&/^c\d$/.test(S.homeSel)&&choose?S.homeSel:null;
   const trip=!!(choose&&S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)),mode=(trip&&(!sel||sel===S.dest.id))?'trip':(sel?'plan':'idle');
   $('#hm-title').textContent=trip?'UNDER WAY TO '+SYS[S.dest.id].name:'SECTOR '+R.sector+': '+r2U(r2Sec().name)+', PASSAGE '+Math.min(R.passage,7)+' OF 7';
@@ -528,6 +535,7 @@ function r2CanEngage(){
   const c=R.cards[+S.dest.id.slice(1)];if(!c)return false;
   if(c.p&&!c.found)return false;
   const cost=r2FoldCost(c,S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()));
+  if(R.intercept&&R.ship.lumite+1e-9>=cost){if(r2MeetIntercept({kind:'fold',ix:+S.dest.id.slice(1),factor:S.warpSet>=1?S.warpSet:Math.min(6,maxWarp())}))return false;}
   if(R.ship.lumite+1e-9<cost&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold)){r2Snd('err');r2Say('NOT ENOUGH LUMITE: THIS FOLD COSTS '+cost+' AT FOLD '+fmt(S.warpSet)+'. LOWER THE FACTOR',true);return false;}
   return true;
 }
@@ -545,7 +553,7 @@ function r2Travel(dt){
     const sd=SYS[S.dest.id];
     if(!sd){S.engaged=false;return;}
     S.distLeft-=r2V(S.warpEff)*dt;
-    RM.passTime(R,dt*R2_TRANSIT,false);
+    RM.passTime(R,dt*R2_TRANSIT,false);r2Watch();
     const tt=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);
     S.pos={x:S.from.x+(sd.x-S.from.x)*tt,y:S.from.y+(sd.y-S.from.y)*tt};
     if(S.distLeft<=0){const ix=+S.dest.id.slice(1);S.engaged=false;S.pos={x:sd.x,y:sd.y};S.dest=null;S.distLeft=0;S.distTotal=0;r2FoldCard(ix);return;}
@@ -569,7 +577,7 @@ function r2FoldCard(ix){
   const R=R2.R;if(R.phase!=='choose')return false;
   const c=R.cards[ix];if(!c)return false;
   R2.msgs=[];const label=R2_TYPE[c.type];
-  const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff});
+  const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff,noIntercept:true});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
   R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
@@ -594,3 +602,65 @@ function r2LeaveGate(){
   r2Do(r);
 }
 
+
+/* ---- core loop step 5: intercepts, resume, and combat on Home ---- */
+function r2ResumeText(rs){
+  const R=R2.R;if(!rs)return '';
+  if(rs.kind==='fold'){const c=R.cards[rs.ix];return 'FOLD TO '+(c?r2NodeName(c,rs.ix,R.cards):'YOUR DESTINATION');}
+  return (rs.mode==='focus'?'FOCUS':'SWEEP')+' SCAN';
+}
+/* watches the engine for things the feed must say: a Rearguard warning, a slip past it, a choice handed back */
+function r2Watch(quiet){
+  const R=R2.R;if(!R||!R2.live)return;
+  const I=R.intercept;
+  if(I&&!I.warned){I.warned=true;const E=RD.ENEMIES[I.foe];
+    r2VoxCard('SECURITY: THE REARGUARD IS INBOUND',['A FAST ENERGY SIGNATURE IS CLOSING FROM AFT: '+(E?E.name:'KAEL\'S REARGUARD')+'.','THREAT '+Math.round(R.threat)+'%. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.','TIME TO GET READY: A REROUTE NOW LANDS AT THE FIRST ROUND.'],'red');
+    r2Snd('alert');r2Alert('yellow');r2Save();if(!quiet)r2Render();}
+  if(R.slipNote){const n=R.slipNote;R.slipNote=0;r2VoxCard('SECURITY: WE SLIPPED PAST THEM',['INTERCEPT '+['I','II','III'][n-1]+' LOST OUR TRAIL. NO FIGHT.'],'good');r2Alert('green');}
+  if(R.phase==='choose'&&R.resume&&!R.resume.told){R.resume.told=true;r2VoxCard('BACK ON STATION',[r2ResumeText(R.resume)+' IS READY WHEN YOU ARE.','NOTHING STARTS UNTIL YOU SAY SO.'],'');}
+}
+/* the Rearguard reaches you as you act: the fight comes first, the action waits */
+function r2MeetIntercept(resume){
+  const R=R2.R,r=RM.meetIntercept(R,resume);if(!r)return false;
+  if(r.slipped){r2Watch();r2Save();r2Render();return false;}
+  S.engaged=false;S.dest=null;S.distLeft=0;S.distTotal=0;S.warpEff=0;SP.aim=null;SP.anim=null;S.homeSel=null;
+  const E=RC.view(R.fight).enemy;
+  r2VoxCard('INTERCEPT '+['I','II','III'][r.idx]+': '+E.name,['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','YOUR '+r2ResumeText(resume)+' WAITS UNTIL THE FIGHT IS OVER.'],'red');
+  R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;
+  r2Say('INTERCEPT '+['I','II','III'][r.idx]+': THE REARGUARD CLOSES IN',true);
+  r2Snd('alert');r2Alert('red');r2Save();if(curView!=='tactical')go('tactical');r2Render();
+  return true;
+}
+function r2Resume(){
+  const R=R2.R,rs=R.resume;if(!rs||R.phase!=='choose')return;
+  if(rs.kind==='fold'){const c=R.cards[rs.ix];if(!c){R.resume=null;return r2Render();}if(rs.factor)S.warpSet=Math.min(rs.factor,Math.floor(maxWarp()*10)/10);S.homeSel='c'+rs.ix;goTo('c'+rs.ix,true);r2Render();}
+  else{SP.aim=rs.dir?rs.dir.slice():null;SP.mode=rs.mode||'sweep';r2DoScan();}
+}
+/* Home in a fight: the same stage as Tactical, smaller, in place of the map */
+function r2HomeStage(){
+  const R=R2.R,hm=$('#home .hero-map'),card=$('#home .p-map .mapcard'),fight=!!(R&&R.phase==='fight'&&R.fight);
+  if(!hm)return false;
+  let st=$('#r2-hst');
+  if(!fight){if(st&&!st.hidden){st.hidden=true;st.innerHTML='';st.dataset.k='';if(card)card.hidden=false;$$('#home .p-map [data-hv]').forEach(b=>b.hidden=false);setHomeView(S.homeView,true);}return false;}
+  if(!st){st=el('div','r2-hst');st.id='r2-hst';hm.appendChild(st);}
+  st.hidden=false;$('#hmap').hidden=true;$('#hstars').hidden=true;$('#hvov').hidden=true;if(card)card.hidden=true;$$('#home .p-map [data-hv]').forEach(b=>b.hidden=true);
+  const f=R.fight,v=RC.view(f);
+  $('#hm-title').textContent=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'INTERCEPT '+['I','II','III'][f.meta.hunt]+': ':'BATTLE STATIONS: ')+r2U(v.enemy.name);
+  const k=[f.turn,R2.feedN,R2.busy,JSON.stringify(R2.sel||0),v.range,f.over,R2.feed.length,v.hull,v.enemy.hull].join('|');
+  if(st.dataset.k===k)return true;st.dataset.k=k;
+  st.innerHTML='';r2Stage(st,f,v,{home:true});
+  return true;
+}
+/* the dock in a fight: weapons fire on one tap, brace, scan, and the full screen */
+function r2FightDock(host){
+  const f=R2.R.fight,v=RC.view(f),dis=R2.busy||!!f.over,E=v.enemy,arc=(E.intent&&E.intent.arc)||'fore';
+  const key=['F',f.turn,R2.busy,f.over,v.weapons.map(w=>w.slot+w.ready).join(','),arc].join('|');if(host.dataset.k===key)return;host.dataset.k=key;
+  host.innerHTML='';
+  const go1=s=>{if(R2.busy||f.over)return;R2.sel=s;SND.tap();r2Commit();};
+  if(f.over){const b=el('button','btn');b.textContent=f.over==='lost'?'CONTINUE':'CLAIM THE FIELD';b.style.setProperty('--bc','var(--orange)');b.addEventListener('click',()=>{if(!R2.busy)r2Finish();});host.appendChild(b);return;}
+  const g=el('div','fd-fight');
+  v.weapons.forEach((w,i)=>{const b=el('button','btn sm');b.textContent=(i+1)+' · FIRE '+r2WShort(f,w.slot);b.style.setProperty('--bc','var(--'+(RC.wstat(f,w.slot,'w.kinetic',0)?'salmon':'orange')+')');b.disabled=dis||!w.ready;b.addEventListener('click',()=>go1({type:'fire',slot:w.slot}));g.appendChild(b);});
+  [['BRACE '+r2U(arc),{type:'brace',arc},'lav'],['SCAN THEM',{type:'scan'},'blue']].forEach(([t,s2,c])=>{const b=el('button','btn sm');b.textContent=t;b.style.setProperty('--bc','var(--'+c+')');b.disabled=dis;b.addEventListener('click',()=>go1(s2));g.appendChild(b);});
+  host.appendChild(g);
+  const t=el('button','btn');t.textContent='OPEN TACTICAL: EVERY CONTROL';t.style.setProperty('--bc','var(--salmon)');t.addEventListener('click',()=>{SND.tap();go('tactical');});host.appendChild(t);
+}
