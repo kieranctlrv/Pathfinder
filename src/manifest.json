@@ -1,0 +1,50 @@
+{
+  "style": [
+    "src/styles/fonts.css",
+    "src/styles/base.css",
+    "src/styles/views.css",
+    "src/styles/comms-header-tideline.css",
+    "src/styles/run.css"
+  ],
+  "scripts": [
+    [
+      "src/run/run-data.js"
+    ],
+    [
+      "src/run/run-core.js"
+    ],
+    [
+      "src/run/run-map.js"
+    ],
+    [
+      "src/station/core.js",
+      "src/station/planets-contacts.js",
+      "src/station/shell-panels.js",
+      "src/station/views.js",
+      "src/station/art-models.js",
+      "src/campaign/comms-scripts.js",
+      "src/campaign/comms-engine.js",
+      "src/campaign/items-encounters.js",
+      "src/campaign/encounter-engine.js",
+      "src/station/save.js",
+      "src/station/resource-strip-cargo.js",
+      "src/station/home.js",
+      "src/campaign/crew-missions-endings.js",
+      "src/station/schematic.js",
+      "src/station/systems-engineering.js",
+      "src/station/resources-hull-cargo.js",
+      "src/campaign/combat-realtime.js",
+      "src/legacy/run-v01.js",
+      "src/run/ui-shell.js",
+      "src/run/ui-screens.js",
+      "src/run/ui-combat.js",
+      "src/station/launch.js",
+      "src/station/home-update.js",
+      "src/station/guidance-fuel.js",
+      "src/campaign/combat-fx.js",
+      "src/station/accessibility.js",
+      "src/station/feed-map-fold.js",
+      "src/station/dossier-events-main.js"
+    ]
+  ]
+}

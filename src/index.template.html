@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pathfinder Watchstation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+<style><!--@style--></style>
+</head>
+<body>
+<div id="screen">
+  <aside id="side">
+    <div class="s-top"><span>TIDELINE 23295</span><b>01-23564</b></div>
+    <nav id="tabs" aria-label="Stations"></nav>
+  </aside>
+  <main id="main">
+    <header id="hdr"><div id="hdr-in">
+      <div class="hl2">
+        <div class="hsf"><canvas id="hship" role="button" tabindex="0" aria-label="Pathfinder model. Press to open the ship structure view."></canvas></div>
+        <div class="hl3">
+          <div class="dl"><span id="d-day" class="c-salmon">DAY 1</span><span id="d-date" class="c-peri">FORENOON</span><span id="d-mode" style="color:var(--blue)">PATROL</span></div>
+          <div id="clock" aria-label="Ship time">06:00</div>
+          <div id="hstat"></div>
+        </div>
+      </div>
+      <div id="hdr-mid" hidden><div class="hm-h"><b>SHIP LOG</b><button class="mini" id="hm-t" aria-label="Expand the ship log">EXPAND</button></div></div>
+      <div class="hr">
+        <div class="ttl"><h1>WATCHSTATION</h1><p>CNS PATHFINDER CN-4417, CYCLE DATE <span id="sd">00000.0</span></p></div>
+        <div class="pills">
+          <button class="pill" data-alert="yellow" style="--pc:var(--peri)">YELLOW ALERT</button>
+          <button class="pill" id="p-snd" style="--pc:var(--orange)">SOUND ON</button>
+          <button class="pill" data-alert="red" style="--pc:var(--salmon)">RED ALERT</button>
+          <button class="pill on" data-alert="green" style="--pc:var(--lav)">ALL CLEAR</button>
+        </div>
+      </div>
+    </div></header>
+    <div class="strip" id="st1"></div>
+    <div class="strip" id="st2"></div>
+    <section id="content"><div id="content-in">
+      <div id="home" class="mode-patrol">
+        <section class="panel p-res" data-go="engineering" style="--pc:var(--salmon)" tabindex="0">
+          <div class="ph"><span class="okh" data-ok="3,2"></span><h3>RESOURCE MONITOR</h3></div>
+          <div class="pb rb">
+            <p class="up">MISSION ELAPSED <b id="r-up">00D 00:00:00</b></p>
+            <ul class="rl">
+              <li><i></i>CORE OUTPUT <b id="r-out">0 TW</b></li>
+              <li><i></i>TRUNK FLOW <b id="r-eps">0%</b></li>
+              <li><i></i>LUMITE <b id="r-deu">0%</b></li>
+              <li><i></i>ANTIMATTER <b id="r-am">0%</b></li>
+            </ul>
+            <canvas id="spark" class="spark"></canvas>
+            <div class="gauges" id="gauges"></div>
+            <div class="rowbtn presets" id="presets"><button class="btn sm" data-pre="bal" style="--bc:var(--peri)">BALANCED</button><button class="btn sm" data-pre="cru" style="--bc:var(--orange)">CRUISE</button><button class="btn sm" data-pre="def" style="--bc:var(--salmon)">DEFENSE</button><button class="btn sm" data-pre="sur" style="--bc:var(--blue)">SURVEY</button></div>
+          </div>
+        </section>
+        <section class="panel p-map" style="--pc:var(--orange)">
+          <div class="ph"><div class="rowbtn" style="gap:4px"><button class="mini" data-hv="map">MAP</button><button class="mini" data-hv="view">VIEWER</button></div><h3 id="hm-title">SECTOR MAP</h3></div>
+          <div class="pb" style="display:flex;flex-direction:column;gap:8px">
+            <div class="hero-map"><canvas id="hmap" class="fill"></canvas><canvas id="hstars" class="fill" hidden></canvas><div class="vov" id="hvov" hidden></div></div>
+            <div class="mapcard">
+              <div id="mc-idle"><p class="note" id="mc-hint"></p></div>
+              <div id="mc-plan" hidden>
+                <div class="mc-head"><h4 id="mc-name"></h4><div class="rowbtn"><button class="btn sm" id="mc-set" style="--bc:var(--peri)">SET COURSE</button><button class="btn sm" id="mc-go" style="--bc:var(--orange)">ENGAGE</button></div></div>
+                <div class="stats" id="mc-kv"></div>
+                <div class="fuelplan compact" id="mc-fuel"></div>
+              </div>
+              <div id="mc-trip" hidden>
+                <div class="stats" id="ht-kv"></div>
+                <div class="mc-trip-row"><input type="range" id="hm-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor"><button class="btn sm" id="hm-dis" style="--bc:var(--salmon)">DROP TO SUBLIGHT</button></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="panel p-hero hero-combat" style="--pc:var(--salmon)">
+          <div class="ph"><h3 id="hc-title">BATTLE STATIONS</h3></div>
+          <div class="pb combat">
+            <div class="cb-ship" id="cb-ship"></div>
+            <div class="cb-right">
+              <dl class="kv" id="hc-kv"></dl>
+              <div class="hullbar" id="hc-hullbar"><span class="hb-l">HULL</span><div class="hb-t"><i id="hc-hull-f"></i></div><b id="hc-hull-v">100%</b><em id="hc-hull-s"></em></div>
+              <div class="cfeed small" id="hc-feed"></div>
+              <div class="qrow"><span>LANCES</span><div class="qb"><i id="hc-ph"></i></div><b id="hc-phv">0%</b></div>
+              <div class="rowbtn"><button class="btn" id="hc-fp" style="--bc:var(--orange)">FIRE LANCES</button><button class="btn" id="hc-ft" style="--bc:var(--salmon)">FIRE TORPEDO</button></div>
+              <div class="rowbtn"><button class="btn" id="hc-nt" style="--bc:var(--peri)">NEXT TARGET</button><button class="btn" id="hc-sh" style="--bc:var(--lav)">RAISE SHIELDS</button><button class="btn" id="hc-sd" style="--bc:var(--blue)" hidden>STAND DOWN</button></div>
+            </div>
+          </div>
+        </section>
+        <div class="p-col3">
+          <section class="panel p-actions" style="--pc:var(--peri)">
+            <div class="ph"><h3>NEXT ACTIONS</h3></div>
+            <div class="pb vcol" style="gap:8px"><button class="order-line" id="ac-order" data-go="missions"></button><div class="acts" id="ac-list"></div></div>
+          </section>
+          <section class="panel p-contacts" style="--pc:var(--blue)">
+            <div class="ph"><h3>CONTACTS</h3></div>
+            <div class="pb vcol" style="gap:6px"><div class="list" id="ct-list"></div><div class="rowbtn" id="ct-act"></div></div>
+          </section>
+        </div>
+        <div class="ambient">
+        <section class="panel p-hold" data-go="cargo" style="--pc:var(--peri)" tabindex="0">
+          <div class="ph"><h3 id="hd-t">HOLD</h3></div>
+          <div class="pb hd"><div class="hmini" id="hd-grid"></div><div class="hd-n" id="hd-n"></div><div class="hd-w" id="hd-w"></div></div>
+        </section>
+        <section class="panel p-comms" data-go="comms" style="--pc:var(--blue)" tabindex="0">
+          <div class="ph"><h3 id="cm-t">COMMS</h3></div>
+          <div class="pb cm" id="cm-b"></div>
+        </section>
+        <section class="panel p-warp" data-go="helm" style="--pc:var(--orange)" tabindex="0">
+          <div class="ph"><h3>FOLD FIELD</h3></div>
+          <div class="pb wp"><div class="wp-n"><b id="wf-n">0.0</b><small id="wf-s">SUBLIGHT</small></div><div class="wp-c"><canvas id="wf" class="fill"></canvas></div><div class="wp-r"><div><span>ETA</span><b id="wf-eta">--:--</b></div><div><span>BURN</span><b id="wf-burn">--</b></div><div><span>RANGE</span><b id="wf-rng">--</b></div></div><div class="wfl" id="wfl" hidden></div></div>
+        </section>
+        <section class="panel p-cat" data-go="science" style="--pc:var(--lav)" tabindex="0">
+          <div class="ph"><div class="rowbtn" style="gap:4px"><button class="mini" id="c-prev">PREV</button><button class="mini" id="c-next">NEXT</button><button class="mini" id="c-orb" hidden>ORBIT</button></div><h3 id="cat-t">CATALOG</h3></div>
+          <div class="pb cb">
+            <div class="cat-l"><div class="cat-top"><span id="cat-n"></span><span class="cat-tags" id="cat-tags"></span></div><dl class="pd" id="pdata"></dl><div class="cat-ob" id="cat-ob"></div></div>
+            <canvas id="planet"></canvas>
+            <div class="vus" id="vus"></div>
+          </div>
+        </section>
+        <section class="panel p-crew" data-go="missions" data-tab="crew" style="--pc:var(--salmon)" tabindex="0">
+          <div class="ph"><h3>CREW</h3></div>
+          <div class="pb cw" id="cw-b"></div>
+        </section>
+        </div>
+      </div>
+      <div id="view" hidden></div>
+      <div id="toast" hidden role="status"></div>
+      <div id="enc" hidden></div>
+      <div id="fres" hidden></div>
+    </div></section>
+    <div id="opsbar">
+      <div class="resstrip" id="resstrip"></div>
+      <div class="ob-head"><button class="ob-label" id="ob-toggle" aria-expanded="false">SHIP LOG: OPEN</button><div class="ob-chips" id="ob-chips"></div></div>
+      <div class="oplog" id="oplog"></div>
+    </div>
+  </main>
+</div>
+<div class="flash" id="flash"></div>
+<div id="launch" hidden></div>
+
+<script><!--@script0--></script>
+<script><!--@script1--></script>
+<script><!--@script2--></script>
+<script><!--@script3--></script>
+</body>
+</html>
