@@ -230,11 +230,17 @@ function r2Render(){
   $$('.tab').forEach(t=>t.classList.toggle('glow',t.dataset.go==='tactical'&&R.phase==='fight'));
   try{lastChips='';acKey='';ctKey='';hdKey='';cmKey='';cwKey='';catKey='';renderChips();renderOps();}catch(e){}
   if(curView==='home')refreshHome();
-  else if(curView!=='settings'&&curView!=='library'){remountView(curView);refreshHome();}
+  else if(curView!=='settings'&&curView!=='library'){const sc=r2KeepScroll(curView);remountView(curView);sc();refreshHome();}
   else refreshHome();
   r2Enc();
   const po=$('#r2-pause');if(po)po.remove();
   if(R2.pause)document.body.appendChild(r2PauseEl());
+}
+/* keep each scrolled panel where it was when a view is rebuilt (buying at the gate re-renders the list) */
+function r2KeepScroll(name){
+  const v=$('#view');if(!v)return ()=>{};
+  const list=[...v.querySelectorAll('*')].filter(e=>e.scrollTop>0).map(e=>[[...v.querySelectorAll('*')].indexOf(e),e.scrollTop]);
+  return ()=>{if(curView!==name||!list.length)return;const all=[...v.querySelectorAll('*')];list.forEach(([i,t])=>{if(all[i])all[i].scrollTop=t;});};
 }
 function r2PauseEl(){
   const o=el('div','r2-pause');o.id='r2-pause';
@@ -443,8 +449,10 @@ function r2CanEngage(){
 }
 function r2Travel(dt){
   const R=R2.R;if(!R||!R2.live)return;
+  try{AMB.sync();}catch(e){} /* the drive hum follows fold speed (the Campaign does this in its sim tick, which is off in a Run) */
   if(R.phase!=='choose'||R.over){if(S.warpEff||S.engaged){S.warpEff=0;S.engaged=false;}return;}
   if(R2.pause||document.hidden)return;
+  { const mw=Math.floor(maxWarp()*10)/10; if(S.warpSet>mw+.05){S.warpSet=mw;r2Say('FOLD LIMITED TO '+fmt(mw)+' BY PROPULSION POWER');} } /* fold follows propulsion power at once */
   const act=true;
   const moving=S.engaged||S.warpEff>.05;if(!moving)return;
   const tgt=act&&S.engaged?S.warpSet:0,diff=tgt-S.warpEff;

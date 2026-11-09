@@ -158,3 +158,6 @@
 .r2-hstage .r2-od span:nth-child(2){display:none}
 .r2-hstage .r2-rg small{display:none}
 
+
+/* phone: the enemy plate sits in its own band above the stage instead of over the ring (playtest 2026-11-08) */
+@media (max-width:700px){#view .r2-stage{margin-top:92px;overflow:visible}#view .r2-stage .r2-ei{top:-90px;left:0;width:100%;transform:none;flex-direction:row;flex-wrap:wrap;column-gap:14px;row-gap:2px;align-items:center}.r2-ei h3{font-size:calc(20px*var(--ts,1));flex:1 0 100%}.r2-ei small{flex:1 0 100%}.r2-ei .r2-bar,.r2-ei .r2-pp{flex:1 1 140px}}

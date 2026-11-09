@@ -929,6 +929,9 @@ button:focus-visible,input:focus-visible,.panel:focus-visible{outline-offset:-4p
 .r2-hstage .r2-od span:nth-child(2){display:none}
 .r2-hstage .r2-rg small{display:none}
 
+
+/* phone: the enemy plate sits in its own band above the stage instead of over the ring (playtest 2026-11-08) */
+@media (max-width:700px){#view .r2-stage{margin-top:92px;overflow:visible}#view .r2-stage .r2-ei{top:-90px;left:0;width:100%;transform:none;flex-direction:row;flex-wrap:wrap;column-gap:14px;row-gap:2px;align-items:center}.r2-ei h3{font-size:calc(20px*var(--ts,1));flex:1 0 100%}.r2-ei small{flex:1 0 100%}.r2-ei .r2-bar,.r2-ei .r2-pp{flex:1 1 140px}}
 </style>
 </head>
 <body>
@@ -7212,11 +7215,17 @@ function r2Render(){
   $$('.tab').forEach(t=>t.classList.toggle('glow',t.dataset.go==='tactical'&&R.phase==='fight'));
   try{lastChips='';acKey='';ctKey='';hdKey='';cmKey='';cwKey='';catKey='';renderChips();renderOps();}catch(e){}
   if(curView==='home')refreshHome();
-  else if(curView!=='settings'&&curView!=='library'){remountView(curView);refreshHome();}
+  else if(curView!=='settings'&&curView!=='library'){const sc=r2KeepScroll(curView);remountView(curView);sc();refreshHome();}
   else refreshHome();
   r2Enc();
   const po=$('#r2-pause');if(po)po.remove();
   if(R2.pause)document.body.appendChild(r2PauseEl());
+}
+/* keep each scrolled panel where it was when a view is rebuilt (buying at the gate re-renders the list) */
+function r2KeepScroll(name){
+  const v=$('#view');if(!v)return ()=>{};
+  const list=[...v.querySelectorAll('*')].filter(e=>e.scrollTop>0).map(e=>[[...v.querySelectorAll('*')].indexOf(e),e.scrollTop]);
+  return ()=>{if(curView!==name||!list.length)return;const all=[...v.querySelectorAll('*')];list.forEach(([i,t])=>{if(all[i])all[i].scrollTop=t;});};
 }
 function r2PauseEl(){
   const o=el('div','r2-pause');o.id='r2-pause';
@@ -7425,8 +7434,10 @@ function r2CanEngage(){
 }
 function r2Travel(dt){
   const R=R2.R;if(!R||!R2.live)return;
+  try{AMB.sync();}catch(e){} /* the drive hum follows fold speed (the Campaign does this in its sim tick, which is off in a Run) */
   if(R.phase!=='choose'||R.over){if(S.warpEff||S.engaged){S.warpEff=0;S.engaged=false;}return;}
   if(R2.pause||document.hidden)return;
+  { const mw=Math.floor(maxWarp()*10)/10; if(S.warpSet>mw+.05){S.warpSet=mw;r2Say('FOLD LIMITED TO '+fmt(mw)+' BY PROPULSION POWER');} } /* fold follows propulsion power at once */
   const act=true;
   const moving=S.engaged||S.warpEff>.05;if(!moving)return;
   const tgt=act&&S.engaged?S.warpSet:0,diff=tgt-S.warpEff;
@@ -7709,12 +7720,13 @@ R2V.engineering=root=>{
 };
 function r2HoldCards(hb,full){
   const R=R2.R,sh=R.ship;
-  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='IN THE HOLD: FIT OR SELL';h4.style.margin='8px 0 0';hb.appendChild(h4);}
+  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='STORED IN THE HOLD ('+sh.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS). IT STAYS THERE WHEN YOU LEAVE.';h4.style.margin='8px 0 0';hb.appendChild(h4);}
   sh.hold.forEach((h,ix)=>{
     const c=el('div','mcard on'),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
     const pt=r2Part(h.part),m=el('p');m.textContent=r2U(R2_DEPT[r2PartDept(pt)]||'')+(pt&&pt.slot==='weapon'?' WEAPON':'');c.appendChild(m);
     r2PerkLines(h).forEach(t=>{const q=el('p');q.textContent=t[0];c.appendChild(q);});
     const row=r2Row();
+    if(!full)row.appendChild(r2Btn('KEEP IN HOLD','lav',()=>r2Say('KEPT IN THE HOLD: '+r2PName(h)),false,'sm'));
     const slots=pt?(pt.slot==='weapon'?RC.slotsAvailable(sh).filter(s=>/^sec\.w[1-4]$/.test(s.id)).map(s=>s.id):(RC.slotsAvailable(sh).some(s=>s.id===pt.slot)?[pt.slot]:[])):[];
     slots.forEach(sl=>{const old=sh.fitted[sl],s=RC.slotById(sl);row.appendChild(r2Btn('FIT TO '+r2U(s.name)+(old?' (REPLACES '+r2U(r2Part(old.part).name)+' MK '+R2_MK[old.tier-1]+')':''),'blue',()=>r2Do(RM.fitFromHold(R,ix,sl),'FITTED'),false,'sm'));});
     const val=Math.round((3+2*h.tier)*(r2Stat('fullResale',0)?1:0.5));
@@ -8476,7 +8488,7 @@ function renderIntel(flick){
 }
 let catKey='';
 function renderCatMeta(){
-  if(R2.live){r2CatMeta();return;}
+  if(R2.live){const R=R2.R,k=R?[R.phase,R.sector,R.passage,R.over,(R.cards||[]).map(c=>c.type).join(','),S.catIdx].join('|'):'';if(k!==R2.intelKey){R2.intelKey=k;r2IntelPanel(false);}else r2CatMeta();return;} /* refresh the Intel body when the situation changes, not only on PREV/NEXT */
   const n=$('#cat-n');if(!n)return;
   const pan=$('.p-cat');if(pan)pan.classList.toggle('intel',!!S.run);
   const ob=OBJID,tags=[];let key,count,title,obl='',orb=false;

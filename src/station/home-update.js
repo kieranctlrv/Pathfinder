@@ -32,7 +32,7 @@ function renderIntel(flick){
 }
 let catKey='';
 function renderCatMeta(){
-  if(R2.live){r2CatMeta();return;}
+  if(R2.live){const R=R2.R,k=R?[R.phase,R.sector,R.passage,R.over,(R.cards||[]).map(c=>c.type).join(','),S.catIdx].join('|'):'';if(k!==R2.intelKey){R2.intelKey=k;r2IntelPanel(false);}else r2CatMeta();return;} /* refresh the Intel body when the situation changes, not only on PREV/NEXT */
   const n=$('#cat-n');if(!n)return;
   const pan=$('.p-cat');if(pan)pan.classList.toggle('intel',!!S.run);
   const ob=OBJID,tags=[];let key,count,title,obl='',orb=false;

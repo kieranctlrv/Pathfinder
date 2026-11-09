@@ -228,12 +228,13 @@ R2V.engineering=root=>{
 };
 function r2HoldCards(hb,full){
   const R=R2.R,sh=R.ship;
-  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='IN THE HOLD: FIT OR SELL';h4.style.margin='8px 0 0';hb.appendChild(h4);}
+  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='STORED IN THE HOLD ('+sh.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS). IT STAYS THERE WHEN YOU LEAVE.';h4.style.margin='8px 0 0';hb.appendChild(h4);}
   sh.hold.forEach((h,ix)=>{
     const c=el('div','mcard on'),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
     const pt=r2Part(h.part),m=el('p');m.textContent=r2U(R2_DEPT[r2PartDept(pt)]||'')+(pt&&pt.slot==='weapon'?' WEAPON':'');c.appendChild(m);
     r2PerkLines(h).forEach(t=>{const q=el('p');q.textContent=t[0];c.appendChild(q);});
     const row=r2Row();
+    if(!full)row.appendChild(r2Btn('KEEP IN HOLD','lav',()=>r2Say('KEPT IN THE HOLD: '+r2PName(h)),false,'sm'));
     const slots=pt?(pt.slot==='weapon'?RC.slotsAvailable(sh).filter(s=>/^sec\.w[1-4]$/.test(s.id)).map(s=>s.id):(RC.slotsAvailable(sh).some(s=>s.id===pt.slot)?[pt.slot]:[])):[];
     slots.forEach(sl=>{const old=sh.fitted[sl],s=RC.slotById(sl);row.appendChild(r2Btn('FIT TO '+r2U(s.name)+(old?' (REPLACES '+r2U(r2Part(old.part).name)+' MK '+R2_MK[old.tier-1]+')':''),'blue',()=>r2Do(RM.fitFromHold(R,ix,sl),'FITTED'),false,'sm'));});
     const val=Math.round((3+2*h.tier)*(r2Stat('fullResale',0)?1:0.5));
