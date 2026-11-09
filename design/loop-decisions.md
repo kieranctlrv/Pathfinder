@@ -37,3 +37,7 @@ Running record of decisions for the new core loop (ship-voice feed, 3D scan navi
 6. **Tactical stays the main combat screen.** Home must be visually aligned with it during combat (combat replaces the viewer on Home).
 7. **Campaign scanning:** discuss later.
 8. **The feed replaces the header ship log;** the Library keeps the full history. This mechanic should be really fleshed out.
+
+## 2026-11-08, round 3
+- Time rule confirmed: ship time runs on the station; stops in combat, comms, offer/event/shop/gate screens, pause, hidden tab and menu; scans and folds jump the clock by their duration.
+- Full design written to the world bible, tab "Core Loop Design" (https://claude.ai/artifact/38oJEgdj5js59nnF7uAUan#aaca6cb5-a3f7). That tab is now the source of truth; this file stays as the decision history.
