@@ -19,6 +19,11 @@ const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
 const GUARDIANS = { 1: 'screenship', 2: 'lancer', 3: 'ironclad', 4: 'ironclad', 5: 'kael' };
 const GUARDIAN_SCALE = { hp: 1.25, dmg: 1.1 };
 const FOLD_THREAT = 8, HUNT_DROP = 35, FOLD_FUEL = 1;
+/* ---- time (core loop step 1): ship time is the cost; threat follows it ----
+   Active time (folds, later scans) adds THREAT_PER_HOUR per ship-hour; idle time on station adds a fifth of that.
+   Combat, comms, offers, events and the gate stop the clock (the UI only calls passTime when time runs). */
+const THREAT_PER_HOUR = 10, IDLE_THREAT = 0.2;
+const DEFENCE = { propulsion: 20, shields: 60, sensors: 10, weapons: 10 };
 const CONTACTS = { 1: ['cutter', 'raider', 'picket'], 2: ['raider', 'picket', 'lancer', 'cutter'], 3: ['raider', 'lancer', 'ironclad', 'screenship'], 4: ['lancer', 'ironclad', 'screenship', 'raider'], 5: ['lancer', 'ironclad', 'screenship'] };
 const slotById = id => D.SLOTS.find(s => s.id === id), partById = id => D.PARTS.find(p => p.id === id);
 
@@ -57,7 +62,7 @@ const stat = (R, key, base) => C.stat(pseudoFight(R), key, base);
 function newRun(opts) {
   opts = opts || {};
   const seed = String(opts.seed || 'PATHFINDER').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'PATHFINDER';
-  const R = { v: VERSION, charter: 'hunt', seed, rng: hashStr(seed + ':run2') || 1, secs: 0, sector: 1, passage: 0, threat: 0, marks: 0,
+  const R = { v: VERSION, charter: 'hunt', seed, rng: hashStr(seed + ':run2') || 1, secs: 0, shipMin: 0, pendPower: null, sector: 1, passage: 0, threat: 0, marks: 0,
     ship: C.newShip(), officers: C.newOfficers(), power: { propulsion: 25, shields: 25, sensors: 25, weapons: 25 },
     phase: 'choose', cards: [], cur: null, fight: null, offers: null, event: null, over: null, why: '', score: 0, traces: 0,
     stats: { fights: 0, won: 0, folds: 0, hunts: 0, partsFound: 0, fled: 0, dataEarned: 0 }, data: 0, flags: {}, log: [] };
@@ -112,18 +117,19 @@ function cardIntel(R, c) {
 }
 
 /* ---- fold ---- */
-function fold(R, ix) {
+function fold(R, ix, opts) {
+  opts = opts || {};
   if (R.over) return { ok: false, why: 'run over' };
   if (R.phase !== 'choose') return { ok: false, why: 'nothing to fold to' };
   const c = R.cards[ix]; if (!c) return { ok: false, why: 'no such card' };
-  const cost = c.fuel;
+  applyPending(R);
+  const cost = Math.round(c.fuel * foldFuelMult(opts.factor) * 100) / 100;
   if (R.ship.lumite + 1e-9 < cost) { if (stat(R, 'hullFold', 0) && !R.flags.hullFold) { R.flags.hullFold = 1; R.ship.hull = Math.max(1, R.ship.hull - 15); log(R, 'hullFold', {}); } else return { ok: false, why: 'not enough lumite' }; }
   else R.ship.lumite = Math.max(0, R.ship.lumite - cost);
   R.flags['fold' + R.sector] = 1; R.stats.folds++;
   let hunt = null;
   if (c.type !== 'gate') {
     const first = !R.flags['threatFold' + R.sector]; R.flags['threatFold' + R.sector] = 1;
-    R.threat = Math.min(100, R.threat + c.threat);
     const silent = stat(R, 'silentAtSensors', 0) > 0 && C.channelPower(pseudoFight(R), 'sensors') >= stat(R, 'silentAtSensors', 0);
     const noHunt = (first && stat(R, 'noHuntFirstFold', 0) > 0) || silent;
     let idx = -1; MARKS.forEach((m, i) => { if (i >= R.marks && R.threat >= m) idx = i; });
@@ -138,6 +144,7 @@ function fold(R, ix) {
 }
 function scale(R, guardian) { const k = 1 + 0.18 * (R.sector - 1); return { hp: k * (guardian ? GUARDIAN_SCALE.hp : 1), dmg: (1 + 0.1 * (R.sector - 1)) * (guardian ? GUARDIAN_SCALE.dmg : 1) }; }
 function startFight(R, foe, guardian, hunt) {
+  redAlertPower(R);
   const sc = scale(R, guardian);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
@@ -379,13 +386,37 @@ function endRun(R, result, why) {
   R.score = Math.round((R.sector - 1) * 100 + R.stats.won * 10 + R.stats.dataEarned + (result === 'won' ? 300 : 0) + Math.round(R.ship.hull / 4));
   log(R, 'end', { result }); emit(R, 'run.end', { result });
 }
+/* power routing takes one turn: a change is queued and lands at the next fold (or scan), or the next combat round */
 function setPower(R, p) {
-  const f = pseudoFight(R); const r = C.setPower(f, p); if (r.ok) R.power = f.power; return r;
+  const f = pseudoFight(R); f.power = Object.assign({}, R.power); const r = C.setPower(f, p);
+  if (!r.ok) return r;
+  R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
 }
+function applyPending(R) {
+  if (!R.pendPower) return false;
+  const p = R.pendPower; R.pendPower = null;
+  if (R.fight) { if (!C.setPower(R.fight, p).ok) return false; R.power = R.fight.power; return true; }   /* the fight and the Run share one power object */
+  const f = pseudoFight(R); f.power = Object.assign({}, R.power); if (!C.setPower(f, p).ok) return false;
+  R.power = Object.assign({}, f.power);
+  return true;
+}
+function redAlertPower(R) {
+  R.pendPower = null;
+  const f = pseudoFight(R); f.power = Object.assign({}, R.power);
+  if (C.setPower(f, DEFENCE).ok) R.power = Object.assign({}, f.power);
+}
+/* ship time passes; threat follows it (idle time counts for less) */
+function passTime(R, minutes, idle) {
+  if (R.over || !(minutes > 0)) return;
+  R.shipMin = (R.shipMin || 0) + minutes;
+  R.threat = Math.min(100, R.threat + minutes / 60 * THREAT_PER_HOUR * (idle ? IDLE_THREAT : 1) * stat(R, 'foldThreat', 1));
+}
+/* faster folds burn more lumite: fold 5 costs the card's base, fold 9 about 2.4 times, fold 2 about a quarter */
+function foldFuelMult(factor) { if (!(factor > 0)) return 1; return Math.max(0.25, Math.min(2.5, Math.pow(factor / 5, 1.5))); }
 function save(R) { return JSON.stringify(R); }
-function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); return R; }
+function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; return R; }
 
-const api = { combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
+const api = { passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunMap = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

@@ -55,12 +55,19 @@ The smoke test needs Playwright for Python (`pip install playwright && playwrigh
 
 The balance bot is simple: it fires the most accurate ready weapon, braces otherwise, and never scans or changes range. Treat its numbers as a floor.
 
-## Known issues (Build 5)
+## Known issues
 
-- The Sector 1 guardian (Cordon Screenship) can stall: it repairs its screen faster than the starting weapons strip it once torpedoes run out. The bot averages around 300 turns on it.
-- Sector 3 is a wall. The bot loses every Sector 3 guardian and no Run gets past Sector 3.
-- On phone, the enemy panel in Battle Stations overlaps the shield percentages.
-- Three combat systems share the file: Campaign real-time, Run v0.1 and Run v0.2.
+- Balance is placeholder. With fights rerouted to Offence, the balance bot clears Sectors 1 and 2 easily and dies in Sectors 3 to 4, mostly to guardians. At balanced power (weapons 25%) the Sector 1 guardian can stall for hundreds of turns, because it repairs faster than weak weapons strip it.
+- Three combat systems still share the file: Campaign real-time, Run v0.1 (legacy) and Run v0.2.
+- The playtest backlog lives in `playtest/`, and the redesign plan in the world bible's Core Loop Design tab.
+
+## Core loop, step 1 (time and power)
+
+- Ship time is the Run's clock (day 1, 06:00). It runs slowly on station, fast while folding, and stops in fights, offers, events, the gate, menus, and when paused (header button or P).
+- Threat follows ship time (10 per ship-hour folding, a fifth of that idle) instead of a flat cost per fold.
+- Lumite per fold scales with fold factor (factor 5 = base, factor 9 about 2.4 times).
+- Power routing changes are queued: they land when your next fold begins, or at the next combat round. Red alert sets Defence at once.
+- The fights at threat marks are called intercepts on screen; "The Hunt" is only the charter.
 
 ## History
 

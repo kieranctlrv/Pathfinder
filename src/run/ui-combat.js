@@ -151,7 +151,7 @@ function r2CombatControls(host,f,v){
 function r2CombatHome(){
   const R=R2.R,f=R.fight;if(!f)return;
   const v=RC.view(f),E=v.enemy;
-  $('#hc-title').textContent=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'HUNT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
+  $('#hc-title').textContent=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'INTERCEPT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
   r2Grid($('#cb-ship svg'),v);
   const cs=$('#cb-ship'),right=$('.hero-combat .cb-right');if(!right||!cs)return;
   let L=$('.hero-combat .cb-left');
@@ -165,12 +165,12 @@ R2V.tactical=root=>{
   const R=R2.R,f=R.fight;
   if(!f){
     const p=r2P('NO HOSTILES','coral'),b=r2Body(p);
-    b.appendChild(r2Note('BATTLE STATIONS OPENS WHEN A FIGHT STARTS. NEXT HUNT: '+(r2NextMark()!=null?'AT '+r2NextMark()+'% THREAT.':'NONE LEFT.')));
+    b.appendChild(r2Note('BATTLE STATIONS OPENS WHEN A FIGHT STARTS. NEXT INTERCEPT: '+(r2NextMark()!=null?'AT '+r2NextMark()+'% THREAT.':'NONE LEFT.')));
     b.appendChild(r2KV([['SHIELD ARCS','FORE, PORT, AFT, STBD'],['WEAPON SLOTS',R.ship.unlocked.length+' UNLOCKED'],['TORPEDOES',Math.round(R.ship.torpedoes*10)/10]]));
     root.appendChild(p);return;
   }
   const v=RC.view(f),E=v.enemy;
-  const title=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'HUNT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
+  const title=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'INTERCEPT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
   root.style.gridTemplateColumns='minmax(0,1.62fr) minmax(330px,1fr)';root.classList.add('r2-tac');
   const lp=r2P((f.meta&&(f.meta.guardian||(f.meta.hunt!=null&&f.meta.hunt>=0)))?title.split(':')[0]:'BATTLE STATIONS','salmon'),lb=r2Body(lp);lb.style.gap='4px';lb.style.position='relative';
   r2Stage(lb,f,v);
@@ -417,6 +417,7 @@ function r2Commit(){
   R2.pre={eh:f.enemy.hull,es:f.enemy.screen,ph:f.ship.hull,arcs:{}};v0.arcs.forEach(x=>R2.pre.arcs[x.arc]=x.pct);
   const r=RC.act(f,s);
   if(!r.ok){r2Snd('err');R2.sel=null;r2Say(r.why,true);r2Render();return;}
+  if(!f.over&&R.pendPower&&RM.applyPending(R))r2Say('REROUTE COMPLETE');
   const evs=f.log.slice(n0);for(let i=0;i<evs.length-1;i++){if((evs[i].t==='screenBreak'||evs[i].t==='weakPoint')&&evs[i+1].t==='hit'){const t=evs[i];evs[i]=evs[i+1];evs[i+1]=t;i++;}}
   const lines=[];evs.forEach(e=>{const l=r2Line(e,f);if(l){l.fx=r2Fx(e,f);l.ms=(l.fx&&l.fx.ms)||480;lines.push(l);}});
   f.log.slice(n0).forEach(()=>{});
@@ -442,7 +443,7 @@ function r2Finish(){
   r2Alert('green');
   if(res.result==='won'){
     const sm=res.summary||{};r2Say('VICTORY. +'+(sm.salvage||0)+' SALVAGE');try{clog('Won a fight. +'+(sm.salvage||0)+' salvage.');}catch(e){}
-    if(before.m.hunt!=null&&before.m.hunt>=0)r2Say('HUNT BEATEN. THREAT '+Math.round(before.thr)+'% TO '+Math.round(R.threat)+'%');
+    if(before.m.hunt!=null&&before.m.hunt>=0)r2Say('INTERCEPT BEATEN. THREAT '+Math.round(before.thr)+'% TO '+Math.round(R.threat)+'%');
     (sm.levelUps||[]).forEach(u=>r2Say(R2_DEPT[u.dept]+' OFFICER PROMOTED TO '+R2_RANK[u.level]));
     if(sm.casualty)r2Say(R2_DEPT[sm.casualty.dept]+' OFFICER LOST. REPLACEMENT: '+R2_RANK[sm.replacement||0],true);
     if(R.ship.unlocked.length>before.ul)r2Say('WEAPON SLOT '+(R.ship.unlocked.length)+' UNLOCKED');
@@ -456,8 +457,8 @@ function r2Key(e){
   if(!R2.live||!R2.R||e.ctrlKey||e.metaKey||e.altKey)return;
   const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return;
   if(!$('#launch').hidden)return;
-  if(R2.pause){if(e.key==='Escape'){R2.pause=false;r2Render();}return;}
-  if(e.key==='Escape'){if(!R2.R.over){R2.pause=true;r2Save();r2Render();}return;}
+  if(R2.pause){if(e.key==='Escape'||e.key==='p'||e.key==='P'){R2.pause=false;r2Render();}return;}
+  if(e.key==='Escape'||e.key==='p'||e.key==='P'){if(!R2.R.over){R2.pause=true;r2Save();r2Render();}return;}
   const R=R2.R;if(R.phase!=='fight'||!R.fight||curView!=='tactical')return;
   if(R2.busy){r2Skip();e.preventDefault();return;}
   const f=R.fight,k=e.key.toLowerCase();if(f.over)return;

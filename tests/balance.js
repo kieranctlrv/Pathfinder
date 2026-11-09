@@ -18,8 +18,11 @@ function play(seed){const R=M.newRun({seed});let g=0,turns=0,fights=0;
     if(c.type==='gate')s=100;if(c.type==='guardian')s=90;if(c.type==='shop')s=R.ship.salvage>8?60:5;if(c.type==='wreck'||c.type==='trace')s=40;if(c.type==='outpost')s=20;if(c.type==='anomaly')s=25;if(c.type==='contact')s=30;
     s-=c.threat*0.5;s-=c.fuel*3;if(s>bs){bs=s;best=i;}});
    if(bs===-1e9){M.endRun(R,'lost','STRANDED');break;}
-   M.fold(R,best);}
-  else if(R.phase==='fight'){const f=R.fight;if(f.over){fights++;turns+=f.turn||0;const k='S'+R.sector+(f.meta.guardian?' guardian':f.meta.hunt!=null?' hunt':' contact');(global.FT[k]=global.FT[k]||[]).push([f.turn,f.over,Math.round(100*R.fight.ship.hull/R.fight.ship.hullMax)]);M.resolveFight(R);continue;}C.act(f,fightTurn(R));}
+   M.passTime(R,40,false); /* time rule: a typical fold at factor 6 spends about 40 ship minutes */
+   M.fold(R,best,{factor:6});}
+  else if(R.phase==='fight'){const f=R.fight;
+   if(f.turn<=1&&!R.pendPower&&R.power.weapons<40)M.setPower(R,{propulsion:10,shields:20,sensors:10,weapons:60}); /* red alert lands on Defence; a player reroutes to Offence (lands next round) */
+   if(R.pendPower&&f.turn>=1&&!f.over){}if(f.over){fights++;turns+=f.turn||0;const k='S'+R.sector+(f.meta.guardian?' guardian':f.meta.hunt!=null?' hunt':' contact');(global.FT[k]=global.FT[k]||[]).push([f.turn,f.over,Math.round(100*R.fight.ship.hull/R.fight.ship.hullMax)]);M.resolveFight(R);continue;}C.act(f,fightTurn(R));if(!f.over)M.applyPending(R);}
   else if(R.phase==='offers'){const O=R.offers;if(!O.taken&&O.free.length){const o=O.free.find(x=>!x.risk)||O.free[0];M.claim(R,o.id);}
     if(O.shop||O.trader){O.paid.forEach(o=>{if(o.kind==='repair'&&R.ship.hull<R.ship.hullMax*0.7)M.claim(R,o.id);if(o.kind==='lumite'&&R.ship.lumite<5)M.claim(R,o.id);});}
     while(R.ship.hold.length){const r=M.fitFromHold(R,0);if(!r||!r.ok){M.sellFromHold(R,0);}}

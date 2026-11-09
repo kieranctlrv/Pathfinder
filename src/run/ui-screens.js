@@ -65,7 +65,7 @@ function r2Enc(){
     const won=R.over==='won';pn.style.setProperty('--pc',won?'var(--blue)':'var(--salmon)');
     h3.textContent=won?'RUN COMPLETE: KAEL IS BROKEN':'RUN OVER: THE PATHFINDER IS LOST';
     line(R.why||(won?'THE HUNT IS OVER.':'THE HUNT IS OVER.'));
-    const dl=el('dl','kv');dl.innerHTML=[['SCORE',R.score],['SECTOR REACHED',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['HUNTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound],['DATA EARNED',R.stats.dataEarned],['RUN TIME',r2Time(R.secs)],['SEED',R.seed]].map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('');
+    const dl=el('dl','kv');dl.innerHTML=[['SCORE',R.score],['SECTOR REACHED',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['INTERCEPTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound],['DATA EARNED',R.stats.dataEarned],['RUN TIME',r2Time(R.secs)],['SEED',R.seed]].map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('');
     tr.appendChild(dl);
     ch.appendChild(r2Choice('NEW RUN',[],()=>r2NewRun(),false,'orange'));
     ch.appendChild(r2Choice('SAME SEED: '+R.seed,[],()=>r2NewRun(R.seed),false,'peri'));
@@ -125,7 +125,7 @@ R2V.helm=root=>{
     const sel=S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):0,c=R.cards[sel]||R.cards[0],ix=R.cards.indexOf(c);
     const big=el('div','wbig');big.innerHTML='<span></span><small>LUMITE FOR THIS FOLD</small>';big.querySelector('span').textContent=(Math.round(c.fuel*100)/100).toFixed(1);b.appendChild(big);
     b.appendChild(r2Qrow('LUMITE',R.ship.lumite/Math.max(1,r2Stat('lumiteCap',10))*100,(Math.round(R.ship.lumite*10)/10)+' / '+r2Stat('lumiteCap',10),'orange'));
-    b.appendChild(r2KV([['AFTER THE FOLD',(Math.round((R.ship.lumite-c.fuel)*10)/10)+' LUMITE'],['THREAT',c.type==='gate'?'NONE':Math.round(R.threat)+'% TO '+Math.round(Math.min(100,R.threat+c.threat))+'%'],['NEXT HUNT',r2NextMark()!=null?'AT '+r2NextMark()+'%':'NONE LEFT'],['FOLDS LEFT',Math.floor((R.ship.lumite+1e-9)/Math.max(.01,c.fuel))]]));
+    b.appendChild(r2KV([['AFTER THE FOLD',(Math.round((R.ship.lumite-c.fuel)*10)/10)+' LUMITE'],['THREAT',c.type==='gate'?'NONE':Math.round(R.threat)+'% TO '+Math.round(Math.min(100,R.threat+c.threat))+'%'],['NEXT INTERCEPT',r2NextMark()!=null?'AT '+r2NextMark()+'%':'NONE LEFT'],['FOLDS LEFT',Math.floor((R.ship.lumite+1e-9)/Math.max(.01,c.fuel))]]));
     const act=r2Row();
     act.appendChild(r2Btn(R2.course===ix?'COURSE SET':'SET COURSE','peri',()=>{r2Course('c'+ix);r2Render();},R2.course===ix));
     act.appendChild(r2Btn('FOLD','orange',()=>r2FoldCard(ix),R.ship.lumite+1e-9<c.fuel&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold)));
@@ -134,11 +134,11 @@ R2V.helm=root=>{
     const list=el('div','list');
     R.cards.forEach((cc,i)=>{
       const w=el('button','row'+(i===ix?' sel':''));w.style.setProperty('--rcol',cc.type==='contact'||cc.type==='guardian'?'var(--salmon)':'var(--blue)');w.innerHTML='<span></span><span></span><span></span>';
-      w.children[0].textContent=r2NodeName(cc,i,R.cards);w.children[1].textContent=(Math.round(cc.fuel*100)/100)+' LUMITE';w.children[2].textContent=cc.crossesMark?'HUNT MARK':'';
+      w.children[0].textContent=r2NodeName(cc,i,R.cards);w.children[1].textContent=(Math.round(cc.fuel*100)/100)+' LUMITE';w.children[2].textContent=cc.crossesMark?'INTERCEPT MARK':'';
       w.addEventListener('click',()=>{S.homeSel='c'+i;SND.tap();r2Render();});list.appendChild(w);
     });
     b.appendChild(list);
-    r2CardTags(c).forEach(t=>b.appendChild(r2Note(t,/HUNT MARK/.test(t)?'bad':'')));
+    r2CardTags(c).forEach(t=>b.appendChild(r2Note(t,/INTERCEPT MARK/.test(t)?'bad':'')));
   }
   root.appendChild(p);
 };
@@ -273,11 +273,11 @@ R2V.comms=root=>{
   const R=R2.R,m=r2NextMark();
   const p=r2P('KAEL REARGUARD','salmon'),b=r2Body(p);
   const bar=el('div','r2-tbar');const i=el('i');i.style.width=clamp(R.threat,0,100)+'%';bar.appendChild(i);
-  RM.MARKS.forEach((mk,ix)=>{const t=el('u',R.marks>ix?'hit':'');t.style.left=mk+'%';t.innerHTML='<em>HUNT '+['I','II','III'][ix]+'</em>';bar.appendChild(t);});
+  RM.MARKS.forEach((mk,ix)=>{const t=el('u',R.marks>ix?'hit':'');t.style.left=mk+'%';t.innerHTML='<em>INTERCEPT '+['I','II','III'][ix]+'</em>';bar.appendChild(t);});
   b.appendChild(bar);
-  b.appendChild(r2KV([['THREAT',Math.round(R.threat)+'%'],['NEXT HUNT',m!=null?'AT '+m+'%':'NONE LEFT'],['HUNTS BEATEN',R.stats.hunts],['FOLDS THIS RUN',R.stats.folds]]));
+  b.appendChild(r2KV([['THREAT',Math.round(R.threat)+'%'],['NEXT INTERCEPT',m!=null?'AT '+m+'%':'NONE LEFT'],['INTERCEPTS BEATEN',R.stats.hunts],['FOLDS THIS RUN',R.stats.folds]]));
   RM.MARKS.forEach((mk,ix)=>{const f=RD.ENEMIES[RM.HUNT_FOE[ix]];b.appendChild(r2Note('HUNT '+['I','II','III'][ix]+' AT '+mk+'%: '+(R.marks>ix?'TRIGGERED':(r2Stat('huntIntelType',0)>0?r2U(f.name):'FOE UNKNOWN. A SENSOR PART SHOWS IT'))));});
-  b.appendChild(r2Note('THREAT RISES ONLY WHEN YOU FOLD. A HUNT FIGHT COMES AT EACH MARK. WINNING ONE DROPS THREAT BY 35.'));
+  b.appendChild(r2Note('THREAT IS HOW CLOSE KAEL\'S REARGUARD IS. IT RISES WITH SHIP TIME: FOLDING SPENDS TIME, IDLING ON STATION A LITTLE. FIGHTS, COMMS AND OFFERS STOP THE CLOCK, AND SO DOES PAUSE. THE REARGUARD INTERCEPTS YOU AT EACH MARK. BEATING AN INTERCEPT DROPS THREAT BY 35.'));
   root.appendChild(p);
   const q=r2P('PRICES','peach'),qb=r2Body(q);
   qb.appendChild(r2KV([['REPAIR A PART',RM.repairCost(R)+' SALVAGE'],['SELL A PART','+'+(r2Stat('fullResale',0)?'5, 7 OR 9':'2, 3 OR 4')+' SALVAGE'],['GATE: HULL +50',(r2Stat('gateHullFree',0)?0:RM.repairCost(R))+' SALVAGE'],['GATE: +2 TORPEDOES','3 SALVAGE'],['GATE: +4 LUMITE','3 SALVAGE'],['GATE: RAISE A TIER','5 X CURRENT TIER'],['FOLD COST NOW',(Math.round(RM.foldCost(R)*100)/100)+' LUMITE']]));

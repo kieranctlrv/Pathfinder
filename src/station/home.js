@@ -150,6 +150,7 @@ function setWarp(v){
 }
 function engage(){
   if(R2.live&&!r2CanEngage())return false;
+  if(R2.live)r2BeginFold();
   if(S.warpSet<1){SND.err();log('SET A FOLD FACTOR OF 1.0 OR HIGHER BEFORE ENGAGING','warn');return false;}
   S.engaged=true;SND.warpUp();log('ENGAGING FOLD DRIVE AT FOLD '+fmt(S.warpSet));return true;
 }

@@ -48,7 +48,7 @@ function r2NodeName(c,ix,all){
 function r2Bridge(){
   const R=R2.R;if(!R)return;const sh=R.ship,pf=r2Pseudo();
   S.run={seed:R.seed,diff:'green',kit:'standard',act:clamp(R.sector,1,3),cur:'cur',gate:'goal',clock:R.threat,warned:0,nodes:R.stats.won,perks:{},lifeboat:0,pick:null,owe:0,secs:R.secs,visited:R.passage,clues:0,won:0,dead:0,over:null,why:'',score:0,cs:{travel:0,nodes:0,choices:0,events:0,relief:0}};
-  S.mode='run';S.gt=21600+R.secs*60;
+  S.mode='run';S.gt=21600+(R.shipMin||0)*60;
   S.hull=sh.hull/Math.max(1,sh.hullMax)*100;S.inv={dilithium:sh.lumite,parts:sh.salvage};S.torp=sh.torpedoes;S.data=R.data;S.goods={};S.fight=null;S.contacts=[];
   S.power={prop:R.power.propulsion,shld:R.power.shields,sens:R.power.sensors,weap:R.power.weapons};
   S.dead={};S.inj={eng:0,sec:0,sci:0,med:0,ops:0};
@@ -89,11 +89,19 @@ function r2Hdr(){
   const a=$('#d-day'),b=$('#d-date'),c=$('#clock'),h=$('#hstat'),sd=$('#sd');
   if(a)a.textContent='SECTOR '+R.sector;
   if(b)b.textContent='PASSAGE '+Math.min(R.passage,7)+' OF 7';
-  if(c&&c.textContent!==r2Time(R.secs))c.textContent=r2Time(R.secs);
-  if(h){const t=r2U(sec.name)+(R2.pause?', PAUSED':'')+', THREAT '+Math.round(R.threat)+'%';if(h.textContent!==t)h.textContent=t;}
+  const st=r2ShipTime(R);if(c&&c.textContent!==st.hm)c.textContent=st.hm;
+  if(h){const t=r2U(sec.name)+', DAY '+st.day+(R2.pause?', PAUSED':'')+', THREAT '+Math.round(R.threat)+'%';if(h.textContent!==t)h.textContent=t;}
+  r2PauseBtn(c);
   if(sd&&sd.textContent!==R.seed)sd.textContent=R.seed;
   const m=$('#d-mode');
   if(m){const w=R.over?(R.over==='won'?'VICTORY':'LOST'):fight?'BATTLE STATIONS':R.phase==='refit'?'REFIT GATE':R.phase==='choose'?'PATROL':R.phase==='offers'?'SALVAGE':'EVENT';if(m.textContent!==w){m.textContent=w;m.style.color=fight?'var(--salmon)':'var(--blue)';}}
+}
+/* ship time: the Run starts on day 1 at 06:00; R.shipMin counts ship minutes since */
+function r2ShipTime(R){const t=360+(R.shipMin||0),d=Math.floor(t/1440)+1,m=Math.floor(t%1440);return {day:d,hm:pad(Math.floor(m/60),2)+':'+pad(m%60,2)};}
+function r2PauseBtn(clock){
+  if(!clock)return;let b=$('#r2-pbtn');
+  if(!b){b=el('button','mini r2-pbtn');b.id='r2-pbtn';b.type='button';b.title='Pause the Run (P). Ship time stops.';b.addEventListener('click',()=>{if(!R2.R||R2.R.over)return;R2.pause=!R2.pause;if(R2.pause)r2Save();r2Render();});clock.insertAdjacentElement('afterend',b);}
+  const t=R2.pause?'RESUME':'PAUSE';if(b.textContent!==t)b.textContent=t;b.classList.toggle('on',!!R2.pause);
 }
 function r2Res(){
   const R=R2.R,host=$('#resstrip');if(!host||!R)return;
@@ -118,6 +126,7 @@ function r2Chips(){
   const hp=R.ship.hull/R.ship.hullMax*100;
   if(R.threat>=84)c.push({t:'THREAT '+Math.round(R.threat)+'%',sev:'alert',go:'comms'});else if(R.threat>=59)c.push({t:'THREAT '+Math.round(R.threat)+'%',sev:'warn',go:'comms'});
   if(R.phase==='fight')c.push({t:'ENGAGED',sev:'alert',go:'tactical'});
+  if(R.pendPower)c.push({t:'REROUTE QUEUED',sev:'warn',go:'engineering'});
   if(hp<30)c.push({t:'HULL '+Math.round(hp)+'%',sev:'alert',go:'engineering'});else if(hp<70)c.push({t:'HULL '+Math.round(hp)+'%',sev:'warn',go:'engineering'});
   const off=Object.keys(R.ship.offline).length;if(off)c.push({t:off+' PART'+(off>1?'S':'')+' OFFLINE',sev:'warn',go:'engineering'});
   if(R.ship.lumite<=0)c.push({t:'LUMITE EMPTY',sev:'alert',go:'helm'});else if(R.ship.lumite<3)c.push({t:'LUMITE LOW',sev:'warn',go:'helm'});
@@ -151,7 +160,9 @@ function r2Start(o){
   clearInterval(R2.clock);
   R2.clock=setInterval(()=>{
     if(!R2.live||R2.pause||document.hidden||!R2.R||R2.R.over)return;
-    R2.R.secs++;r2Hdr();
+    R2.R.secs++;
+    if(R2.R.phase==='choose'&&!S.engaged)RM.passTime(R2.R,.25,true);
+    r2Hdr();
     if(Date.now()-R2.lastSave>15000)r2Save();
   },1000);
   document.addEventListener('keydown',r2Key);
@@ -259,7 +270,7 @@ function r2SettingsTweak(root){
   const row=r2Row();
   row.appendChild(r2Btn('PAUSE THE RUN','orange',()=>{R2.pause=true;r2Save();r2Render();}));
   b.appendChild(row);
-  b.appendChild(r2KV([['SEED',R.seed],['RUN TIME',r2Time(R.secs)],['SECTOR',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['HUNTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound]]));
+  b.appendChild(r2KV([['SEED',R.seed],['RUN TIME',r2Time(R.secs)],['SECTOR',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['INTERCEPTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound]]));
   b.appendChild(r2Note('THE RUN SAVES AFTER EVERY ACTION. THE RUN CLOCK STOPS WHEN YOU PAUSE OR LEAVE THE TAB. ESC PAUSES.'));
   root.appendChild(p);
 }
@@ -277,7 +288,7 @@ function r2PhaseText(){
 function r2NextMark(){const R=R2.R;return R.marks<3?RM.MARKS[R.marks]:null;}
 function r2OrderLine(){
   const R=R2.R,sec=r2Sec(),m=r2NextMark();
-  return {t:'SECTOR '+R.sector+' OF 5: '+r2U(sec.name),h:'PASSAGE '+Math.min(R.passage,7)+' OF 7. THREAT '+Math.round(R.threat)+'%'+(m!=null?'. NEXT HUNT AT '+m+'%.':'.'),act:null};
+  return {t:'SECTOR '+R.sector+' OF 5: '+r2U(sec.name),h:'PASSAGE '+Math.min(R.passage,7)+' OF 7. THREAT '+Math.round(R.threat)+'%'+(m!=null?'. NEXT INTERCEPT AT '+m+'%.':'.'),act:null};
 }
 function r2Actions(){
   const R=R2.R,a=[];
@@ -305,7 +316,7 @@ function r2CardTags(c){
   if(c.type==='trace')L.push('+6 DATA. 2 SAFE PICKS, 2 RISKY');
   if(c.type==='anomaly'){const a=RM.ANOMALIES.find(x=>x.id===c.ev);if(a)L.push('A CHOICE WITH A COST OR A RISK');}
   if(c.type==='gate')L.push('REPAIR, RESUPPLY, RAISE PART TIERS');
-  if(c.crossesMark)L.push(I.hunt?'CROSSES A HUNT MARK: '+r2U(I.hunt):'CROSSES A HUNT MARK');
+  if(c.crossesMark)L.push(I.hunt?'CROSSES AN INTERCEPT MARK: '+r2U(I.hunt):'CROSSES AN INTERCEPT MARK');
   return L;
 }
 function r2HomeMap(){
@@ -322,7 +333,7 @@ function r2HomeMap(){
     {const nm=r2NodeName(c,ix,R.cards);$('#mc-name').textContent=nm===R2_TYPE[c.type]?nm:nm+', '+R2_TYPE[c.type];}
     const d=distTo(sel),w=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()),eta=d/Math.max(.001,r2V(w));
     const rows=[['DISTANCE',fmt(d)+' LY',false],['ETA AT FOLD '+fmt(w),fmtEta(eta),false],['LUMITE COST',(Math.round(c.fuel*100)/100)+' OF '+(Math.round(R.ship.lumite*10)/10),short],['THREAT',c.type==='gate'?'NONE':'+'+c.threat+' (NOW '+Math.round(R.threat)+'%)',false]];
-    r2CardTags(c).forEach(t=>rows.push([t.split(':')[0],t.indexOf(':')>0?t.slice(t.indexOf(':')+1).trim():'',/HUNT MARK/.test(t)]));
+    r2CardTags(c).forEach(t=>rows.push([t.split(':')[0],t.indexOf(':')>0?t.slice(t.indexOf(':')+1).trim():'',/INTERCEPT MARK/.test(t)]));
     $('#mc-kv').innerHTML=rows.map(r=>r[1]===''?'<div><span>'+r[0]+'</span><b'+(r[2]?' class="bad"':'')+'>&nbsp;</b></div>':st(r[0],r[1],r[2])).join('');
     r2FuelPlan(sel,'#mc-fuel',true);
     $('#mc-set').textContent=isCourse?'COURSE SET':'SET COURSE';$('#mc-set').disabled=isCourse;
@@ -339,7 +350,7 @@ function r2Contacts(){
   if(R.phase==='fight'&&R.fight){const E=RC.view(R.fight).enemy;rows.push({n:r2U(E.name),d:'ENGAGED',s:'HOSTILE',c:'--salmon'});}
   else if(R.phase==='choose')R.cards.forEach((c,i)=>{if(c.type==='contact'||c.type==='guardian'){const I=RM.cardIntel(R,c);rows.push({n:I.foe?r2U(I.foe):r2NodeName(c,i,R.cards),d:'FOLD '+(Math.round(c.fuel*100)/100),s:c.type==='guardian'?'GUARDIAN':'',c:'--salmon',id:'c'+i});}});
   const m=r2NextMark();
-  if(!R.over)rows.push({n:m!=null?'KAEL REARGUARD':'KAEL REARGUARD',d:m!=null?'HUNT AT '+m+'%':'ALL HUNTS SPENT',s:Math.round(R.threat)+'%',c:'--yellow'});
+  if(!R.over)rows.push({n:m!=null?'KAEL REARGUARD':'KAEL REARGUARD',d:m!=null?'INTERCEPT AT '+m+'%':'NO INTERCEPTS LEFT',s:Math.round(R.threat)+'%',c:'--yellow'});
   rows.forEach(r=>{
     const b=el('button','row'+(r.id&&S.homeSel===r.id?' sel':''));b.style.setProperty('--rcol','var('+r.c+')');
     b.innerHTML='<span></span><span></span><span></span>';b.children[0].textContent=r.n;b.children[1].textContent=r.d;b.children[2].textContent=r.s;
@@ -368,7 +379,7 @@ function r2CommsPanel(){
   b.innerHTML='';
   const m=r2NextMark();
   b.appendChild(el('p','cm-l',R.over?'CHANNEL CLOSED.':'KAEL REARGUARD: '+Math.round(R.threat)+'%.'));
-  b.appendChild(el('p','cm-l',m!=null?'NEXT HUNT AT '+m+'%.':'NO HUNTS LEFT.'));
+  b.appendChild(el('p','cm-l',m!=null?'NEXT INTERCEPT AT '+m+'%.':'NO INTERCEPTS LEFT.'));
   const o=el('button','mini','OPEN COMMS');o.addEventListener('click',()=>{SND.tap();go('comms');});b.appendChild(o);
 }
 function r2CrewPanel(){
@@ -402,7 +413,7 @@ function r2CatMeta(){
   const R=R2.R,cards=R.phase==='choose'&&!R.over?R.cards:[],pan=$('.p-cat');if(pan)pan.classList.add('intel');
   const tags=[];let count=cards.length?(clamp(S.catIdx||0,0,cards.length-1)+1)+' OF '+cards.length:'NO ROUTES';
   const c=cards[clamp(S.catIdx||0,0,Math.max(0,cards.length-1))];
-  if(c&&c.crossesMark)tags.push('HUNT MARK');if(c&&c.type==='guardian')tags.push('GUARDIAN');if(c&&c.type==='gate')tags.push('THE GATE');
+  if(c&&c.crossesMark)tags.push('INTERCEPT MARK');if(c&&c.type==='guardian')tags.push('GUARDIAN');if(c&&c.type==='gate')tags.push('THE GATE');
   n.textContent=count;const tg=$('#cat-tags');tg.textContent=tags.join('   ');tg.classList.toggle('on',tags.length>0);
   $('#cat-ob').textContent='SECTOR '+R.sector+' OF 5: '+r2U(r2Sec().name);$('#c-orb').hidden=true;$('#cat-t').textContent='INTEL';
 }
@@ -436,10 +447,16 @@ function r2Preset(k){
   const R=R2.R,name=R2_PRE[k],a=R2_PRESET[name];if(!a)return;
   const p={};R2_CH.forEach((c,i)=>p[c]=a[i]);
   const r=RM.setPower(R,p);
-  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('POWER REALLOCATED: '+name);}
+  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('REROUTE QUEUED: '+name+'. LANDS '+(R.phase==='fight'?'NEXT ROUND':'ON YOUR NEXT FOLD'));}
   r2Save();r2Render();
 }
 const R2K=window.__R2K||8;
+const R2_TRANSIT=3; /* ship minutes per real second while folding */
+/* the fold begins: a queued reroute lands now, and the fold factor is held to what propulsion allows */
+function r2BeginFold(){
+  const R=R2.R;if(R&&RM.applyPending(R)){r2Bridge();r2Say('REROUTE COMPLETE');}
+  const mw=Math.floor(maxWarp()*10)/10;if(S.warpSet>mw+.05)S.warpSet=mw;
+}
 const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K;
 function r2CanEngage(){
   const R=R2.R;if(R.phase!=='choose'||R.over||!S.dest||!/^c\d$/.test(S.dest.id))return false;
@@ -461,6 +478,7 @@ function r2Travel(dt){
     const sd=SYS[S.dest.id];
     if(!sd){S.engaged=false;return;}
     S.distLeft-=r2V(S.warpEff)*dt;
+    RM.passTime(R,dt*R2_TRANSIT,false);
     const tt=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);
     S.pos={x:S.from.x+(sd.x-S.from.x)*tt,y:S.from.y+(sd.y-S.from.y)*tt};
     if(S.distLeft<=0){const ix=+S.dest.id.slice(1);S.engaged=false;S.pos={x:sd.x,y:sd.y};S.dest=null;S.distLeft=0;S.distTotal=0;r2FoldCard(ix);return;}
@@ -484,13 +502,13 @@ function r2FoldCard(ix){
   const R=R2.R;if(R.phase!=='choose')return false;
   const c=R.cards[ix];if(!c)return false;
   R2.msgs=[];const label=R2_TYPE[c.type];
-  const r=RM.fold(R,ix);
+  const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
   R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;
   r2Snd('warpUp');
   if(R.phase==='fight'){
     R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;const m=R.fight.meta||{};
-    r2Say(m.hunt!=null&&m.hunt>=0?'HUNT '+['I','II','III'][m.hunt]+': THE REARGUARD CLOSES IN':'CONTACT. BATTLE STATIONS',true);
+    r2Say(m.hunt!=null&&m.hunt>=0?'INTERCEPT '+['I','II','III'][m.hunt]+': THE REARGUARD CLOSES IN':'CONTACT. BATTLE STATIONS',true);
     r2Alert('red');if(curView!=='tactical')go('tactical');
   }else if(R.phase==='offers'||R.phase==='event'||R.phase==='refit'){
     R2.defer=true;
