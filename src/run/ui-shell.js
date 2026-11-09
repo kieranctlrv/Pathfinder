@@ -39,6 +39,7 @@ function r2Record(){
 
 /* ---- the state bridge: Run state to the original station's fields and map ---- */
 function r2NodeName(c,ix,all){
+  if(c.p&&!c.id)return spBlipName(c);
   let n=R2_TYPE[c.type];
   if(c.type==='anomaly'){const a=RM.ANOMALIES.find(x=>x.id===c.ev);if(a)n=r2U(a.name);}
   const same=all.filter(x=>x.type===c.type).length;
@@ -59,12 +60,16 @@ function r2Bridge(){
   const nodes={};
   const curName=R.cur?R2_TYPE[R.cur.type]:R2.last;
   nodes.cur={id:'cur',type:R.cur?R2_NODE[R.cur.type]:'colony',layer:0,x:6,y:17,links:cards.map((c,i)=>'c'+i),name:curName,tag:'YOUR POSITION',rev:true,base:false,gate:false};
-  cards.forEach((c,i)=>{nodes['c'+i]={id:'c'+i,type:R2_NODE[c.type],layer:1,x:22,y:ys[i],links:[],name:r2NodeName(c,i,cards),tag:R2_TYPE[c.type],rev:true,base:false,gate:false};});
+  cards.forEach((c,i)=>{
+    if(c.p&&!c.found)return;   /* core loop step 3: only what a scan has found can be folded to */
+    let x=22,y=ys[i]||17;if(c.p){const l=Math.hypot(c.p[0],c.p[1])||1;x=6+c.d*c.p[0]/l;y=17+c.d*c.p[1]/l;}
+    nodes['c'+i]={id:'c'+i,type:R2_NODE[c.type],layer:1,x,y,links:[],name:r2NodeName(c,i,cards),tag:c.p&&!c.id?'UNIDENTIFIED':R2_TYPE[c.type],rev:true,base:false,gate:false};});
+  nodes.cur.links=nodes.cur.links.filter(k=>nodes[k]);
   const sec=r2Sec();
   nodes.goal={id:'goal',type:'gate',layer:2,x:35,y:17,links:[],name:r2U(sec.name),tag:R.passage>=6?'SECTOR GUARDIAN':'END OF SECTOR '+R.sector,rev:true,base:false,gate:true};
   Object.keys(SYS).forEach(k=>delete SYS[k]);Object.keys(nodes).forEach(k=>{SYS[k]=nodes[k];});
   S.known={};Object.keys(nodes).forEach(k=>{S.known[k]=true;});
-  S.unlocked={};cards.forEach((c,i)=>{S.unlocked['c'+i]=true;});S.visited={cur:true};
+  S.unlocked={};cards.forEach((c,i)=>{if(nodes['c'+i])S.unlocked['c'+i]=true;});S.visited={cur:true};
   if(!S.dest){S.pos={x:6,y:17};S.from={x:6,y:17};}
   if(S.homeSel&&!SYS[S.homeSel])S.homeSel=null;
   if(S.dest&&(!choose||!SYS[S.dest.id]))S.dest=null;
@@ -351,14 +356,18 @@ function r2Actions(){
   if(R.phase==='event')a.push({t:'RESPOND TO THE EVENT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='refit'){a.push({t:'OPEN REQUISITION',c:'--yellow',fn:()=>{S.cargoTab='req';go('cargo');},p:1});a.push({t:R.sector>=5?'LEAVE THE GATE':'LEAVE THE GATE: SECTOR '+(R.sector+1),c:'--orange',fn:()=>r2LeaveGate(),p:2});}
   if(R.phase==='choose'){
-    const can=R.cards.some(c=>R.ship.lumite+1e-9>=c.fuel)||r2Stat('hullFold',0)>0;
-    R.cards.forEach((c,i)=>{const hostile=c.type==='contact'||c.type==='guardian';a.push({t:'FOLD: '+r2NodeName(c,i,R.cards),c:hostile?'--salmon':'--orange',fn:()=>{goTo('c'+i,true);r2Render();},p:3+i});});
+    const can=R.cards.some(c=>R.ship.lumite+1e-9>=c.fuel*RM.foldFuelMult(2))||r2Stat('hullFold',0)>0;
+    const known=R.cards.map((c,i)=>({c,i})).filter(o=>!o.c.p||o.c.found);
+    if(!known.length&&!S.engaged)a.push({t:'SCAN AHEAD',c:'--blue',fn:()=>r2DoScan(),p:1});
+    known.forEach(({c,i})=>{const hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');a.push({t:'FOLD: '+r2NodeName(c,i,R.cards),c:hostile?'--salmon':'--orange',fn:()=>{S.homeSel='c'+i;goTo('c'+i,true);r2Render();},p:3+i});});
+    if(known.length&&!S.engaged&&R.cards.some(c=>c.p&&!c.id))a.push({t:'SCAN AGAIN',c:'--blue',fn:()=>r2DoScan(),p:6});
     if(!can)a.push({t:'ACCEPT THE STRANDING',c:'--salmon',fn:()=>{RM.endRun(R,'lost','STRANDED. NO LUMITE LEFT TO FOLD.');r2Save();r2Render();},p:1});
   }
   if(Object.keys(R.ship.offline).length)a.push({t:'REPAIR AN OFFLINE PART',c:'--orange',fn:()=>{S.engTab='structure';go('engineering');},p:2});
   return a.sort((x,y)=>x.p-y.p).slice(0,5);
 }
 function r2CardTags(c){
+  if(c.p&&!c.id)return ['UNIDENTIFIED: '+spBlipName(c)+'. SCAN AGAIN TO IDENTIFY, OR FOLD AND SEE'];
   const R=R2.R,I=RM.cardIntel(R,c),L=[];
   if(c.type==='contact')L.push(I.foe?'HOSTILE: '+r2U(I.foe):'HOSTILE, TYPE UNKNOWN');
   if(c.type==='guardian'){L.push(I.foe?'GUARDIAN: '+r2U(I.foe):'SECTOR GUARDIAN');L.push(R.sector===5?'ENDS THE RUN IF BEATEN':'REWARD: PICK 1 OF 3+ PARTS');if(R.sector===1)L.push('UNLOCKS WEAPON SLOT 3');if(R.sector===2)L.push('UNLOCKS WEAPON SLOT 4');}
@@ -379,18 +388,20 @@ function r2HomeMap(){
   $('#mc-idle').hidden=mode!=='idle';$('#mc-plan').hidden=mode!=='plan';$('#mc-trip').hidden=mode!=='trip';
   if(mode==='idle'){
     const hint=$('#mc-hint');
-    const t=choose?(S.dest?'COURSE SET FOR '+S.dest.name+'. TAP IT ON THE MAP TO ENGAGE.':'TAP A NODE TO PLAN A FOLD. '+legendHTML()):r2PhaseText();
-    if(hint.dataset.r2!==t){hint.dataset.r2=t;hint.dataset.lg='';hint.innerHTML=t;}
+    if(choose&&!S.engaged){hint.dataset.r2='';spControls(hint);}
+    else{const t=choose?(S.dest?'COURSE SET FOR '+S.dest.name+'.':'TAP A CONTACT TO PLAN A FOLD.'):r2PhaseText();
+    if(hint.dataset.r2!==t){hint.dataset.r2=t;hint.dataset.lg='';hint.dataset.sp='';hint.innerHTML=t;}}
   }else if(mode==='plan'){
-    const ix=+sel.slice(1),c=R.cards[ix],isCourse=!!(S.dest&&S.dest.id===sel),short=R.ship.lumite+1e-9<c.fuel&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold);
+    const ix=+sel.slice(1),c=R.cards[ix],isCourse=!!(S.dest&&S.dest.id===sel),wPlan=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()),short=R.ship.lumite+1e-9<r2FoldCost(c,wPlan)&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold);
     {const nm=r2NodeName(c,ix,R.cards);$('#mc-name').textContent=nm===R2_TYPE[c.type]?nm:nm+', '+R2_TYPE[c.type];}
     const d=distTo(sel),w=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()),eta=d/Math.max(.001,r2V(w));
-    const rows=[['DISTANCE',fmt(d)+' LY',false],['ETA AT FOLD '+fmt(w),fmtEta(eta),false],['LUMITE COST',(Math.round(c.fuel*100)/100)+' OF '+(Math.round(R.ship.lumite*10)/10),short],['THREAT',c.type==='gate'?'NONE':'+'+c.threat+' (NOW '+Math.round(R.threat)+'%)',false]];
+    const rows=[['DISTANCE',fmt(d)+' LY',false],['ETA AT FOLD '+fmt(w),fmtEta(eta),false],['LUMITE COST AT FOLD '+fmt(w),r2FoldCost(c,w)+' OF '+(Math.round(R.ship.lumite*10)/10),short],['SHIP TIME',(isFinite(eta)?Math.max(1,Math.round(eta*R2_TRANSIT)):'--')+' MIN (THREAT NOW '+Math.round(R.threat)+'%)',false]];
     r2CardTags(c).forEach(t=>rows.push([t.split(':')[0],t.indexOf(':')>0?t.slice(t.indexOf(':')+1).trim():'',/INTERCEPT MARK/.test(t)]));
     $('#mc-kv').innerHTML=rows.map(r=>r[1]===''?'<div><span>'+r[0]+'</span><b'+(r[2]?' class="bad"':'')+'>&nbsp;</b></div>':st(r[0],r[1],r[2])).join('');
     r2FuelPlan(sel,'#mc-fuel',true);
     $('#mc-set').textContent=isCourse?'COURSE SET':'SET COURSE';$('#mc-set').disabled=isCourse;
     $('#mc-go').textContent=S.engaged&&!isCourse?'CHANGE COURSE':'ENGAGE';$('#mc-go').disabled=short||(S.engaged&&isCourse);
+    {let fb=$('#mc-face');if(!fb){fb=el('button','btn sm');fb.id='mc-face';fb.style.setProperty('--bc','var(--lav)');fb.textContent='FACE IT';fb.addEventListener('click',()=>{SND.tap();if(S.homeSel)spFace(+S.homeSel.slice(1));});$('#mc-set').parentElement.appendChild(fb);}fb.hidden=!c.p||S.engaged||c.id;}
   }else{
     const ix=+S.dest.id.slice(1),c=R.cards[ix],v=r2V(S.warpEff),eta=v>0?S.distLeft/v:Infinity;
     $('#ht-kv').innerHTML=st('ARRIVING AT',r2NodeName(c,ix,R.cards))+st('DISTANCE LEFT',fmt(Math.max(0,S.distLeft))+' LY')+st('ETA',fmtEta(eta))+st('FOLD',fmt(S.warpEff)+' OF '+fmt(maxWarp()))+st('LUMITE ON ARRIVAL',(Math.round((R.ship.lumite-c.fuel)*10)/10)+' OF '+r2Stat('lumiteCap',10));
@@ -511,10 +522,13 @@ function r2BeginFold(){
   const mw=Math.floor(maxWarp()*10)/10;if(S.warpSet>mw+.05)S.warpSet=mw;
 }
 const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K;
+function r2FoldCost(c,w){return Math.round(c.fuel*RM.foldFuelMult(w)*100)/100;}
 function r2CanEngage(){
   const R=R2.R;if(R.phase!=='choose'||R.over||!S.dest||!/^c\d$/.test(S.dest.id))return false;
   const c=R.cards[+S.dest.id.slice(1)];if(!c)return false;
-  if(R.ship.lumite+1e-9<c.fuel&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold)){r2Snd('err');r2Say('NOT ENOUGH LUMITE: THIS FOLD COSTS '+c.fuel,true);return false;}
+  if(c.p&&!c.found)return false;
+  const cost=r2FoldCost(c,S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()));
+  if(R.ship.lumite+1e-9<cost&&!(r2Stat('hullFold',0)>0&&!R.flags.hullFold)){r2Snd('err');r2Say('NOT ENOUGH LUMITE: THIS FOLD COSTS '+cost+' AT FOLD '+fmt(S.warpSet)+'. LOWER THE FACTOR',true);return false;}
   return true;
 }
 function r2Travel(dt){
@@ -557,7 +571,7 @@ function r2FoldCard(ix){
   R2.msgs=[];const label=R2_TYPE[c.type];
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
-  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;
+  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
   {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}

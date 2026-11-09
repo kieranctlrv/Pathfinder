@@ -143,7 +143,8 @@ function drawRoutes(c,x,d,t){
 }
 const R_ok=()=>!!(S.run&&S.run.cur&&SYS[S.run.cur]);
 function drawMap(c){
-  c=c||$('#smap');if(!c||c.hidden||!c.offsetParent)return;fit(c);
+  c=c||$('#smap');if(R2.live){r2Space(c);return;}  /* core loop step 3: a Run plots the 3D scan space */
+  if(!c||c.hidden||!c.offsetParent)return;fit(c);
   const x=c.getContext('2d'),W=c.width,H=c.height,d=c.dpr,t=performance.now()/1000,sc=mapXY(c,0,0)[2];
   x.fillStyle='#060B16';x.fillRect(0,0,W,H);
   const sp=mapXY(c,S.pos.x,S.pos.y);

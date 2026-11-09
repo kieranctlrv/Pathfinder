@@ -22,7 +22,7 @@ const FOLD_THREAT = 8, HUNT_DROP = 35, FOLD_FUEL = 1;
 /* ---- time (core loop step 1): ship time is the cost; threat follows it ----
    Active time (folds, later scans) adds THREAT_PER_HOUR per ship-hour; idle time on station adds a fifth of that.
    Combat, comms, offers, events and the gate stop the clock (the UI only calls passTime when time runs). */
-const THREAT_PER_HOUR = 10, IDLE_THREAT = 0.2;
+const THREAT_PER_HOUR = 5, IDLE_THREAT = 0.2;   /* 5 per ship-hour: a passage's scans plus its fold land near the old 8 per fold */
 const DEFENCE = { propulsion: 20, shields: 60, sensors: 10, weapons: 10 };
 const CONTACTS = { 1: ['cutter', 'raider', 'picket'], 2: ['raider', 'picket', 'lancer', 'cutter'], 3: ['raider', 'lancer', 'ironclad', 'screenship'], 4: ['lancer', 'ironclad', 'screenship', 'raider'], 5: ['lancer', 'ironclad', 'screenship'] };
 const slotById = id => D.SLOTS.find(s => s.id === id), partById = id => D.PARTS.find(p => p.id === id);
@@ -105,6 +105,7 @@ function nextCards(R) {
   }
   if (R.passage === SHOP_AT) cards.push(mk('shop', { threat: threatCost(R, FOLD_THREAT - 5), fuel: foldCost(R, 1) }));
   cards.forEach(c => { c.crossesMark = c.type !== 'gate' && wouldCross(R, c.threat); });
+  placeCards(R, cards); R.emptyScans = 0; R.scanMarks = []; R.hintIx = null;
   R.cards = cards; R.phase = 'choose'; R.cur = null;
 }
 function wouldCross(R, add) { const t = R.threat + add; return MARKS.some((m, i) => i >= R.marks && t >= m) || t >= 100; }
@@ -122,6 +123,7 @@ function fold(R, ix, opts) {
   if (R.over) return { ok: false, why: 'run over' };
   if (R.phase !== 'choose') return { ok: false, why: 'nothing to fold to' };
   const c = R.cards[ix]; if (!c) return { ok: false, why: 'no such card' };
+  if (c.p && !c.found) return { ok: false, why: 'not detected yet' };
   applyPending(R);
   const cost = Math.round(c.fuel * foldFuelMult(opts.factor) * 100) / 100;
   if (R.ship.lumite + 1e-9 < cost) { if (stat(R, 'hullFold', 0) && !R.flags.hullFold) { R.flags.hullFold = 1; R.ship.hull = Math.max(1, R.ship.hull - 15); log(R, 'hullFold', {}); } else return { ok: false, why: 'not enough lumite' }; }
@@ -375,7 +377,7 @@ function leaveGate(R) {
   if (R.phase !== 'refit') return { ok: false };
   if (stat(R, 'gateRefill', 0)) R.ship.lumite = stat(R, 'lumiteCap', 10);
   const frac = stat(R, 'gateHullHalf', 0) ? 0.5 : 0; if (frac && R.ship.hull < R.ship.hullMax * frac) R.ship.hull = Math.round(R.ship.hullMax * frac);
-  R.sector++; R.passage = 0; R.cur = null; R.flags['threatFold' + R.sector] = 0;
+  R.sector++; R.passage = 0; R.cur = null; R.gateDir = null; R.flags['threatFold' + R.sector] = 0;
   log(R, 'sector', { sector: R.sector }); emit(R, 'sector.gate', { sector: R.sector }); nextCards(R); return { ok: true, phase: 'choose' };
 }
 
@@ -412,11 +414,79 @@ function passTime(R, minutes, idle) {
   R.threat = Math.min(100, R.threat + minutes / 60 * THREAT_PER_HOUR * (idle ? IDLE_THREAT : 1) * stat(R, 'foldThreat', 1));
 }
 /* faster folds burn more lumite: fold 5 costs the card's base, fold 9 about 2.4 times, fold 2 about a quarter */
+/* ---- scan navigation (core loop step 3) ----
+   Each passage is a small 3D volume centred on the ship (light years; +x = sector x, +y = sector y, +z = up).
+   Contacts have real positions; a scan reveals what lies inside the cone around the ship's nose, out to reach.
+   The ship turns to aim (turning is cheap). Blips first, identified when close or scanned again. */
+const SCAN_HALF = { sweep: 45, focus: 18 }, SCAN_REACH = { sweep: 1, focus: 1.5 }, SCAN_MAX_NEW = 3;
+const BAND = { contact: [3, 9], outpost: [3, 9], shop: [3, 7], wreck: [2, 7], anomaly: [2, 7], trace: [2, 6], guardian: [4, 6], gate: [5, 7] };
+const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
+function randDir(R, flat) { const az = rnd(R) * Math.PI * 2, el = (flat ? 0.35 : (rnd(R) < 0.8 ? 1 : 2.2) * (Math.PI / 3)) * (rnd(R) - 0.5); return [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)]; }
+function placeCards(R, cards) {
+  const gd = R.gateDir || (R.gateDir = randDir(R, true));
+  const placed = [];
+  cards.forEach((c, i) => {
+    const b = BAND[c.type] || [3, 8];
+    let p = null;
+    for (let t = 0; t < 60 && !p; t++) {
+      const along = c.type === 'gate' || c.type === 'guardian';
+      const dir = along ? unit([gd[0] + (rnd(R) - 0.5) * 0.3, gd[1] + (rnd(R) - 0.5) * 0.3, gd[2]]) : randDir(R, false);
+      const d = i === 0 && !along ? 2.2 + rnd(R) * 2 : b[0] + rnd(R) * (b[1] - b[0]);
+      const q = [dir[0] * d, dir[1] * d, dir[2] * d];
+      if (placed.some(o => Math.hypot(o[0] - q[0], o[1] - q[1], o[2] - q[2]) < 1.5)) continue;
+      if (i === 1 && placed.length && Math.abs(Math.atan2(q[1], q[0]) - Math.atan2(placed[0][1], placed[0][0])) < 0.9) continue;   /* spread: the second contact sits well apart */
+      p = q;
+    }
+    if (!p) { const dir = randDir(R, true), d = b[0] + 1; p = [dir[0] * d, dir[1] * d, dir[2] * d]; }
+    placed.push(p);
+    c.p = p.map(x => Math.round(x * 100) / 100); c.d = Math.round(Math.hypot(p[0], p[1], p[2]) * 100) / 100;
+    c.fuel = Math.round(c.fuel * Math.max(0.5, Math.min(1.8, c.d / 5)) * 100) / 100;   /* lumite follows distance */
+    const auto = c.type === 'gate' || c.type === 'guardian';   /* Navigation fixes the gate (and its guardian) at passages 6 and 7 */
+    c.found = auto; c.id = auto;
+  });
+}
+function scanReach(R, mode) { return (4 + (R.power.sensors || 0) * 0.12 + stat(R, 'scanRange', 0)) * SCAN_REACH[mode]; }
+function scanMinutes(R, mode) { return Math.max(5, Math.round(60 * (mode === 'focus' ? 0.75 : 0.42) * Math.sqrt(30 / Math.max(10, R.power.sensors || 10)) * stat(R, 'scanTime', 1))); }
+function turnMinutes(deg) { return Math.round(deg / 180 * 8); }   /* thrusters are cheap in space */
+function scanPreview(R, dir, mode) {
+  const nose = R.nose || [1, 0, 0], d = unit(dir), deg = angDeg(nose, d);
+  return { turnDeg: Math.round(deg), turnMin: deg > 1 ? turnMinutes(deg) : 0, scanMin: scanMinutes(R, mode), reach: Math.round(scanReach(R, mode) * 10) / 10 };
+}
+function scan(R, opts) {
+  opts = opts || {};
+  if (R.over) return { ok: false, why: 'run over' };
+  if (R.phase !== 'choose') return { ok: false, why: 'not now' };
+  const mode = opts.mode === 'focus' ? 'focus' : 'sweep', dir = unit(opts.dir || R.nose || [1, 0, 0]);
+  applyPending(R);   /* a scan is a turn: a queued reroute lands now */
+  const pv = scanPreview(R, dir, mode), reach = scanReach(R, mode);
+  passTime(R, pv.turnMin + pv.scanMin, false);
+  R.nose = dir;
+  const hits = [];
+  let fresh = 0;
+  R.cards.forEach((c, ix) => {
+    if (!c.p || c.id) return;
+    const inside = angDeg(dir, unit(c.p)) <= SCAN_HALF[mode] && c.d <= reach;
+    if (!inside) return;
+    if (c.found) { c.id = true; hits.push({ ix, identified: true }); return; }
+    const chance = R.hintIx === ix ? 1 : Math.max(0.12, Math.min(0.95, 0.95 - (c.d / reach) * 0.55 + ((R.power.sensors || 25) - 25) / 150));   /* a contact Science pointed at is always found */
+    if (fresh < SCAN_MAX_NEW && rnd(R) < chance) { fresh++; c.found = true; c.id = c.d <= reach * 0.45 || c.type === 'shop'; hits.push({ ix, identified: false }); }
+  });
+  R.emptyScans = hits.length ? 0 : (R.emptyScans || 0) + 1;
+  let hint = null;
+  if (hits.some(h => h.ix === R.hintIx)) R.hintIx = null;
+  if (R.emptyScans >= 2) { const left = R.cards.map((c, i) => ({ c, i })).filter(o => o.c.p && !o.c.found).sort((a, b) => a.c.d - b.c.d)[0]; if (left) { hint = unit(left.c.p); R.hintIx = left.i; if (left.c.d > scanReach(R, 'sweep')) hint.focus = true; } }
+  const gateReading = mode === 'focus' && R.gateDir && R.passage < 6 && angDeg(dir, R.gateDir) <= SCAN_HALF.focus;
+  R.stats.scans = (R.stats.scans || 0) + 1;
+  log(R, 'scan', { mode, found: hits.length });
+  emit(R, 'scan.done', { hits, mode });
+  return { ok: true, mode, hits, empty: !hits.length, hint, gateReading, turnDeg: pv.turnDeg, turnMin: pv.turnMin, scanMin: pv.scanMin, reach: pv.reach };
+}
 function foldFuelMult(factor) { if (!(factor > 0)) return 1; return Math.max(0.25, Math.min(2.5, Math.pow(factor / 5, 1.5))); }
 function save(R) { return JSON.stringify(R); }
-function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; return R; }
+function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; if (R.phase === 'choose' && R.cards && R.cards.some(c => !c.p)) { placeCards(R, R.cards); R.cards.forEach(c => { c.found = true; c.id = true; }); } return R; }
 
-const api = { passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
+const api = { scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunMap = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

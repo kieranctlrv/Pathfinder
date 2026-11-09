@@ -268,6 +268,7 @@ function initHome(){
   $('#cb-ship').addEventListener('click',e=>{const fo=e.target.closest&&e.target.closest('[data-foe]');if(fo&&S.fight){fightAct('target',fo.dataset.foe);SND.tap();}});
   $('#mc-fuel').addEventListener('click',e=>{const b=e.target.closest('.fw');if(!b)return;SND.tap();setWarp(+b.dataset.w);fpKey='';renderHomeMap();});
   $('#hmap').addEventListener('click',e=>{
+    if(R2.live)return;
     const c=e.currentTarget,r=c.getBoundingClientRect(),k=c.width/r.width;
     const px=(e.clientX-r.left)*k,py=(e.clientY-r.top)*k;
     let best=null,bd=1e9;

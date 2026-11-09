@@ -36,6 +36,7 @@
       "src/campaign/combat-realtime.js",
       "src/legacy/run-v01.js",
       "src/run/ui-shell.js",
+      "src/run/ui-space.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",
       "src/station/launch.js",

@@ -78,6 +78,16 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - The feed owns the full right column, top to bottom, with larger type. The Comms and Intel tiles and the bottom ship log are hidden in a Run, since the feed and the map card carry what they said.
 - Still to come: officer voices (step 6), per-round combat cards (step 5), the Library history view.
 
+## Core loop, step 3 (scan navigation)
+
+- Each passage is a small 3D volume. Contacts have real positions (seeded), and only what a scan finds can be folded to. Route cards are gone from the map.
+- The sensors face the ship's nose. On the Home map: drag in Camera mode to look around, Helm mode to plan a new facing (ghost ship and cone), Align to view, camera presets (behind, 3/4, top, side). Tap a contact to plan a fold; Face it turns toward an unidentified blip.
+- Sweep (wide) or Focus (narrow, 1.5x reach). Sensor power sets reach and scan time. A scan turns the ship first if a new facing is planned (turning is cheap), spends ship time, lands a queued reroute, and finds up to three new contacts.
+- Blips show their class (energy, mass, signal) until identified, by being close or scanned again. Folding to a blip is allowed.
+- Two empty scans in a row: Science points the helm at the nearest unfound contact, and that scan is guaranteed to find it. The gate and guardian are fixed by Navigation at passages 6 and 7; a Focus scan along the gate's bearing earlier picks up a faint reading.
+- Lumite per fold follows distance and fold factor; the plan panel and the engage check use the factor you set.
+- Threat per ship-hour is 5 (scans and folds both spend time).
+
 ## History
 
 The source was split from Build 5 (Oct 8, 2026: loot rolls, risky options, shop, content hooks). The first commit's `dist/index.html` is byte-for-byte identical to that build.

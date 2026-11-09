@@ -214,3 +214,13 @@ body.r2feed .fd-card p{font-size:calc(16px*var(--ts,1));line-height:1.35}
 body.r2feed .fd-fold{font-size:calc(14px*var(--ts,1));padding:3px 12px}
 body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 @media (max-width:1000px){body.r2feed .p-col3{grid-row:auto}body.r2feed .ambient{grid-column:auto}}
+
+/* ---- core loop step 3: scan controls under the map ---- */
+#mc-hint .sp-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 6px}
+#mc-hint .sp-l{min-width:44px;color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.14em}
+#mc-hint .sp-v{color:var(--chalk);font-size:calc(13px*var(--ts,1));letter-spacing:.06em;margin-left:6px}
+#mc-hint .btn.sm.on{box-shadow:inset 0 0 0 3px #fff}
+#mc-hint .sp-go{margin-top:4px}
+#mc-hint .sp-scan{flex:1 1 auto;min-height:40px;font-size:calc(17px*var(--ts,1))}
+#mc-hint .sp-scan[disabled]{opacity:.55}
+#mc-hint .sp-gap{margin-left:14px}
