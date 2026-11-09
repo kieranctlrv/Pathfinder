@@ -164,6 +164,32 @@
 
 /* core loop step 1: pause control beside the ship clock */
 #clock{display:inline-block;vertical-align:middle}
-.r2-pbtn{display:inline-block;vertical-align:middle;margin:2px 0 0 12px;padding:4px 12px;border:2px solid var(--orange);background:transparent;color:var(--orange);font:inherit;font-size:calc(14px*var(--ts,1));letter-spacing:.12em;cursor:pointer;border-radius:2px}
+.r2-pbtn{align-self:flex-start;width:auto;flex:none;display:inline-block;vertical-align:middle;margin:2px 0 0 12px;padding:4px 12px;border:2px solid var(--orange);background:transparent;color:var(--orange);font:inherit;font-size:calc(14px*var(--ts,1));letter-spacing:.12em;cursor:pointer;border-radius:2px}
 .r2-pbtn:hover,.r2-pbtn:focus-visible{background:var(--orange);color:#060b16;outline:none}
 .r2-pbtn.on{background:var(--orange);color:#060b16}
+
+/* ---- core loop step 2: the ship's feed (right column in Run mode) ---- */
+.p-col3 .p-feed{flex:1 1 0;min-height:0}
+.p-feed[hidden],.p-col3 .panel[hidden]{display:none}
+.p-feed .pb.fd-wrap{display:flex;flex-direction:column;gap:8px;min-height:0;height:auto;overflow:hidden}
+.fd-now{flex:none;border-left:4px solid var(--orange);padding:4px 10px;background:rgba(255,153,51,.06)}
+.fd-now b{display:block;color:var(--orange);font-weight:500;letter-spacing:.1em;font-size:calc(16px*var(--ts,1))}
+.fd-now p{margin:2px 0 0;color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.06em}
+.fd-now .fd-sit{color:var(--chalk)}
+.fd-stream{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column-reverse;gap:6px;padding-right:4px}
+.fd-div{margin:10px 0 2px;padding-top:6px;border-top:1px solid #2a3350;color:var(--orange);font-size:calc(12px*var(--ts,1));letter-spacing:.16em}
+.fd-sys{margin:0;display:grid;grid-template-columns:44px 1fr;gap:8px;color:#8f9bc4;font-size:calc(13px*var(--ts,1));letter-spacing:.05em;line-height:1.3}
+.fd-sys time{color:#5c678f;font-variant-numeric:tabular-nums}
+.fd-sys.bad span{color:var(--salmon)}
+.fd-card{border:2px solid var(--peri);border-radius:3px;padding:7px 10px;background:#0a1020}
+.fd-card h5{margin:0 0 4px;font-weight:500;color:var(--chalk);letter-spacing:.1em;font-size:calc(15px*var(--ts,1))}
+.fd-card p{margin:2px 0 0;color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.05em;line-height:1.3}
+.fd-card.tone-red{border-color:var(--salmon)}.fd-card.tone-red h5{color:var(--salmon)}
+.fd-card.tone-good{border-color:var(--teal,#4fd1c5)}.fd-card.tone-good h5{color:var(--teal,#4fd1c5)}
+.fd-fold{align-self:flex-start;background:none;border:1px dashed #3a4566;color:#7d88b3;font:inherit;font-size:calc(12px*var(--ts,1));letter-spacing:.12em;padding:2px 10px;border-radius:12px;cursor:pointer}
+.fd-fold:hover,.fd-fold:focus-visible{border-color:var(--lav);color:var(--lav);outline:none}
+.fd-new{animation:fdIn .35s ease-out}
+@keyframes fdIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fd-dock{flex:none;display:flex;flex-direction:column;gap:6px}
+.fd-dock .btn{width:100%}
+@media (max-width:700px){.p-feed .fd-stream{max-height:55vh}}

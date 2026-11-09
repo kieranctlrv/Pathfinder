@@ -96,7 +96,7 @@ function refreshHome(){
   if(word!==curWord){
     curWord=word;const m=$('#d-mode');m.textContent=MODE_WORD[word][0];m.style.color='var('+MODE_WORD[word][1]+')';
   }
-  if(curView==='home'){renderHomeMap();renderActions();renderContacts();renderStrip();if(lay==='combat')renderCombat();}
+  if(curView==='home'){renderHomeMap();renderActions();renderContacts();if(R2.live)r2ShipFeed();renderStrip();if(lay==='combat')renderCombat();}
 }
 function renderCombat(){
   if(R2.live){r2CombatHome();return;}

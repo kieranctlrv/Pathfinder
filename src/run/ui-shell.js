@@ -23,7 +23,7 @@ const r2Pseudo=()=>({ship:R2.R.ship,officers:R2.R.officers,power:R2.R.power,boos
 const r2Stat=(k,b)=>RM.stat(R2.R,k,b);
 const r2Snd=n=>{try{if(SND[n])SND[n]();}catch(e){}};
 const r2Col=c=>'var(--'+c+')';
-const r2Say=(t,bad)=>{t=r2U(t);try{log(t,bad?'warn':'');}catch(e){}try{if(!/^RUN STARTED/.test(t))clog(t.charAt(0)+t.slice(1).toLowerCase()+'.');}catch(e){}};
+const r2Say=(t,bad)=>{t=r2U(t);if(R2.voxGrab){R2.voxGrab.push(t);}else r2Vox({k:'sys',t:t,bad:!!bad});try{log(t,bad?'warn':'');}catch(e){}try{if(!/^RUN STARTED/.test(t))clog(t.charAt(0)+t.slice(1).toLowerCase()+'.');}catch(e){}};
 const r2Sec=()=>RM.SECTORS[clamp(R2.R.sector,1,5)-1];
 
 /* ---- save, record ---- */
@@ -238,6 +238,7 @@ function r2Render(){
   if(R.phase==='fight'&&!R.over&&R2.lastPh!=='fight'){R2.lastPh='fight';R2.sel=null;R2.feed=[];R2.feedN=0;R2.busy=false;R2.pop=null;r2Alert('red');if(curView!=='tactical')go('tactical');}
   R2.lastPh=R.phase;
   r2Bridge();r2Hdr();r2Res();
+  {const pf=$('.p-feed');if(pf){pf.hidden=false;$$('.p-actions,.p-contacts').forEach(x=>x.hidden=true);}const hm=$('#hdr-mid');if(hm)hm.hidden=true;document.body.classList.add('r2feed');}
   $$('.tab').forEach(t=>t.classList.toggle('glow',t.dataset.go==='tactical'&&R.phase==='fight'));
   try{lastChips='';acKey='';ctKey='';hdKey='';cmKey='';cwKey='';catKey='';renderChips();renderOps();}catch(e){}
   if(curView==='home')refreshHome();
@@ -252,6 +253,58 @@ function r2KeepScroll(name){
   const v=$('#view');if(!v)return ()=>{};
   const list=[...v.querySelectorAll('*')].filter(e=>e.scrollTop>0).map(e=>[[...v.querySelectorAll('*')].indexOf(e),e.scrollTop]);
   return ()=>{if(curView!==name||!list.length)return;const all=[...v.querySelectorAll('*')];list.forEach(([i,t])=>{if(all[i])all[i].scrollTop=t;});};
+}
+/* ---- the ship's feed (core loop step 2): one saved stream of what the ship tells you ----
+   entries: {k:'div'|'sys'|'card', t, rows?, tone?, m: ship minutes}. Kept on the Run (R.vox), newest last. */
+const VOX_MAX=160;
+function r2Vox(e){
+  const R=R2.R;if(!R)return;if(!R.vox)R.vox=[];
+  e.m=R.shipMin||0;e.id=(R.voxN=(R.voxN||0)+1);R.vox.push(e);if(R.vox.length>VOX_MAX)R.vox.splice(0,R.vox.length-VOX_MAX);
+  R2.fdKey='';
+}
+function r2VoxCard(title,rows,tone){r2Vox({k:'card',t:r2U(title),rows:(rows||[]).filter(Boolean).map(r2U),tone:tone||''});}
+/* collect whatever r2Say says inside fn into the rows of one card */
+function r2VoxGather(fn){const prev=R2.voxGrab,out=[];R2.voxGrab=out;try{fn();}finally{R2.voxGrab=prev;}return out;}
+function r2FdNow(){
+  const R=R2.R,ol=r2OrderLine(),h=$('#fd-now');if(!h)return;
+  const t=ol.t+'|'+ol.h+'|'+r2PhaseText();if(h.dataset.k===t)return;h.dataset.k=t;
+  h.innerHTML='';const b=el('b');b.textContent=ol.t;const p1=el('p');p1.textContent=ol.h;const p2=el('p','fd-sit');p2.textContent=r2PhaseText();h.appendChild(b);h.appendChild(p1);h.appendChild(p2);
+}
+function r2FdDock(){
+  const host=$('#fd-dock');if(!host)return;
+  const acts=r2Actions().slice(0,3),key=acts.map(x=>x.t).join('|');if(host.dataset.k===key)return;host.dataset.k=key;
+  host.innerHTML='';
+  acts.forEach(x=>{const bt=el('button','btn');bt.textContent=x.t;bt.style.setProperty('--bc','var('+x.c+')');bt.addEventListener('click',()=>{SND.tap();x.fn();host.dataset.k='';refreshHome();});host.appendChild(bt);});
+}
+function r2ShipFeed(){
+  const R=R2.R,pf=$('.p-feed');if(!R||!pf)return;
+  r2FdNow();r2FdDock();
+  const st=$('#fd-stream'),v=R.vox||[],key=v.length+':'+(v.length?v[v.length-1].id:0)+':'+(R2.fdOpen||[]).join(',');
+  if(R2.fdKey===key&&st.childElementCount)return;
+  const fresh=R2.fdLast||0,grew=(v.length?v[v.length-1].id:0)>fresh;R2.fdKey=key;
+  const out=[],tm=m=>{const t=360+(m||0),x=Math.floor(t%1440);return pad(Math.floor(x/60),2)+':'+pad(x%60,2);};
+  for(let i=0;i<v.length;i++){
+    const e=v[i];
+    if(e.k==='sys'){ /* runs of four or more routine lines fold into one, leaving the last two showing */
+      let j=i;while(j<v.length&&v[j].k==='sys')j++;
+      if(j-i>=4&&(R2.fdOpen||[]).indexOf(e.id)<0){
+        const fb=el('button','fd-fold');fb.textContent=(j-i-2)+' SHIP NOTES';fb.addEventListener('click',()=>{R2.fdOpen=(R2.fdOpen||[]).concat([e.id]);r2ShipFeed();});out.push(fb);
+        i=j-3;continue;
+      }
+    }
+    let n;
+    if(e.k==='div'){n=el('div','fd-div');n.textContent=e.t;}
+    else if(e.k==='card'){
+      n=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;n.appendChild(h);
+      (e.rows||[]).forEach(r=>{const p=el('p');p.textContent=r;n.appendChild(p);});
+    }else{n=el('p','fd-sys'+(e.bad?' bad':''));const t=el('time');t.textContent=tm(e.m);const sp=el('span');sp.textContent=e.t;n.appendChild(t);n.appendChild(sp);}
+    if(e.id>fresh&&!REDUCED)n.classList.add('fd-new');
+    out.push(n);
+  }
+  /* the stream is laid out bottom-up (column-reverse), so it stays pinned to the newest entry through any resize */
+  st.innerHTML='';for(let i=out.length-1;i>=0;i--)st.appendChild(out[i]);
+  R2.fdLast=v.length?v[v.length-1].id:0;
+  st.scrollTop=0; /* with column-reverse, 0 is the newest entry */
 }
 function r2PauseEl(){
   const o=el('div','r2-pause');o.id='r2-pause';
@@ -505,6 +558,10 @@ function r2FoldCard(ix){
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
   R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;
+  {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
+  {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
+   if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}
+   else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');}
   r2Snd('warpUp');
   if(R.phase==='fight'){
     R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;const m=R.fight.meta||{};
@@ -519,7 +576,7 @@ function r2FoldCard(ix){
 }
 function r2LeaveGate(){
   const R=R2.R,r=RM.leaveGate(R);r2Snd('warpUp');
-  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));if(curView==='cargo')go('home');}
+  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Vox({k:'div',t:'SECTOR '+R.sector+' OF 5 \u00b7 '+r2U(r2Sec().name)});r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));if(curView==='cargo')go('home');}
   r2Do(r);
 }
 

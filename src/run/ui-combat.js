@@ -441,6 +441,8 @@ function r2Finish(){
   const res=RM.resolveFight(R);
   R2.feed=[];R2.busy=false;R2.sel=null;R2.pop=null;
   r2Alert('green');
+  const eName=(f.enemy&&f.enemy.name)||((RC.view(f).enemy||{}).name)||'THE CONTACT';
+  const rows=r2VoxGather(()=>{
   if(res.result==='won'){
     const sm=res.summary||{};r2Say('VICTORY. +'+(sm.salvage||0)+' SALVAGE');try{clog('Won a fight. +'+(sm.salvage||0)+' salvage.');}catch(e){}
     if(before.m.hunt!=null&&before.m.hunt>=0)r2Say('INTERCEPT BEATEN. THREAT '+Math.round(before.thr)+'% TO '+Math.round(R.threat)+'%');
@@ -450,6 +452,10 @@ function r2Finish(){
     if(R.offers&&R.offers.auto){const d=R.offers.free[0];r2Say(r2U(d.grade)+' DROP: '+r2OfferText(d)+(d.converted?' (HOLD FULL, SOLD)':''));}
     r2Snd('win');
   }else if(res.result==='fled'){r2Say('YOU WITHDREW. NO SALVAGE');}
+  });
+  if(res.result!=='lost')rows.push('HULL '+Math.round(R.ship.hull)+' OF '+R.ship.hullMax);
+  r2VoxCard((res.result==='won'?'VICTORY: ':res.result==='fled'?'WITHDREW FROM ':'LOST TO ')+eName,rows,res.result==='won'?'good':'red');
+  if(R.phase==='fight'){const E=RC.view(R.fight).enemy;r2VoxCard('ARRIVED: '+E.name+', '+(R2.last||'HOSTILE CONTACT'),['THE FOLD YOU CHOSE BRINGS YOU STRAIGHT INTO A SECOND FIGHT.'],'red');}
   if(R.phase==='fight'){R2.sel=null;r2Alert('red');if(curView!=='tactical')go('tactical');}else if(curView==='tactical'&&!R.over)go('home');
   r2Save();r2Render();
 }

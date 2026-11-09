@@ -69,6 +69,14 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Power routing changes are queued: they land when your next fold begins, or at the next combat round. Red alert sets Defence at once.
 - The fights at threat marks are called intercepts on screen; "The Hunt" is only the charter.
 
+## Core loop, step 2 (the ship's feed, first version)
+
+- In Run mode the Home screen's right column is the ship's feed: a Now bar (sector, passage, threat, the situation), the stream, and an action dock with up to three things to do next.
+- The stream replaces the header ship log. Every ship message lands there with its ship time, and four or more routine lines in a row fold into "ship notes".
+- Cards mark the key moments: passage and sector dividers, arrival at each contact, intercepts, and every fight result (outcome, drop, promotions, losses, hull).
+- The stream is saved with the Run (R.vox, last 160 entries).
+- Still to come: officer voices (step 6), per-round combat cards (step 5), the Library history view.
+
 ## History
 
 The source was split from Build 5 (Oct 8, 2026: loot rolls, risky options, shop, content hooks). The first commit's `dist/index.html` is byte-for-byte identical to that build.
