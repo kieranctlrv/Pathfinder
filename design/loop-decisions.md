@@ -26,3 +26,14 @@ Running record of decisions for the new core loop (ship-voice feed, 3D scan navi
 2. Design the loop on paper: feed, 3D scan, between-fight flow, together.
 3. Build the new loop with combat-feel and layout fixes riding along.
 4. Balance last.
+
+## 2026-11-08, round 2
+
+1. **Time is the cost.** Scans and folds spend ship time; threat rises with ship time spent (replaces "threat rises only per fold"). Every mechanic should be designed with time as its cost. Stakes stay low, not punishing. Add a deliberate **pause** button, since time keeps running and going AFK could kill you.
+2. **Aiming a scan** needs proper design. Use the **same orientation control** as the new ship-orientation switch in Engineering (playtest #8), so one UI turns the view in both places.
+3. **Scans reveal blips first** (rough type), then better sensors or a second scan identify the contact fully. Think it through now; tune numbers in the balance pass.
+4. **Revealed contacts stay** on the map; scanning several headings before choosing is valid.
+5. **Turns outside combat:** one scan or one fold; a power change lands on the next one. **Talking to a ship sits outside turns and outside time:** you're there, communicating peacefully at your own pace. Keep this mindset for all future content and encounters.
+6. **Tactical stays the main combat screen.** Home must be visually aligned with it during combat (combat replaces the viewer on Home).
+7. **Campaign scanning:** discuss later.
+8. **The feed replaces the header ship log;** the Library keeps the full history. This mechanic should be really fleshed out.
