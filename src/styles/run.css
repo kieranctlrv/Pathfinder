@@ -224,3 +224,14 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 #mc-hint .sp-scan{flex:1 1 auto;min-height:40px;font-size:calc(17px*var(--ts,1))}
 #mc-hint .sp-scan[disabled]{opacity:.55}
 #mc-hint .sp-gap{margin-left:14px}
+/* Engineering > Structure: the ship in 3D */
+.e3{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0}
+.e3 .sp-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.e3 .sp-l{min-width:44px;color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.14em}
+.e3-lg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-left:auto}
+.e3-lg i{font-style:normal;font-size:calc(11px*var(--ts,1));letter-spacing:.12em;color:var(--dc)}
+.e3-lg i::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid var(--dc);margin-right:4px;vertical-align:-1px}
+.e3-wrap{position:relative;flex:1;min-height:300px;border-radius:10px;overflow:hidden}
+.e3-wrap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;display:block}
+.e3-cap{margin:0;color:var(--chalk);font-size:calc(13px*var(--ts,1));letter-spacing:.08em;min-height:1.3em}
+@media (max-width:1000px){.e3-wrap{flex:none;height:280px;min-height:0}.e3-lg{margin-left:0}}

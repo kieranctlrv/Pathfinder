@@ -187,16 +187,16 @@ R2V.engineering=root=>{
   const R=R2.R,pf=r2Pseudo();
   if(S.engTab==='structure'){
     root.style.gridTemplateColumns='minmax(0,1.5fr) minmax(0,1.2fr)';
-    root.innerHTML='<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SHIP STRUCTURE</h3></div><div class="pb" style="display:flex;flex-direction:column;gap:6px"><div class="shipwrap" id="sh-wrap"></div><div class="dimrow"><span>SENTINEL CLASS</span><span>HULL <b>'+Math.round(R.ship.hull)+' OF '+R.ship.hullMax+'</b></span></div></div></section>';
+    root.innerHTML='<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SHIP STRUCTURE</h3></div><div class="pb" style="display:flex;flex-direction:column;gap:6px"><div class="e3" id="e3-host"></div><div class="dimrow"><span>SENTINEL CLASS</span><span>HULL <b>'+Math.round(R.ship.hull)+' OF '+R.ship.hullMax+'</b></span></div></div></section>';
     r2EngTabs(root,'structure');
-    $('#sh-wrap',root).innerHTML=shipSVG('top',{},{labels:false});
+    e3Mount($('#e3-host',root));
     const sy=r2P('SYSTEMS','peri'),sb=r2Body(sy);
     Object.keys(RD.DEPT).forEach(d=>{
       const col=el('div','list'),o=R.officers[d];
       col.appendChild(Object.assign(el('h4'),{textContent:R2_DEPT[d]+'  •  '+(o.alive?R2_RANK[clamp(o.level,0,3)]:'OFFICER LOST')}));
       RD.SLOTS.filter(s=>s.department===d).forEach(s=>{
         const f=R.ship.fitted[s.id],locked=!f&&R.ship.unlocked.indexOf(s.id)<0&&s.unlock!=='start';
-        const row=el('button','row'+(R2.openSlot===s.id?' sel':''));row.style.setProperty('--rcol',R.ship.offline[s.id]?'var(--salmon)':'var(--blue)');
+        const row=el('button','row'+(R2.openSlot===s.id?' sel':''));row.dataset.slot=s.id;row.style.setProperty('--rcol',R.ship.offline[s.id]?'var(--salmon)':'var(--blue)');
         row.innerHTML='<span></span><span></span><span></span>';
         row.children[0].textContent=r2U(s.name);
         if(locked){row.children[1].textContent=s.unlock==='guardian1'?'LOCKED: SECTOR 1 GUARDIAN':'LOCKED: SECTOR 2 GUARDIAN';row.disabled=true;}

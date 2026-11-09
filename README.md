@@ -30,6 +30,8 @@ src/run/                  Run Mode
   run-core.js               turn-based combat engine, no screen code
   run-map.js                Run structure: passages, folds, loot, shop, content hooks
   ui-shell.js               bridge from the Run engine to the station screens
+  ui-space.js               3D scan space on the Home map
+  ui-ship3d.js              the ship in 3D (Engineering > Structure)
   ui-screens.js             Run versions of the station screens and the offer/event overlay
   ui-combat.js              Battle Stations and the tactical stage
 src/campaign/             the Campaign: comms scripts, encounters, missions, real-time combat
@@ -87,6 +89,14 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Two empty scans in a row: Science points the helm at the nearest unfound contact, and that scan is guaranteed to find it. The gate and guardian are fixed by Navigation at passages 6 and 7; a Focus scan along the gate's bearing earlier picks up a faint reading.
 - Lumite per fold follows distance and fold factor; the plan panel and the engage check use the factor you set.
 - Threat per ship-hour is 5 (scans and folds both spend time).
+
+## Core loop, step 4 (the ship in 3D, Engineering)
+
+- Engineering > Structure in a Run shows the Pathfinder as a solid 3D model (hull, nacelle pods, shield ring, command bulb), drawn with plain canvas math so phones handle it.
+- Every fitted slot has a marker where that part really sits on the hull (weapons on the dorsal and ventral flanks, fold coil in the dorsal pod, shield generator and emitters on the ring, sensors on the command bulb). Colours follow the department; offline parts show salmon, locked slots dashed, empty slots hollow.
+- Drag to turn the ship. View presets (3/4, side, top, front, aft) turn it smoothly. The model fits itself to the frame from each angle.
+- Tap a marker to open that system in the list (and the reverse: opening a row highlights its marker). The caption names the slot, where it is and its department.
+- Same drag and preset controls as the scan space on Home, so the two can later merge into one constant 3D ship view.
 
 ## History
 
