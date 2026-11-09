@@ -75,6 +75,7 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - The stream replaces the header ship log. Every ship message lands there with its ship time, and four or more routine lines in a row fold into "ship notes".
 - Cards mark the key moments: passage and sector dividers, arrival at each contact, intercepts, and every fight result (outcome, drop, promotions, losses, hull).
 - The stream is saved with the Run (R.vox, last 160 entries).
+- The feed owns the full right column, top to bottom, with larger type. The Comms and Intel tiles and the bottom ship log are hidden in a Run, since the feed and the map card carry what they said.
 - Still to come: officer voices (step 6), per-round combat cards (step 5), the Library history view.
 
 ## History

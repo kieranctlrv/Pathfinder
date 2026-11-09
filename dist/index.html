@@ -964,6 +964,27 @@ button:focus-visible,input:focus-visible,.panel:focus-visible{outline-offset:-4p
 .fd-dock{flex:none;display:flex;flex-direction:column;gap:6px}
 .fd-dock .btn{width:100%}
 @media (max-width:700px){.p-feed .fd-stream{max-height:55vh}}
+
+/* ---- the feed, prominent (playtest feedback 2026-11-08): it owns the whole right side in a Run ---- */
+body.r2feed #home{grid-template-columns:minmax(0,.95fr) minmax(0,2.1fr) minmax(0,1.55fr)}
+body.r2feed .p-col3{grid-row:1/3}
+body.r2feed .ambient{grid-column:1/3;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,.9fr)!important}
+body.r2feed .ambient .p-comms,body.r2feed .ambient .p-cat{display:none}   /* the feed and the map card carry what these said */
+body.r2feed #ob-toggle,body.r2feed #oplog{display:none}                   /* the bottom log duplicated the feed */
+body.r2feed .p-feed .ph h3{font-size:calc(22px*var(--tsh,1))}
+body.r2feed .fd-now{padding:8px 12px}
+body.r2feed .fd-now b{font-size:calc(20px*var(--ts,1))}
+body.r2feed .fd-now p{font-size:calc(15px*var(--ts,1))}
+body.r2feed .fd-now .fd-sit{font-size:calc(16px*var(--ts,1))}
+body.r2feed .fd-stream{gap:8px}
+body.r2feed .fd-div{font-size:calc(14px*var(--ts,1))}
+body.r2feed .fd-sys{grid-template-columns:52px 1fr;font-size:calc(16px*var(--ts,1));line-height:1.35}
+body.r2feed .fd-card{padding:10px 13px;border-width:2px}
+body.r2feed .fd-card h5{font-size:calc(19px*var(--ts,1))}
+body.r2feed .fd-card p{font-size:calc(16px*var(--ts,1));line-height:1.35}
+body.r2feed .fd-fold{font-size:calc(14px*var(--ts,1));padding:3px 12px}
+body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
+@media (max-width:1000px){body.r2feed .p-col3{grid-row:auto}body.r2feed .ambient{grid-column:auto}}
 </style>
 </head>
 <body>
