@@ -1037,6 +1037,18 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .fd-fight .btn{min-height:34px;height:auto;line-height:1.05;padding:4px 8px}
 @media (max-width:700px){.r2-wstrip{grid-template-columns:repeat(2,minmax(0,1fr))}.r2-hst{position:relative;inset:auto}.r2-hst .r2-stage{flex:none;aspect-ratio:16/10}.r2-hst .r2-ei{transform:scale(.62)}.r2-hst .r2-ban.idle{display:none}}
 @keyframes r2lungep{0%{transform:none}40%{transform:translateX(12px)}100%{transform:none}}
+/* step 6: officer voices, perks, ship's log */
+.fd-off{margin:6px 0;padding:4px 0 4px 10px;border-left:3px solid var(--dc)}
+.fd-off b{display:block;font-weight:500;font-size:calc(12px*var(--ts,1));letter-spacing:.14em;color:var(--dc)}
+.fd-off p{margin:2px 0 0;color:var(--chalk,#e8e6f0);font-size:calc(16px*var(--ts,1));line-height:1.3;letter-spacing:.02em;text-transform:none}
+.r2-oprk{margin:0 0 4px;display:flex;flex-direction:column;gap:1px;font-size:calc(11px*var(--ts,1));letter-spacing:.08em;color:var(--lav);opacity:.75}
+.r2-oprk .on{color:var(--peach);opacity:1}
+.r2-detail p.role{color:var(--blue)}
+.lg-f{gap:4px;flex-wrap:wrap;align-items:center}
+.lg-sel{background:#05080f;color:var(--peach);border:1px solid var(--lav);font:inherit;font-size:calc(13px*var(--ts,1));padding:3px 6px;letter-spacing:.06em}
+.lg-stream{flex:1;min-height:0;overflow:auto;padding-right:6px;font-size:calc(14px*var(--ts,1))}
+.lg-stream .fd-sys{display:flex;gap:10px;margin:2px 0;color:var(--lav)}.lg-stream .fd-sys time{opacity:.7;flex:none}
+.lg-stream .fd-sys.bad{color:var(--salmon)}
 </style>
 </head>
 <body>
@@ -2010,6 +2022,7 @@ function casualtyRoll(f, sl, already) {
   let p = (already && !stat(f, 'flatSecondHit', 0)) ? 25 : 10;
   if (f.ship.hull < f.ship.hullMax * 0.25 && !stat(f, 'noLowHullCasualty', 0)) p += 5;
   p += stat(f, 'casualty', 0);
+  if (f.flags && f.flags.calmCrew) p -= 3;   /* Medical officer perk (core loop step 6) */
   if (roll(f, Math.max(0, p))) { off.alive = false; f.casualty = { dept }; log(f, 'casualty', { dept }); }
 }
 
@@ -2112,6 +2125,49 @@ function log(R, t, d) { const e = Object.assign({ t, s: R.sector, p: R.passage }
 function pseudoFight(R) { return { ship: R.ship, officers: R.officers, power: R.power, boosts: [], flags: {}, enemy: {}, weapons: {} }; }
 const stat = (R, key, base) => C.stat(pseudoFight(R), key, base);
 
+/* ---- core loop step 6: every part gains a scan or time role, and officers add small rule-changing perks ----
+   Role values are per part variant at Mk I; each Mk above I improves them a little. Offline parts give nothing. */
+const ROLE = {
+  'sci.array.std': { reach: 1 }, 'sci.array.long': { reach: 1.2 }, 'sci.array.track': { reach: 1, idNear: 2 },
+  'sci.proc.std': { scanTime: 1 }, 'sci.proc.tact': { scanTime: 0.85 }, 'sci.proc.analytic': { scanTime: 0.9 },
+  'sci.comms.std': { faintId: 1 }, 'sci.comms.listen': { faintId: 1, idNear: 1 },
+  'sci.jam.std': { grace: 1 }, 'sci.jam.decoy': { grace: 1 },
+  'ops.thr.std': { turnTime: 1 }, 'ops.thr.vector': { turnTime: 0.6 }, 'ops.thr.evade': { turnTime: 0.8 },
+  'ops.engine.std': { foldSpeed: 1 }, 'ops.engine.burst': { foldSpeed: 1.15 }, 'ops.engine.eff': { foldSpeed: 0.95 },
+  'eng.cap.thr': { fastReroute: 1 }
+};
+const ROLE_TIER = { reach: 0.06, scanTime: -0.06, turnTime: -0.1, foldSpeed: 0.05 };
+const ROLE_TEXT = {
+  reach: v => 'SCAN REACH X' + v.toFixed(2), scanTime: v => 'SCAN TIME X' + v.toFixed(2), turnTime: v => 'TURN TIME X' + v.toFixed(2),
+  foldSpeed: v => 'FOLD SPEED X' + v.toFixed(2), idNear: v => 'IDENTIFIES CONTACTS WITHIN ' + v + ' LY MORE ON FIRST PASS',
+  faintId: () => 'FAINT SIGNALS (WRECKS, ANOMALIES, TRACES) IDENTIFIED ON FIRST PASS', grace: v => 'HIDES YOU: THE REARGUARD NEEDS ' + v + ' MORE ACTION TO REACH YOU',
+  fastReroute: () => 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE'
+};
+function partRoles(R, slotId) {        /* the roles one fitted part gives, at its Mk */
+  const f = R.ship.fitted[slotId]; if (!f || R.ship.offline[slotId]) return {};
+  const base = ROLE[f.part]; const out = {};
+  if (base) Object.keys(base).forEach(k => { out[k] = ROLE_TIER[k] ? Math.round((base[k] + ROLE_TIER[k] * (f.tier - 1)) * 100) / 100 : base[k]; });
+  if (slotId === 'eng.capacitor' && f.tier >= 3) out.fastReroute = 1;
+  return out;
+}
+function role(R, key, def) {          /* multipliers multiply, the rest add */
+  const mul = key === 'reach' || key === 'scanTime' || key === 'turnTime' || key === 'foldSpeed';
+  let v = null; Object.keys(R.ship.fitted).forEach(sl => { const x = partRoles(R, sl)[key]; if (x == null) return; v = v == null ? x : (mul ? v * x : v + x); });
+  return v == null ? def : v;
+}
+function roleLines(R, slotId) { const o = partRoles(R, slotId); return Object.keys(o).map(k => ROLE_TEXT[k] ? ROLE_TEXT[k](o[k]) : k); }
+/* officer perks: the officer must be alive; a replacement gets them back as they level */
+const OPERK = [
+  { d: 'science', l: 1, id: 'idClose', t: 'BLIPS WITHIN 3 LY COME IDENTIFIED' },
+  { d: 'science', l: 2, id: 'rescanHalf', t: 'A SECOND SCAN ON THE SAME HEADING TAKES HALF THE TIME' },
+  { d: 'operations', l: 1, id: 'quickHint', t: 'THE HEADING HINT COMES AFTER ONE EMPTY SCAN, NOT TWO' },
+  { d: 'operations', l: 2, id: 'gateBearing', t: 'THE GATE BEARING IS KNOWN FROM PASSAGE 3' },
+  { d: 'engineering', l: 1, id: 'fastReroute', t: 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE' },
+  { d: 'security', l: 1, id: 'earlyWarn', t: 'THE REARGUARD IS SPOTTED ONE ACTION EARLIER' },
+  { d: 'medical', l: 1, id: 'calmCrew', t: 'CASUALTY CHANCE IN FIGHTS IS LOWER' }
+];
+function perk(R, id) { const p = OPERK.find(q => q.id === id); if (!p) return false; const o = R.officers[p.d]; return !!(o && o.alive && o.level >= p.l); }
+
 /* ---- start ---- */
 function newRun(opts) {
   opts = opts || {};
@@ -2198,6 +2254,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   const sc = scale(R, guardian);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
+  if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
   log(R, 'fight', { foe, guardian: !!guardian, hunt });
   return { ok: true, phase: 'fight' };
@@ -2443,6 +2500,9 @@ function setPower(R, p) {
   if (!r.ok) return r;
   R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
 }
+/* a Threshold Capacitor (or any capacitor at Mk III) or the Engineering officer can land one queued reroute at once each sector */
+function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
+function landNow(R) { if (!canLandNow(R)) return { ok: false, why: 'not available' }; R.flags['fastRR' + R.sector] = 1; applyPending(R); log(R, 'fastReroute', {}); return { ok: true }; }
 function applyPending(R) {
   if (!R.pendPower) return false;
   const p = R.pendPower; R.pendPower = null;
@@ -2472,12 +2532,14 @@ function checkMarks(R) {
   if (idx < 0) return null;
   R.marks = Math.max(R.marks, Math.min(3, idx + 1));
   const n = unit(R.nose || [1, 0, 0]), p = [-n[0] * 6.5, -n[1] * 6.5, -n[2] * 6.5 + 0.8];
-  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0 };
+  const grace = Math.round(role(R, 'grace', 0)) + (perk(R, 'earlyWarn') ? 1 : 0);
+  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
   log(R, 'interceptWarn', { idx }); emit(R, 'intercept.warn', { idx });
   return R.intercept;
 }
 function meetIntercept(R, resume) {
   const I = R.intercept; if (!I || R.over || R.phase !== 'choose') return null;
+  if (I.grace > 0) { I.grace--; const n = unit(R.nose || [1, 0, 0]), k = 6.5 * (I.grace + 1) / (I.graceMax + 1) + 1.5; I.p = [-n[0] * k, -n[1] * k, -n[2] * k + 0.8]; I.closer = true; log(R, 'interceptCloser', { left: I.grace }); return { ok: true, slipped: true, closer: true }; }
   const first = resume && resume.kind === 'fold' && !R.flags['threatFold' + R.sector];
   const silent = stat(R, 'silentAtSensors', 0) > 0 && C.channelPower(pseudoFight(R), 'sensors') >= stat(R, 'silentAtSensors', 0);
   R.intercept = null;
@@ -2519,19 +2581,23 @@ function placeCards(R, cards) {
     c.found = auto; c.id = auto;
   });
 }
-function scanReach(R, mode) { return (4 + (R.power.sensors || 0) * 0.12 + stat(R, 'scanRange', 0)) * SCAN_REACH[mode]; }
-function scanMinutes(R, mode) { return Math.max(5, Math.round(60 * (mode === 'focus' ? 0.75 : 0.42) * Math.sqrt(30 / Math.max(10, R.power.sensors || 10)) * stat(R, 'scanTime', 1))); }
-function turnMinutes(deg) { return Math.round(deg / 180 * 8); }   /* thrusters are cheap in space */
+function scanReach(R, mode) { return (4 + (R.power.sensors || 0) * 0.12 + stat(R, 'scanRange', 0)) * SCAN_REACH[mode] * role(R, 'reach', R.ship.offline['sci.array'] ? 0.6 : 1); }
+function scanMinutes(R, mode, dir) {
+  let m = 60 * (mode === 'focus' ? 0.75 : 0.42) * Math.sqrt(30 / Math.max(10, R.power.sensors || 10)) * stat(R, 'scanTime', 1) * role(R, 'scanTime', 1);
+  if (dir && R.lastScan && perk(R, 'rescanHalf') && angDeg(unit(dir), R.lastScan) <= 20) m *= 0.5;
+  return Math.max(5, Math.round(m));
+}
+function turnMinutes(deg, R) { return Math.round(deg / 180 * 8 * (R ? role(R, 'turnTime', 1) : 1)); }   /* thrusters are cheap in space */
 function scanPreview(R, dir, mode) {
   const nose = R.nose || [1, 0, 0], d = unit(dir), deg = angDeg(nose, d);
-  return { turnDeg: Math.round(deg), turnMin: deg > 1 ? turnMinutes(deg) : 0, scanMin: scanMinutes(R, mode), reach: Math.round(scanReach(R, mode) * 10) / 10 };
+  return { turnDeg: Math.round(deg), turnMin: deg > 1 ? turnMinutes(deg, R) : 0, scanMin: scanMinutes(R, mode, d), reach: Math.round(scanReach(R, mode) * 10) / 10, half: !!(R.lastScan && perk(R, 'rescanHalf') && angDeg(d, R.lastScan) <= 20) };
 }
 function scan(R, opts) {
   opts = opts || {};
   if (R.over) return { ok: false, why: 'run over' };
   if (R.phase !== 'choose') return { ok: false, why: 'not now' };
   const mode = opts.mode === 'focus' ? 'focus' : 'sweep', dir = unit(opts.dir || R.nose || [1, 0, 0]);
-  { const ic = meetIntercept(R, { kind: 'scan', dir, mode }); if (ic && !ic.slipped) return ic; }
+  if (!opts.noIntercept) { const ic = meetIntercept(R, { kind: 'scan', dir, mode }); if (ic && !ic.slipped) return ic; }
   R.resume = null;
   applyPending(R);   /* a scan is a turn: a queued reroute lands now */
   const pv = scanPreview(R, dir, mode), reach = scanReach(R, mode);
@@ -2545,12 +2611,15 @@ function scan(R, opts) {
     if (!inside) return;
     if (c.found) { c.id = true; hits.push({ ix, identified: true }); return; }
     const chance = R.hintIx === ix ? 1 : Math.max(0.12, Math.min(0.95, 0.95 - (c.d / reach) * 0.55 + ((R.power.sensors || 25) - 25) / 150));   /* a contact Science pointed at is always found */
-    if (fresh < SCAN_MAX_NEW && rnd(R) < chance) { fresh++; c.found = true; c.id = c.d <= reach * 0.45 || c.type === 'shop'; hits.push({ ix, identified: false }); }
+    if (fresh < SCAN_MAX_NEW && rnd(R) < chance) { fresh++; c.found = true;
+      c.id = c.d <= reach * 0.45 + role(R, 'idNear', 0) || c.type === 'shop' || (perk(R, 'idClose') && c.d <= 3) || (role(R, 'faintId', 0) > 0 && (c.type === 'wreck' || c.type === 'anomaly' || c.type === 'trace'));
+      hits.push({ ix, identified: false, named: c.id }); }
   });
   R.emptyScans = hits.length ? 0 : (R.emptyScans || 0) + 1;
   let hint = null;
   if (hits.some(h => h.ix === R.hintIx)) R.hintIx = null;
-  if (R.emptyScans >= 2) { const left = R.cards.map((c, i) => ({ c, i })).filter(o => o.c.p && !o.c.found).sort((a, b) => a.c.d - b.c.d)[0]; if (left) { hint = unit(left.c.p); R.hintIx = left.i; if (left.c.d > scanReach(R, 'sweep')) hint.focus = true; } }
+  R.lastScan = dir;
+  if (R.emptyScans >= (perk(R, 'quickHint') ? 1 : 2)) { const left = R.cards.map((c, i) => ({ c, i })).filter(o => o.c.p && !o.c.found).sort((a, b) => a.c.d - b.c.d)[0]; if (left) { hint = unit(left.c.p); R.hintIx = left.i; if (left.c.d > scanReach(R, 'sweep')) hint.focus = true; } }
   const gateReading = mode === 'focus' && R.gateDir && R.passage < 6 && angDeg(dir, R.gateDir) <= SCAN_HALF.focus;
   R.stats.scans = (R.stats.scans || 0) + 1;
   log(R, 'scan', { mode, found: hits.length });
@@ -2561,7 +2630,7 @@ function foldFuelMult(factor) { if (!(factor > 0)) return 1; return Math.max(0.2
 function save(R) { return JSON.stringify(R); }
 function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; if (R.phase === 'choose' && R.cards && R.cards.some(c => !c.p)) { placeCards(R, R.cards); R.cards.forEach(c => { c.found = true; c.id = true; }); } return R; }
 
-const api = { meetIntercept, checkMarks, scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
+const api = { canLandNow, landNow, ROLE, OPERK, role, partRoles, roleLines, perk, meetIntercept, checkMarks, scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunMap = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -7421,6 +7490,7 @@ function r2WrapViews(){
   if(R2.wrapped)return;R2.wrapped=true;
   ['science','engineering','tactical','comms','missions','cargo'].forEach(n=>{const o=VIEWS[n];VIEWS[n]=root=>R2.live?R2V[n](root):o(root);});
   const so=VIEWS.settings;VIEWS.settings=root=>{so(root);if(R2.live)r2SettingsTweak(root);};
+  r2WrapLibrary();
 }
 
 /* ---- builders in the shell's own components ---- */
@@ -7482,7 +7552,7 @@ function r2KeepScroll(name){
 }
 /* ---- the ship's feed (core loop step 2): one saved stream of what the ship tells you ----
    entries: {k:'div'|'sys'|'card', t, rows?, tone?, m: ship minutes}. Kept on the Run (R.vox), newest last. */
-const VOX_MAX=160;
+const VOX_MAX=600,VOX_SHOW=160;
 function r2Vox(e){
   const R=R2.R;if(!R)return;if(!R.vox)R.vox=[];
   e.m=R.shipMin||0;e.id=(R.voxN=(R.voxN||0)+1);R.vox.push(e);if(R.vox.length>VOX_MAX)R.vox.splice(0,R.vox.length-VOX_MAX);
@@ -7510,7 +7580,7 @@ function r2ShipFeed(){
   if(R2.fdKey===key&&st.childElementCount)return;
   const fresh=R2.fdLast||0,grew=(v.length?v[v.length-1].id:0)>fresh;R2.fdKey=key;
   const out=[],tm=m=>{const t=360+(m||0),x=Math.floor(t%1440);return pad(Math.floor(x/60),2)+':'+pad(x%60,2);};
-  for(let i=0;i<v.length;i++){
+  for(let i=Math.max(0,v.length-VOX_SHOW);i<v.length;i++){
     const e=v[i];
     if(e.k==='sys'){ /* runs of four or more routine lines fold into one, leaving the last two showing */
       let j=i;while(j<v.length&&v[j].k==='sys')j++;
@@ -7521,6 +7591,7 @@ function r2ShipFeed(){
     }
     let n;
     if(e.k==='div'){n=el('div','fd-div');n.textContent=e.t;}
+    else if(e.k==='off')n=r2VoxOff(e);
     else if(e.k==='card'){
       n=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;n.appendChild(h);
       (e.rows||[]).forEach(r=>{const p=el('p');p.textContent=r;n.appendChild(p);});
@@ -7577,6 +7648,7 @@ function r2Actions(){
   if(R.over){a.push({t:'VIEW THE RESULT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:0});return a;}
   if(R.phase==='fight'){a.push({t:'OPEN TACTICAL',c:'--salmon',fn:()=>go('tactical'),p:0});return a;}
   if(R.phase==='choose'&&R.resume&&!S.engaged){const rs=R.resume;a.push({t:'RESUME '+r2ResumeText(rs),c:'--orange',fn:()=>r2Resume(),p:0});}
+  if(R.phase==='choose'&&RM.canLandNow(R)&&!S.engaged)a.push({t:'LAND THE REROUTE NOW',c:'--orange',fn:()=>r2LandNow(),p:2});
   if(R.phase==='offers')a.push({t:'OPEN THE OFFERS',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='event')a.push({t:'RESPOND TO THE EVENT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='refit'){a.push({t:'OPEN REQUISITION',c:'--yellow',fn:()=>{S.cargoTab='req';go('cargo');},p:1});a.push({t:R.sector>=5?'LEAVE THE GATE':'LEAVE THE GATE: SECTOR '+(R.sector+1),c:'--orange',fn:()=>r2LeaveGate(),p:2});}
@@ -7679,7 +7751,7 @@ function r2CrewPanel(){
     const o=R.officers[d],lv=clamp(o.level,0,3),r=el('div','cl'+(o.alive?'':' lost'));
     const used=R.fight&&R.fight.orders&&R.fight.orders[d]&&R.fight.orders[d].used;
     if(o.alive&&R.phase==='fight'&&!used)r.classList.add('rdy');
-    r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d];
+    const of=r2Officer(d);r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+'\n'+r2PerkList(d).map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
     r.querySelector('em').textContent=o.alive?R2_RANK[lv]:'LOST';b.appendChild(r);
   });
 }
@@ -7744,10 +7816,11 @@ const R2K=window.__R2K||8;
 const R2_TRANSIT=3; /* ship minutes per real second while folding */
 /* the fold begins: a queued reroute lands now, and the fold factor is held to what propulsion allows */
 function r2BeginFold(){
-  const R=R2.R;if(R&&RM.applyPending(R)){r2Bridge();r2Say('REROUTE COMPLETE');}
+  const R=R2.R,rr=R&&RM.applyPending(R);if(rr){r2Bridge();r2Say('REROUTE COMPLETE');}
   const mw=Math.floor(maxWarp()*10)/10;if(S.warpSet>mw+.05)S.warpSet=mw;
+  if(R&&S.dest&&SYS[S.dest.id]){r2Say('FOLD '+fmt(S.warpSet)+' TO '+SYS[S.dest.id].name);if(!(rr&&r2Voice('rerouteDone')))r2Voice('foldStart',{dest:SYS[S.dest.id].name.toLowerCase().replace(/(^|\s)\w/g,m=>m.toUpperCase()),f:fmt(S.warpSet)});}
 }
-const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K;
+const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K*(R2.R?RM.role(R2.R,'foldSpeed',1):1);   /* the engine core sets fold speed (step 6) */
 function r2FoldCost(c,w){return Math.round(c.fuel*RM.foldFuelMult(w)*100)/100;}
 function r2CanEngage(){
   const R=R2.R;if(R.phase!=='choose'||R.over||!S.dest||!/^c\d$/.test(S.dest.id))return false;
@@ -7802,7 +7875,9 @@ function r2FoldCard(ix){
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
   {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}
-   else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');}
+   else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');
+   if(R.ship.lumite<2&&R.phase!=='refit')r2Say('LUMITE LOW: '+(Math.round(R.ship.lumite*10)/10)+' LEFT',true);
+   if(!(R.ship.lumite<1.5&&r2Voice('lumiteLow')))r2Voice('arrive_'+c.type,{foe:E?E.name:(c.foe&&RD.ENEMIES[c.foe]?RD.ENEMIES[c.foe].name:'a warship')});}
   r2Snd('warpUp');
   if(R.phase==='fight'){
     R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;const m=R.fight.meta||{};
@@ -7817,7 +7892,7 @@ function r2FoldCard(ix){
 }
 function r2LeaveGate(){
   const R=R2.R,r=RM.leaveGate(R);r2Snd('warpUp');
-  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Vox({k:'div',t:'SECTOR '+R.sector+' OF 5 \u00b7 '+r2U(r2Sec().name)});r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));if(curView==='cargo')go('home');}
+  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Vox({k:'div',t:'SECTOR '+R.sector+' OF 5 \u00b7 '+r2U(r2Sec().name)});r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));r2Voice('sectorEnter',{sector:r2Sec().name});if(curView==='cargo')go('home');}
   r2Do(r);
 }
 
@@ -7834,9 +7909,11 @@ function r2Watch(quiet){
   const I=R.intercept;
   if(I&&!I.warned){I.warned=true;const E=RD.ENEMIES[I.foe];
     r2VoxCard('SECURITY: THE REARGUARD IS INBOUND',['A FAST ENERGY SIGNATURE IS CLOSING FROM AFT: '+(E?E.name:'KAEL\'S REARGUARD')+'.','THREAT '+Math.round(R.threat)+'%. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.','TIME TO GET READY: A REROUTE NOW LANDS AT THE FIRST ROUND.'],'red');
+    r2Voice('interceptWarn',{},{urgent:true});
     r2Snd('alert');r2Alert('yellow');r2Save();if(!quiet)r2Render();}
-  if(R.slipNote){const n=R.slipNote;R.slipNote=0;r2VoxCard('SECURITY: WE SLIPPED PAST THEM',['INTERCEPT '+['I','II','III'][n-1]+' LOST OUR TRAIL. NO FIGHT.'],'good');r2Alert('green');}
-  if(R.phase==='choose'&&R.resume&&!R.resume.told){R.resume.told=true;r2VoxCard('BACK ON STATION',[r2ResumeText(R.resume)+' IS READY WHEN YOU ARE.','NOTHING STARTS UNTIL YOU SAY SO.'],'');}
+  if(I&&I.closer){I.closer=false;r2VoxCard('SECURITY: THEY HAVEN\'T FOUND US YET',['THE REARGUARD IS STILL CLOSING. IT REACHES YOU IN '+(I.grace+1)+' MORE ACTION'+(I.grace?'S':'')+'.'],'');r2Voice('interceptCloser',{},{urgent:true});}
+  if(R.slipNote){const n=R.slipNote;R.slipNote=0;r2VoxCard('SECURITY: WE SLIPPED PAST THEM',['INTERCEPT '+['I','II','III'][n-1]+' LOST OUR TRAIL. NO FIGHT.'],'good');r2Voice('interceptSlip',{},{urgent:true});r2Alert('green');}
+  if(R.phase==='choose'&&R.resume&&!R.resume.told){R.resume.told=true;r2VoxCard('BACK ON STATION',[r2ResumeText(R.resume)+' IS READY WHEN YOU ARE.','NOTHING STARTS UNTIL YOU SAY SO.'],'');r2Voice('backOnStation',{},{urgent:true});}
 }
 /* the Rearguard reaches you as you act: the fight comes first, the action waits */
 function r2MeetIntercept(resume){
@@ -7846,7 +7923,7 @@ function r2MeetIntercept(resume){
   const E=RC.view(R.fight).enemy;
   r2VoxCard('INTERCEPT '+['I','II','III'][r.idx]+': '+E.name,['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','YOUR '+r2ResumeText(resume)+' WAITS UNTIL THE FIGHT IS OVER.'],'red');
   R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;
-  r2Say('INTERCEPT '+['I','II','III'][r.idx]+': THE REARGUARD CLOSES IN',true);
+  r2Say('INTERCEPT '+['I','II','III'][r.idx]+': THE REARGUARD CLOSES IN',true);r2Voice('interceptStart',{},{urgent:true});
   r2Snd('alert');r2Alert('red');r2Save();if(curView!=='tactical')go('tactical');r2Render();
   return true;
 }
@@ -7883,6 +7960,9 @@ function r2FightDock(host){
   host.appendChild(g);
   const t=el('button','btn');t.textContent='OPEN TACTICAL: EVERY CONTROL';t.style.setProperty('--bc','var(--salmon)');t.addEventListener('click',()=>{SND.tap();go('tactical');});host.appendChild(t);
 }
+
+/* a queued reroute landed at once (Threshold Capacitor, a Mk III capacitor, or the Engineering officer), once per sector */
+function r2LandNow(){const R=R2.R,r=RM.landNow(R);if(!r.ok){r2Snd('err');return;}r2Bridge();r2Say('REROUTE LANDED AT ONCE. NEXT CHANCE: NEXT SECTOR');r2Voice('rerouteNow',{},{urgent:true});r2Snd('gain');r2Save();r2Render();}
 
 /* ===== Core loop step 3: the scan space (Home map and Helm map in a Run) =====
    A passage is a small 3D volume around the ship. The sensors face the ship's nose; the player turns the ship to aim.
@@ -7965,6 +8045,7 @@ function r2Space(c){
     x.fillStyle=COL.salmon;x.globalAlpha=.55+.45*pu;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();x.fill();
     x.globalAlpha=pu*.6;x.strokeStyle=COL.salmon;x.beginPath();x.arc(P[0],P[1],(12+8*pu)*d,0,7);x.stroke();x.globalAlpha=1;
     x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';x.fillText('REARGUARD · INBOUND',P[0]+14*d,P[1]+4*d);}
+  if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const O=spProj(c,[0,0,0]),G=spProj(c,R.gateDir.map(q=>q*9));x.strokeStyle='rgba('+spHex('yellow')+',.55)';x.lineWidth=1.5*d;x.setLineDash([8*d,6*d]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(G[0],G[1]);x.stroke();x.setLineDash([]);x.fillStyle=COL.yellow;x.font=(12*d)+'px "Barlow Condensed",sans-serif';x.fillText('GATE BEARING (OPERATIONS)',G[0]+6*d,G[1]);}
   /* the ship: a line along the nose from wherever it is; a dashed ghost for a planned turn */
   const drawShip=(dir,col,dash)=>{const O=spProj(c,ship),T=spProj(c,ship.map((q,i)=>q+dir[i]*1.7));x.strokeStyle=col;x.fillStyle=col;x.lineWidth=3*d;x.setLineDash(dash||[]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(T[0],T[1]);x.stroke();x.setLineDash([]);x.beginPath();x.arc(T[0],T[1],3.5*d,0,7);x.fill();return T;};
   if(turning)drawShip(aim,'rgba('+sal+',.9)',[4*d,3*d]);
@@ -8002,7 +8083,8 @@ function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p)
 function r2DoScan(){
   const R=R2.R;if(!R||R.phase!=='choose'||R.over||SP.anim||S.engaged)return;
   if(R.intercept&&r2MeetIntercept({kind:'scan',dir:spAim().slice(),mode:SP.mode}))return;
-  const dir=spAim(),r=RM.scan(R,{dir,mode:SP.mode});
+  const dir=spAim(),r=RM.scan(R,{dir,mode:SP.mode,noIntercept:true});
+  if(r.intercept){r2Render();return;}
   if(!r.ok){r2Snd('err');r2Say(r.why||'CANNOT SCAN',true);return;}
   SP.aim=null;
   if(r.turnMin>0)r2Say('HELM: COMING ABOUT '+r.turnDeg+' DEGREES. '+r.turnMin+' MINUTES');
@@ -8017,7 +8099,16 @@ function r2DoScan(){
     if(r.empty){R.scanMarks=(R.scanMarks||[]).concat([R.nose.map(q=>q*r.reach)]);r2VoxCard(title,['NOTHING FOUND AHEAD.'],'');}
     else r2VoxCard(title,rows,'');
     if(r.gateReading)r2Say('FAINT DISTANT ENERGY READING DEAD AHEAD. TOO FAR TO FOLD');
-    if(r.hint){SP.aim=r.hint.slice(0,3);if(r.hint.focus)SP.mode='focus';r2Say('SCIENCE: FAINT RETURN ON A NEW BEARING. HELM IS SET TO TURN FOR IT'+(r.hint.focus?'. IT IS FAR OUT: FOCUS SCAN SET':''));}
+    if(r.hint){SP.aim=r.hint.slice(0,3);if(r.hint.focus)SP.mode='focus';r2Say('NEW BEARING SET BY SCIENCE'+(r.hint.focus?'. FOCUS SCAN SET':''));}
+    { /* one officer speaks for the scan: a hint first, then a hostile, the gate, then what was found */
+      const hostile=r.hits.map(h=>R.cards[h.ix]).find(c=>c&&c.id&&c.foe&&(c.type==='contact'||c.type==='guardian'));
+      if(r.hint){if(!r2Voice(r.hint.focus?'scanHintFar':'scanHint'))r2Say('FAINT RETURN ON A NEW BEARING');}
+      else if(hostile)r2Voice('scanHostile',{foe:RD.ENEMIES[hostile.foe]?RD.ENEMIES[hostile.foe].name:'a warship'});
+      else if(r.gateReading)r2Voice('gateReading');
+      else if(r.empty)r2Voice('scanEmpty');
+      else if(r.hits.length>1)r2Voice('scanMany',{n:r.hits.length});
+      else{const c=R.cards[r.hits[0].ix];r2Voice('scanFound',{what:c.id?r2NodeName(c,r.hits[0].ix,R.cards).toLowerCase().replace(/^\w/,m=>m.toUpperCase()):spBlipName(c).toLowerCase().replace(/^\w/,m=>m.toUpperCase()),dist:fmt(c.d)});}
+    }
     spCtlKey='';r2Save();r2Render();
   };
   requestAnimationFrame(tick);
@@ -8040,7 +8131,7 @@ function spControls(host){
   r3.appendChild(Object.assign(el('span','sp-v'),{textContent:'SENSORS '+Math.round(R.power.sensors)+'%  ·  REACH '+fmt(pv.reach)+' LY'}));
   const r4=row('sp-go');
   const go=el('button','btn sp-scan');go.style.setProperty('--bc','var(--blue)');
-  go.textContent=busy?'SCANNING...':(turning?'TURN '+pv.turnDeg+'° AND SCAN':'SCAN AHEAD')+'  ·  '+(turning?pv.turnMin+' + ':'')+pv.scanMin+' MIN';
+  go.textContent=busy?'SCANNING...':(turning?'TURN '+pv.turnDeg+'° AND SCAN':'SCAN AHEAD')+'  ·  '+(turning?pv.turnMin+' + ':'')+pv.scanMin+' MIN'+(pv.half?' (HALF: SAME HEADING)':'');
   go.disabled=busy||S.engaged;go.addEventListener('click',()=>{r2DoScan();});r4.appendChild(go);
   if(turning)btn(r4,'CANCEL TURN',false,()=>{SP.aim=null;},'salmon');
 }
@@ -8413,7 +8504,8 @@ R2V.engineering=root=>{
     const sy=r2P('SYSTEMS','peri'),sb=r2Body(sy);
     Object.keys(RD.DEPT).forEach(d=>{
       const col=el('div','list'),o=R.officers[d];
-      col.appendChild(Object.assign(el('h4'),{textContent:R2_DEPT[d]+'  •  '+(o.alive?R2_RANK[clamp(o.level,0,3)]:'OFFICER LOST')}));
+      {const of=r2Officer(d);col.appendChild(Object.assign(el('h4'),{textContent:R2_DEPT[d]+'  •  '+(o.alive?R2_RANK[clamp(o.level,0,3)]+' '+of.nm.toUpperCase():'STATION UNMANNED')}));
+       const pk=r2PerkList(d);if(pk.length){const pp=el('p','r2-oprk');pk.forEach(k=>{const sp=el('span',k.on?'on':'');sp.textContent=(k.on?'◆ ':'◇ ')+k.t+(k.on?'':' (LEVEL '+k.l+')');pp.appendChild(sp);});col.appendChild(pp);}}
       RD.SLOTS.filter(s=>s.department===d).forEach(s=>{
         const f=R.ship.fitted[s.id],locked=!f&&R.ship.unlocked.indexOf(s.id)<0&&s.unlock!=='start';
         const row=el('button','row'+(R2.openSlot===s.id?' sel':''));row.dataset.slot=s.id;row.style.setProperty('--rcol',R.ship.offline[s.id]?'var(--salmon)':'var(--blue)');
@@ -8425,7 +8517,7 @@ R2V.engineering=root=>{
         if(f)row.addEventListener('click',()=>{R2.openSlot=R2.openSlot===s.id?null:s.id;r2Snd('tap');remountView('engineering');});
         col.appendChild(row);
         if(f&&R.ship.offline[s.id]){const c=RM.repairCost(R);col.appendChild(r2Btn('REPAIR '+r2U(s.name)+': '+c+' SALVAGE','salmon',()=>r2Do(RM.repairPart(R,s.id),'REPAIRED'),R.ship.salvage<c&&!(r2Stat('freeRepairPerSector',0)&&!R.flags['freeRepair'+R.sector]),'sm'));}
-        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=o.alive&&o.level>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
+        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2RoleLines(s.id).forEach(t=>{const q=el('p','role');q.textContent='▸ '+t;dt.appendChild(q);});r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=o.alive&&o.level>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
       });
       sb.appendChild(col);
     });
@@ -8433,10 +8525,11 @@ R2V.engineering=root=>{
   }
   root.innerHTML='<section class="panel" style="--pc:var(--salmon)"><div class="ph"><h3>POWER DISTRIBUTION</h3></div><div class="pb vcol"><div class="pbar" id="pbar"></div>'+
     R2_CH.map(c=>'<label class="srow" style="--rc:var(--'+R2_CHC[c]+')"><span>'+r2U(c)+'</span><input type="range" min="0" max="'+Math.floor(RC.ceiling(pf,c))+'" step="1" data-k="'+c+'" aria-label="'+c+' power"><b data-v="'+c+'">0</b></label>').join('')+
-    '<div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
+    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
     '<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SYSTEM EFFECTS</h3></div><div class="pb vcol"><dl class="kv" id="pw-fx"></dl><div class="r2-ship" id="r2-ship"></div></div></section>';
   r2EngTabs(root,'power');
   $('#r2-ship',root).innerHTML=shipSVG('top',{},{labels:false});
+  if(RM.canLandNow(R))$('#pw-now',root).appendChild(r2Btn('LAND THE QUEUED REROUTE NOW (ONCE THIS SECTOR)','orange',()=>r2LandNow()));
   const pr=$('#pw-pre',root);
   Object.keys(R2_PRESET).forEach(k=>pr.appendChild(r2Btn(k,k==='OFFENCE'?'salmon':k==='DEFENCE'?'lav':k==='SENSORS'?'blue':k==='SPEED'?'orange':'peri',()=>{const a=R2_PRESET[k],p={};R2_CH.forEach((c,i)=>p[c]=a[i]);const r=RM.setPower(R,p);if(!r.ok){r2Snd('err');r2Say(r.why,true);}else r2Snd('ok');r2Save();r2Render();})));
   let lastBeep=0;
@@ -9014,8 +9107,10 @@ function r2RoundCard(){
 }
 function r2Finish(){
   const R=R2.R,f=R.fight;if(!f||!f.over)return;
-  const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}};
+  const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}},names={};
+  Object.keys(f.officers||R.officers).forEach(d=>{const o=(f.officers||R.officers)[d];names[d]=o&&o.nm;});
   const res=RM.resolveFight(R);
+  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm)R.lostNames=(R.lostNames||[]).concat([nm]);}
   R2.feed=[];R2.busy=false;R2.sel=null;R2.pop=null;
   r2Alert('green');
   const eName=(f.enemy&&f.enemy.name)||((RC.view(f).enemy||{}).name)||'THE CONTACT';
@@ -9033,6 +9128,14 @@ function r2Finish(){
   if(res.result!=='lost')rows.push('HULL '+Math.round(R.ship.hull)+' OF '+R.ship.hullMax);
   r2VoxCard((res.result==='won'?'VICTORY: ':res.result==='fled'?'WITHDREW FROM ':'LOST TO ')+eName,rows,res.result==='won'?'good':'red');
   if(R.phase==='fight'){const E=RC.view(R.fight).enemy;r2VoxCard('ARRIVED: '+E.name+', '+(R2.last||'HOSTILE CONTACT'),['THE FOLD YOU CHOSE BRINGS YOU STRAIGHT INTO A SECOND FIGHT.'],'red');}
+  { /* one officer speaks for the result: a loss first, then a promotion, then the ship or the win */
+    const sm=res.summary||{},cas=sm.casualty;
+    if(cas){const nm=names[cas.dept];r2Voice('casualty',{name:nm||'an officer',dept:r2U(R2_DEPT[cas.dept]).toLowerCase().replace(/^\w/,m=>m.toUpperCase())},{urgent:true});}
+    else if(res.result==='won'&&(sm.levelUps||[]).length)r2Voice('promotion',{},{dept:sm.levelUps[0].dept,urgent:true});
+    else if(res.result==='won'&&R.ship.hull<R.ship.hullMax*0.4)r2Voice('fightWinHurt',{hull:Math.round(R.ship.hull/R.ship.hullMax*100)+'%'},{urgent:true});
+    else if(res.result==='won')r2Voice('fightWin',{},{urgent:true});
+    else if(res.result==='fled')r2Voice('fightFled',{},{urgent:true});
+  }
   if(R.phase==='fight'){R2.sel=null;r2Alert('red');if(curView!=='tactical')go('tactical');}else if(curView==='tactical'&&!R.over)go('home');
   r2Save();r2Render();
 }
@@ -9056,6 +9159,117 @@ function r2Key(e){
   else if(k===' '||k==='enter'){if(R2.sel){e.preventDefault();r2Commit();}}
 }
 
+/* ---- Run: the officers' voices (core loop step 6). The computer states facts; officers break in, once per moment, in their own words ---- */
+const R2_SURN=['Varro','Adeyemi','Brask','Castellane','Ehrlund','Faraji','Galloway','Haddad','Ishikawa','Jovan','Kestrel','Laurent','Madsen','Novak','Oduya','Pell','Quill','Ravel','Soto','Tavish','Ueda','Varga','Whitlock','Yarrow','Zubiri','Ansel','Mireault','Coyle','Orrin','Nakash','Breen','Halvard','Ibarra','Kade','Lusk','Marchetti','Okoro','Rhee','Sallow','Thorne'];
+const R2_RSHORT=['ENS.','LT.','LT CMDR.','CMDR.'];
+const R2_DCOL={science:'blue',operations:'peach',engineering:'orange',security:'salmon',medical:'lav'};
+/* each officer gets a name the first time it is needed; a replacement gets a new one */
+function r2Officer(d){
+  const R=R2.R,o=R&&R.officers[d];if(!o)return null;
+  if(!o.nm){const used=Object.keys(R.officers).map(k=>R.officers[k].nm).concat(R.lostNames||[]);
+    const h=hashStr(R.seed+':'+d+':'+((R.offN=(R.offN||0)+1)));let i=h%R2_SURN.length;for(let k=0;k<R2_SURN.length&&used.indexOf(R2_SURN[i])>=0;k++)i=(i+1)%R2_SURN.length;o.nm=R2_SURN[i];}
+  return {nm:o.nm,alive:o.alive,lv:clamp(o.level,0,3),tag:R2_RSHORT[clamp(o.level,0,3)]+' '+o.nm.toUpperCase()};
+}
+/* line banks: [department, lines]. {x} fills from the call. The picker never repeats the last two lines of a bank */
+const R2_VB={
+  scanFound:['science',['Contact. {what}, {dist} light years out.','There. {what}. Not much to go on yet, but it\'s real.','Got a return on that one. {what}.','{what}, {dist} out. I\'ll keep refining it.']],
+  scanMany:['science',['{n} returns on the board. Take your pick, Captain.','{n} contacts. Somebody\'s been through here.','Busy patch of nothing, this. {n} returns.']],
+  scanEmpty:['science',['Nothing. Either it\'s empty or it\'s hiding.','Clean sweep. Clean as in empty.','Nothing on that heading. I\'d try another.','Not a whisper. Turn us and I\'ll go again.']],
+  scanHint:['science',['Wait. Faint return, off our bow. I\'ve given helm the bearing.','There\'s something at the edge of the noise. Helm has the heading.','I\'m not sure, Captain, but I\'d look over there. Bearing\'s set.']],
+  scanHintFar:['science',['It\'s far out. I\'ve set a focus scan for it.','Faint and a long way off. Focus scan is set, bearing\'s with helm.']],
+  scanHostile:['security',['That one\'s armed. {foe}.','{foe}. Weapons warm. I\'d pick our moment.','Hostile on the board. {foe}. Your call, Captain.']],
+  gateReading:['operations',['That faint one dead ahead could be the gate. Too far to fold yet.','Long-range reading on that bearing. Smells like the gate.']],
+  gateBearing:['operations',['I\'ve worked out the gate\'s bearing. It\'s on the map.','Gate bearing\'s plotted. Doesn\'t mean we\'re there yet.']],
+  foldStart:['operations',['Course laid in for {dest}. Fold {f}.','{dest}, fold {f}. Hold onto something.','Plotted. {dest}. We\'ll be there before the tea\'s cold.','Fold {f} to {dest}. Engines answer.']],
+  arrive_wreck:['science',['Hull\'s cold. Whoever crewed her isn\'t here anymore.','Salvage, Captain. Some of it\'s even safe to touch.','Dead ship. Her cargo bay\'s still sealed.']],
+  arrive_outpost:['operations',['Trader\'s open. Prices are what you\'d expect out here.','They\'re hailing. Polite enough, for people who want our salvage.']],
+  arrive_shop:['operations',['Trader\'s open. Prices are what you\'d expect out here.','They\'re hailing. Polite enough, for people who want our salvage.']],
+  arrive_anomaly:['science',['I don\'t like this one. Which means I want a closer look.','Readings don\'t add up. Give me a minute, Captain.']],
+  arrive_trace:['science',['Kael came through here. Not long ago.','Drive residue. It\'s his. We\'re on the right track.']],
+  arrive_gate:['operations',['Gate\'s live. Refit crews are standing by.','There she is. The way out of this sector.']],
+  arrive_contact:['security',['{foe}, and they\'ve seen us. Battle stations.','They\'re turning to meet us. {foe}.']],
+  arrive_guardian:['security',['That\'s the big one. {foe}. Everything we\'ve got, Captain.','Sector guardian. {foe}. We don\'t get past without going through.']],
+  interceptWarn:['security',['Fast mover off our stern. It\'s the Rearguard. They\'ll be on us soon.','Kael\'s dogs have our scent. Aft, closing. Get us ready, Captain.','Contact aft, coming hard. That\'s the Rearguard.']],
+  interceptCloser:['security',['They\'re still sniffing about. The jammer\'s buying us time.','They lost us for a moment. Not for long.']],
+  interceptSlip:['security',['They went right past us. Don\'t make me do that again.','Gone. They\'re chasing a ghost.']],
+  interceptStart:['security',['Here they come. Shields up.','Rearguard\'s on us. Weapons free when you\'re ready.']],
+  fightWin:['security',['Target\'s down.','That\'s done. Nice shooting, Captain.','Threat\'s gone. I\'ll take it.']],
+  fightWinHurt:['engineering',['We won. The ship\'s not happy about it. Hull\'s at {hull}.','She\'s holding together. Barely. {hull} hull.']],
+  fightFled:['operations',['We\'re clear. Nobody\'s following. Yet.','Out of range. Let\'s not do that twice.']],
+  casualty:['medical',['We lost {name}. I\'m sorry, Captain. {dept} is short-handed until the new officer settles in.','{name} didn\'t make it. I\'ve moved someone up into {dept}.']],
+  promotion:['@',['Thank you, Captain. I won\'t let you down.','Didn\'t think I\'d see the stripe this soon.','Noted, Captain. And appreciated.']],
+  rerouteDone:['engineering',['Power\'s where you wanted it.','Reroute\'s in. Everything\'s humming.','Done. She took it well.']],
+  rerouteNow:['engineering',['Landed it early. That\'s the one favour this sector.','Forced it through. Don\'t ask me twice before the gate.']],
+  lumiteLow:['engineering',['Lumite\'s getting thin, Captain. Plan the next folds carefully.','We\'re running on fumes. Slower folds stretch it.']],
+  sectorEnter:['operations',['{sector}. New ground.','{sector}. Charts are thin out here.']],
+  backOnStation:['operations',['We\'re clear. The fold\'s ready when you are.','Back on course whenever you say.']],
+  partOffline:['engineering',['{part}\'s down. I\'ll need salvage to fix it.','Lost the {part}. It can be repaired, not today.']]
+};
+/* speak: pick a line, name the officer, write it to the feed. One officer line per moment unless urgent */
+function r2Voice(ev,vars,o){
+  o=o||{};const R=R2.R,b=R2_VB[ev];if(!R||!b)return false;
+  const d=b[0]==='@'?o.dept:b[0];if(!d)return false;
+  const of=r2Officer(d);if(!of||!of.alive)return false;   /* an empty station stays quiet; the computer has already said the facts */
+  const now=performance.now();if(!o.urgent&&R2.vLast&&now-R2.vLast<1800)return false;R2.vLast=now;
+  const L=b[1],seen=(R.vSeen=R.vSeen||{})[ev]||[];let pick=[];L.forEach((_,i)=>{if(seen.indexOf(i)<0)pick.push(i);});if(!pick.length)pick=L.map((_,i)=>i);
+  const i=pick[Math.floor(Math.random()*pick.length)];R.vSeen[ev]=[i].concat(seen).slice(0,Math.min(2,L.length-1));
+  const t=L[i].replace(/\{(\w+)\}/g,(m,k)=>vars&&vars[k]!=null?vars[k]:'');
+  if(R2.voxGrab)return false;
+  r2Vox({k:'off',d:d,nm:of.tag,t:t});return true;
+}
+function r2VoxOff(e){
+  const n=el('div','fd-off');n.style.setProperty('--dc','var(--'+(R2_DCOL[e.d]||'peri')+')');
+  const h=el('b');h.textContent=e.nm+' · '+(R2_DEPT[e.d]||'');const p=el('p');p.textContent='“'+e.t+'”';n.appendChild(h);n.appendChild(p);return n;
+}
+/* what a fitted part does for scanning and time, for Engineering */
+function r2RoleLines(sl){try{return RM.roleLines(R2.R,sl);}catch(e){return [];}}
+/* officer perks, for the crew panel and Engineering */
+function r2PerkList(d){const R=R2.R,o=R.officers[d];return RM.OPERK.filter(p=>p.d===d).map(p=>({t:p.t,l:p.l,on:!!(o&&o.alive&&o.level>=p.l)}));}
+
+/* ---- Library: the ship's log, the full history of the feed ---- */
+const R2_LOG={who:'all',pass:'all'};
+function r2LibLog(root){
+  const R=R2.R,v=R.vox||[];
+  const p=r2P('SHIP\'S LOG','blue'),b=r2Body(p);b.style.gap='6px';
+  const passes=[];v.forEach(e=>{if(e.k==='div')passes.push(e.t);});
+  const fr=el('div','rowbtn lg-f');
+  [['all','EVERYTHING'],['off','OFFICERS'],['card','CARDS'],['sys','COMPUTER']].forEach(([k,t])=>{const x=el('button','mini'+(R2_LOG.who===k?' on':''));x.textContent=t;x.addEventListener('click',()=>{R2_LOG.who=k;SND.tap();remountView('library');});fr.appendChild(x);});
+  const sel=el('select','lg-sel');sel.setAttribute('aria-label','Passage');[['all','ALL PASSAGES']].concat(passes.map(t=>[t,t])).forEach(([k,t])=>{const op=el('option');op.value=k;op.textContent=t;if(R2_LOG.pass===k)op.selected=true;sel.appendChild(op);});
+  sel.addEventListener('change',()=>{R2_LOG.pass=sel.value;remountView('library');});fr.appendChild(sel);
+  b.appendChild(fr);
+  const st=el('div','lg-stream'),tm=m=>{const t=360+(m||0),x=Math.floor(t%1440),day=Math.floor(t/1440)+1;return 'D'+day+' '+pad(Math.floor(x/60),2)+':'+pad(x%60,2);};
+  let cur=null,n=0;
+  v.forEach(e=>{
+    if(e.k==='div')cur=e.t;
+    if(R2_LOG.pass!=='all'&&cur!==R2_LOG.pass)return;
+    if(e.k!=='div'&&R2_LOG.who!=='all'&&e.k!==R2_LOG.who)return;
+    let x;
+    if(e.k==='div'){x=el('div','fd-div');x.textContent=e.t;}
+    else if(e.k==='card'){x=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;x.appendChild(h);(e.rows||[]).forEach(r=>{const q=el('p');q.textContent=r;x.appendChild(q);});}
+    else if(e.k==='off')x=r2VoxOff(e);
+    else{x=el('p','fd-sys'+(e.bad?' bad':''));const t=el('time');t.textContent=tm(e.m);const sp=el('span');sp.textContent=e.t;x.appendChild(t);x.appendChild(sp);}
+    st.appendChild(x);n++;
+  });
+  if(!n)st.appendChild(r2Note('NOTHING LOGGED FOR THIS FILTER YET.'));
+  b.appendChild(st);root.appendChild(p);
+  setTimeout(()=>{st.scrollTop=st.scrollHeight;},0);
+  const q=r2P('THIS RUN','peri'),qb=r2Body(q);
+  qb.appendChild(r2KV([['SEED',R.seed],['SHIP TIME','DAY '+(Math.floor((360+(R.shipMin||0))/1440)+1)],['ENTRIES',v.length],['OFFICER LINES',v.filter(e=>e.k==='off').length]]));
+  Object.keys(RD.DEPT).forEach(d=>{const of=r2Officer(d);const row=el('p','note');row.textContent=R2_DEPT[d]+': '+(of.alive?of.tag:'STATION UNMANNED');qb.appendChild(row);});
+  if((R.lostNames||[]).length){const m=el('p','note bad');m.textContent='LOST: '+R.lostNames.map(x=>x.toUpperCase()).join(', ');qb.appendChild(m);}
+  root.appendChild(q);
+}
+function r2WrapLibrary(){
+  const base=VIEWS.library;
+  VIEWS.library=root=>{
+    if(!R2.live)return base(root);
+    if(S.libTab!=='archive'){root.style.gridTemplateColumns='minmax(0,2fr) minmax(0,1fr)';r2LibLog(root);}else base(root);
+    const ph=root.querySelector('.ph');if(!ph)return;
+    const w=el('div','rowbtn');w.style.gap='4px';
+    [['log','SHIP\'S LOG'],['archive','ARCHIVE']].forEach(i=>{const b=el('button','mini'+((S.libTab==='archive')===(i[0]==='archive')?' on':''));b.textContent=i[1];b.addEventListener('click',()=>{S.libTab=i[0];SND.tap();remountView('library');});w.appendChild(b);});
+    ph.insertBefore(w,ph.firstChild);
+  };
+}
 /* ---- launch screen ---- */
 const LC={view:'main',mode:'campaign',diff:'green',kit:'standard',seed:'',ex:null,im:null,msg:''};
 const LAUNCH_BUILD='V0.2 BUILD 1';

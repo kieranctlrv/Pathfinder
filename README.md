@@ -34,6 +34,7 @@ src/run/                  Run Mode
   ui-ship3d.js              the ship in 3D (Engineering > Structure)
   ui-screens.js             Run versions of the station screens and the offer/event overlay
   ui-combat.js              Battle Stations and the tactical stage
+  ui-voices.js              officer names, voice banks, the Library ship's log
 src/campaign/             the Campaign: comms scripts, encounters, missions, real-time combat
 src/station/              the shared station shell: tabs, home, map, viewer, art, schematic,
                           engineering, cargo, launch screen, accessibility, main loop
@@ -106,6 +107,13 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Weapons are off the shield ring: numbered hardpoints on the hull, and a weapon strip under the stage on both screens (name, ready, charging, loaded and torpedoes left, locked). The ring shows only the four shield arcs.
 - Every round opens with a turn banner, range changes slide the enemy between rings with a banner, the acting ship lunges, and beams and hits draw above both ships. Each finished round writes one card to the ship's feed.
 - One enemy, one picture: the Home viewer and the scan space show an identified hostile with the same model as its combat art.
+
+## Core loop, step 6 (the voices)
+
+- Officers have names (generated per Run; a replacement gets a new one) and speak in the feed in their own words, in their department colour. The computer keeps stating the facts; one officer line per moment, from hand-written banks that never repeat the last two lines. Science speaks for scans, Operations for folds, arrivals and the gate, Engineering for reroutes, lumite and a battered hull, Security for hostiles and the Rearguard, Medical for losses. A lost officer's station goes quiet until the replacement is named.
+- Every part now has a scan or time role, shown in Engineering when you open it: Sensor Array (scan reach; Long-Range further, Tracking identifies further out), Processor (scan time), Comms Suite (identifies wrecks, anomalies and traces on the first pass), Jammer (the Rearguard needs one more action to reach you), Thrusters (turn time), Engine Core (fold speed), Threshold Capacitor or any Mk III capacitor (land one queued reroute at once each sector). Each Mk above I improves the numbers a little.
+- Officer perks by level, listed under each department in Engineering (and on the crew panel): Science L1 identifies blips within 3 LY, L2 halves a repeat scan on the same heading; Operations L1 gives the heading hint after one empty scan, L2 shows the gate bearing from passage 3; Engineering L1 lands one queued reroute at once each sector; Security L1 spots the Rearguard one action earlier; Medical L1 lowers casualty chance. Perks stop while a station is unmanned.
+- Library > Ship's Log: the full history of the feed for the Run (up to 600 entries), filterable by passage and by officers, cards or computer lines, with the crew roster and the names of the lost.
 
 ## History
 

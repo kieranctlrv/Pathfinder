@@ -40,6 +40,7 @@
       "src/run/ui-ship3d.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",
+      "src/run/ui-voices.js",
       "src/station/launch.js",
       "src/station/home-update.js",
       "src/station/guidance-fuel.js",

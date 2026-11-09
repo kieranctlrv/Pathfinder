@@ -266,3 +266,15 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .fd-fight .btn{min-height:34px;height:auto;line-height:1.05;padding:4px 8px}
 @media (max-width:700px){.r2-wstrip{grid-template-columns:repeat(2,minmax(0,1fr))}.r2-hst{position:relative;inset:auto}.r2-hst .r2-stage{flex:none;aspect-ratio:16/10}.r2-hst .r2-ei{transform:scale(.62)}.r2-hst .r2-ban.idle{display:none}}
 @keyframes r2lungep{0%{transform:none}40%{transform:translateX(12px)}100%{transform:none}}
+/* step 6: officer voices, perks, ship's log */
+.fd-off{margin:6px 0;padding:4px 0 4px 10px;border-left:3px solid var(--dc)}
+.fd-off b{display:block;font-weight:500;font-size:calc(12px*var(--ts,1));letter-spacing:.14em;color:var(--dc)}
+.fd-off p{margin:2px 0 0;color:var(--chalk,#e8e6f0);font-size:calc(16px*var(--ts,1));line-height:1.3;letter-spacing:.02em;text-transform:none}
+.r2-oprk{margin:0 0 4px;display:flex;flex-direction:column;gap:1px;font-size:calc(11px*var(--ts,1));letter-spacing:.08em;color:var(--lav);opacity:.75}
+.r2-oprk .on{color:var(--peach);opacity:1}
+.r2-detail p.role{color:var(--blue)}
+.lg-f{gap:4px;flex-wrap:wrap;align-items:center}
+.lg-sel{background:#05080f;color:var(--peach);border:1px solid var(--lav);font:inherit;font-size:calc(13px*var(--ts,1));padding:3px 6px;letter-spacing:.06em}
+.lg-stream{flex:1;min-height:0;overflow:auto;padding-right:6px;font-size:calc(14px*var(--ts,1))}
+.lg-stream .fd-sys{display:flex;gap:10px;margin:2px 0;color:var(--lav)}.lg-stream .fd-sys time{opacity:.7;flex:none}
+.lg-stream .fd-sys.bad{color:var(--salmon)}

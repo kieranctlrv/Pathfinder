@@ -58,6 +58,49 @@ function log(R, t, d) { const e = Object.assign({ t, s: R.sector, p: R.passage }
 function pseudoFight(R) { return { ship: R.ship, officers: R.officers, power: R.power, boosts: [], flags: {}, enemy: {}, weapons: {} }; }
 const stat = (R, key, base) => C.stat(pseudoFight(R), key, base);
 
+/* ---- core loop step 6: every part gains a scan or time role, and officers add small rule-changing perks ----
+   Role values are per part variant at Mk I; each Mk above I improves them a little. Offline parts give nothing. */
+const ROLE = {
+  'sci.array.std': { reach: 1 }, 'sci.array.long': { reach: 1.2 }, 'sci.array.track': { reach: 1, idNear: 2 },
+  'sci.proc.std': { scanTime: 1 }, 'sci.proc.tact': { scanTime: 0.85 }, 'sci.proc.analytic': { scanTime: 0.9 },
+  'sci.comms.std': { faintId: 1 }, 'sci.comms.listen': { faintId: 1, idNear: 1 },
+  'sci.jam.std': { grace: 1 }, 'sci.jam.decoy': { grace: 1 },
+  'ops.thr.std': { turnTime: 1 }, 'ops.thr.vector': { turnTime: 0.6 }, 'ops.thr.evade': { turnTime: 0.8 },
+  'ops.engine.std': { foldSpeed: 1 }, 'ops.engine.burst': { foldSpeed: 1.15 }, 'ops.engine.eff': { foldSpeed: 0.95 },
+  'eng.cap.thr': { fastReroute: 1 }
+};
+const ROLE_TIER = { reach: 0.06, scanTime: -0.06, turnTime: -0.1, foldSpeed: 0.05 };
+const ROLE_TEXT = {
+  reach: v => 'SCAN REACH X' + v.toFixed(2), scanTime: v => 'SCAN TIME X' + v.toFixed(2), turnTime: v => 'TURN TIME X' + v.toFixed(2),
+  foldSpeed: v => 'FOLD SPEED X' + v.toFixed(2), idNear: v => 'IDENTIFIES CONTACTS WITHIN ' + v + ' LY MORE ON FIRST PASS',
+  faintId: () => 'FAINT SIGNALS (WRECKS, ANOMALIES, TRACES) IDENTIFIED ON FIRST PASS', grace: v => 'HIDES YOU: THE REARGUARD NEEDS ' + v + ' MORE ACTION TO REACH YOU',
+  fastReroute: () => 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE'
+};
+function partRoles(R, slotId) {        /* the roles one fitted part gives, at its Mk */
+  const f = R.ship.fitted[slotId]; if (!f || R.ship.offline[slotId]) return {};
+  const base = ROLE[f.part]; const out = {};
+  if (base) Object.keys(base).forEach(k => { out[k] = ROLE_TIER[k] ? Math.round((base[k] + ROLE_TIER[k] * (f.tier - 1)) * 100) / 100 : base[k]; });
+  if (slotId === 'eng.capacitor' && f.tier >= 3) out.fastReroute = 1;
+  return out;
+}
+function role(R, key, def) {          /* multipliers multiply, the rest add */
+  const mul = key === 'reach' || key === 'scanTime' || key === 'turnTime' || key === 'foldSpeed';
+  let v = null; Object.keys(R.ship.fitted).forEach(sl => { const x = partRoles(R, sl)[key]; if (x == null) return; v = v == null ? x : (mul ? v * x : v + x); });
+  return v == null ? def : v;
+}
+function roleLines(R, slotId) { const o = partRoles(R, slotId); return Object.keys(o).map(k => ROLE_TEXT[k] ? ROLE_TEXT[k](o[k]) : k); }
+/* officer perks: the officer must be alive; a replacement gets them back as they level */
+const OPERK = [
+  { d: 'science', l: 1, id: 'idClose', t: 'BLIPS WITHIN 3 LY COME IDENTIFIED' },
+  { d: 'science', l: 2, id: 'rescanHalf', t: 'A SECOND SCAN ON THE SAME HEADING TAKES HALF THE TIME' },
+  { d: 'operations', l: 1, id: 'quickHint', t: 'THE HEADING HINT COMES AFTER ONE EMPTY SCAN, NOT TWO' },
+  { d: 'operations', l: 2, id: 'gateBearing', t: 'THE GATE BEARING IS KNOWN FROM PASSAGE 3' },
+  { d: 'engineering', l: 1, id: 'fastReroute', t: 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE' },
+  { d: 'security', l: 1, id: 'earlyWarn', t: 'THE REARGUARD IS SPOTTED ONE ACTION EARLIER' },
+  { d: 'medical', l: 1, id: 'calmCrew', t: 'CASUALTY CHANCE IN FIGHTS IS LOWER' }
+];
+function perk(R, id) { const p = OPERK.find(q => q.id === id); if (!p) return false; const o = R.officers[p.d]; return !!(o && o.alive && o.level >= p.l); }
+
 /* ---- start ---- */
 function newRun(opts) {
   opts = opts || {};
@@ -144,6 +187,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   const sc = scale(R, guardian);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
+  if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
   log(R, 'fight', { foe, guardian: !!guardian, hunt });
   return { ok: true, phase: 'fight' };
@@ -389,6 +433,9 @@ function setPower(R, p) {
   if (!r.ok) return r;
   R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
 }
+/* a Threshold Capacitor (or any capacitor at Mk III) or the Engineering officer can land one queued reroute at once each sector */
+function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
+function landNow(R) { if (!canLandNow(R)) return { ok: false, why: 'not available' }; R.flags['fastRR' + R.sector] = 1; applyPending(R); log(R, 'fastReroute', {}); return { ok: true }; }
 function applyPending(R) {
   if (!R.pendPower) return false;
   const p = R.pendPower; R.pendPower = null;
@@ -418,12 +465,14 @@ function checkMarks(R) {
   if (idx < 0) return null;
   R.marks = Math.max(R.marks, Math.min(3, idx + 1));
   const n = unit(R.nose || [1, 0, 0]), p = [-n[0] * 6.5, -n[1] * 6.5, -n[2] * 6.5 + 0.8];
-  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0 };
+  const grace = Math.round(role(R, 'grace', 0)) + (perk(R, 'earlyWarn') ? 1 : 0);
+  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
   log(R, 'interceptWarn', { idx }); emit(R, 'intercept.warn', { idx });
   return R.intercept;
 }
 function meetIntercept(R, resume) {
   const I = R.intercept; if (!I || R.over || R.phase !== 'choose') return null;
+  if (I.grace > 0) { I.grace--; const n = unit(R.nose || [1, 0, 0]), k = 6.5 * (I.grace + 1) / (I.graceMax + 1) + 1.5; I.p = [-n[0] * k, -n[1] * k, -n[2] * k + 0.8]; I.closer = true; log(R, 'interceptCloser', { left: I.grace }); return { ok: true, slipped: true, closer: true }; }
   const first = resume && resume.kind === 'fold' && !R.flags['threatFold' + R.sector];
   const silent = stat(R, 'silentAtSensors', 0) > 0 && C.channelPower(pseudoFight(R), 'sensors') >= stat(R, 'silentAtSensors', 0);
   R.intercept = null;
@@ -465,19 +514,23 @@ function placeCards(R, cards) {
     c.found = auto; c.id = auto;
   });
 }
-function scanReach(R, mode) { return (4 + (R.power.sensors || 0) * 0.12 + stat(R, 'scanRange', 0)) * SCAN_REACH[mode]; }
-function scanMinutes(R, mode) { return Math.max(5, Math.round(60 * (mode === 'focus' ? 0.75 : 0.42) * Math.sqrt(30 / Math.max(10, R.power.sensors || 10)) * stat(R, 'scanTime', 1))); }
-function turnMinutes(deg) { return Math.round(deg / 180 * 8); }   /* thrusters are cheap in space */
+function scanReach(R, mode) { return (4 + (R.power.sensors || 0) * 0.12 + stat(R, 'scanRange', 0)) * SCAN_REACH[mode] * role(R, 'reach', R.ship.offline['sci.array'] ? 0.6 : 1); }
+function scanMinutes(R, mode, dir) {
+  let m = 60 * (mode === 'focus' ? 0.75 : 0.42) * Math.sqrt(30 / Math.max(10, R.power.sensors || 10)) * stat(R, 'scanTime', 1) * role(R, 'scanTime', 1);
+  if (dir && R.lastScan && perk(R, 'rescanHalf') && angDeg(unit(dir), R.lastScan) <= 20) m *= 0.5;
+  return Math.max(5, Math.round(m));
+}
+function turnMinutes(deg, R) { return Math.round(deg / 180 * 8 * (R ? role(R, 'turnTime', 1) : 1)); }   /* thrusters are cheap in space */
 function scanPreview(R, dir, mode) {
   const nose = R.nose || [1, 0, 0], d = unit(dir), deg = angDeg(nose, d);
-  return { turnDeg: Math.round(deg), turnMin: deg > 1 ? turnMinutes(deg) : 0, scanMin: scanMinutes(R, mode), reach: Math.round(scanReach(R, mode) * 10) / 10 };
+  return { turnDeg: Math.round(deg), turnMin: deg > 1 ? turnMinutes(deg, R) : 0, scanMin: scanMinutes(R, mode, d), reach: Math.round(scanReach(R, mode) * 10) / 10, half: !!(R.lastScan && perk(R, 'rescanHalf') && angDeg(d, R.lastScan) <= 20) };
 }
 function scan(R, opts) {
   opts = opts || {};
   if (R.over) return { ok: false, why: 'run over' };
   if (R.phase !== 'choose') return { ok: false, why: 'not now' };
   const mode = opts.mode === 'focus' ? 'focus' : 'sweep', dir = unit(opts.dir || R.nose || [1, 0, 0]);
-  { const ic = meetIntercept(R, { kind: 'scan', dir, mode }); if (ic && !ic.slipped) return ic; }
+  if (!opts.noIntercept) { const ic = meetIntercept(R, { kind: 'scan', dir, mode }); if (ic && !ic.slipped) return ic; }
   R.resume = null;
   applyPending(R);   /* a scan is a turn: a queued reroute lands now */
   const pv = scanPreview(R, dir, mode), reach = scanReach(R, mode);
@@ -491,12 +544,15 @@ function scan(R, opts) {
     if (!inside) return;
     if (c.found) { c.id = true; hits.push({ ix, identified: true }); return; }
     const chance = R.hintIx === ix ? 1 : Math.max(0.12, Math.min(0.95, 0.95 - (c.d / reach) * 0.55 + ((R.power.sensors || 25) - 25) / 150));   /* a contact Science pointed at is always found */
-    if (fresh < SCAN_MAX_NEW && rnd(R) < chance) { fresh++; c.found = true; c.id = c.d <= reach * 0.45 || c.type === 'shop'; hits.push({ ix, identified: false }); }
+    if (fresh < SCAN_MAX_NEW && rnd(R) < chance) { fresh++; c.found = true;
+      c.id = c.d <= reach * 0.45 + role(R, 'idNear', 0) || c.type === 'shop' || (perk(R, 'idClose') && c.d <= 3) || (role(R, 'faintId', 0) > 0 && (c.type === 'wreck' || c.type === 'anomaly' || c.type === 'trace'));
+      hits.push({ ix, identified: false, named: c.id }); }
   });
   R.emptyScans = hits.length ? 0 : (R.emptyScans || 0) + 1;
   let hint = null;
   if (hits.some(h => h.ix === R.hintIx)) R.hintIx = null;
-  if (R.emptyScans >= 2) { const left = R.cards.map((c, i) => ({ c, i })).filter(o => o.c.p && !o.c.found).sort((a, b) => a.c.d - b.c.d)[0]; if (left) { hint = unit(left.c.p); R.hintIx = left.i; if (left.c.d > scanReach(R, 'sweep')) hint.focus = true; } }
+  R.lastScan = dir;
+  if (R.emptyScans >= (perk(R, 'quickHint') ? 1 : 2)) { const left = R.cards.map((c, i) => ({ c, i })).filter(o => o.c.p && !o.c.found).sort((a, b) => a.c.d - b.c.d)[0]; if (left) { hint = unit(left.c.p); R.hintIx = left.i; if (left.c.d > scanReach(R, 'sweep')) hint.focus = true; } }
   const gateReading = mode === 'focus' && R.gateDir && R.passage < 6 && angDeg(dir, R.gateDir) <= SCAN_HALF.focus;
   R.stats.scans = (R.stats.scans || 0) + 1;
   log(R, 'scan', { mode, found: hits.length });
@@ -507,7 +563,7 @@ function foldFuelMult(factor) { if (!(factor > 0)) return 1; return Math.max(0.2
 function save(R) { return JSON.stringify(R); }
 function restore(s) { const R = JSON.parse(s); if (R.v !== VERSION) throw new Error('old save'); if (!(R.shipMin >= 0)) R.shipMin = (R.secs || 0) / 4; if (R.pendPower === undefined) R.pendPower = null; if (R.phase === 'choose' && R.cards && R.cards.some(c => !c.p)) { placeCards(R, R.cards); R.cards.forEach(c => { c.found = true; c.id = true; }); } return R; }
 
-const api = { meetIntercept, checkMarks, scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
+const api = { canLandNow, landNow, ROLE, OPERK, role, partRoles, roleLines, perk, meetIntercept, checkMarks, scan, scanPreview, scanReach, scanMinutes, SCAN_HALF, passTime, applyPending, foldFuelMult, THREAT_PER_HOUR, IDLE_THREAT, DEFENCE, combatDrop, on, emit, HOOKS, GRADES, lootBonus, rollGrade, dropOf, nodeOptions, shopStock, reroll, rerollCost, VERSION, SECTORS, PASSAGES, GUARDIAN, GATE, TRACE, MARKS, HUNT_FOE, GUARDIANS, CONTACTS, ANOMALIES, newRun, cardIntel, fold, resolveFight, claim, leave, eventChoice, fitFromHold, sellFromHold, repairPart, refit, leaveGate, setPower, save, restore, stat, endRun, repairCost, foldCost };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunMap = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

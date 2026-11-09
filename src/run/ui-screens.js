@@ -193,7 +193,8 @@ R2V.engineering=root=>{
     const sy=r2P('SYSTEMS','peri'),sb=r2Body(sy);
     Object.keys(RD.DEPT).forEach(d=>{
       const col=el('div','list'),o=R.officers[d];
-      col.appendChild(Object.assign(el('h4'),{textContent:R2_DEPT[d]+'  •  '+(o.alive?R2_RANK[clamp(o.level,0,3)]:'OFFICER LOST')}));
+      {const of=r2Officer(d);col.appendChild(Object.assign(el('h4'),{textContent:R2_DEPT[d]+'  •  '+(o.alive?R2_RANK[clamp(o.level,0,3)]+' '+of.nm.toUpperCase():'STATION UNMANNED')}));
+       const pk=r2PerkList(d);if(pk.length){const pp=el('p','r2-oprk');pk.forEach(k=>{const sp=el('span',k.on?'on':'');sp.textContent=(k.on?'◆ ':'◇ ')+k.t+(k.on?'':' (LEVEL '+k.l+')');pp.appendChild(sp);});col.appendChild(pp);}}
       RD.SLOTS.filter(s=>s.department===d).forEach(s=>{
         const f=R.ship.fitted[s.id],locked=!f&&R.ship.unlocked.indexOf(s.id)<0&&s.unlock!=='start';
         const row=el('button','row'+(R2.openSlot===s.id?' sel':''));row.dataset.slot=s.id;row.style.setProperty('--rcol',R.ship.offline[s.id]?'var(--salmon)':'var(--blue)');
@@ -205,7 +206,7 @@ R2V.engineering=root=>{
         if(f)row.addEventListener('click',()=>{R2.openSlot=R2.openSlot===s.id?null:s.id;r2Snd('tap');remountView('engineering');});
         col.appendChild(row);
         if(f&&R.ship.offline[s.id]){const c=RM.repairCost(R);col.appendChild(r2Btn('REPAIR '+r2U(s.name)+': '+c+' SALVAGE','salmon',()=>r2Do(RM.repairPart(R,s.id),'REPAIRED'),R.ship.salvage<c&&!(r2Stat('freeRepairPerSector',0)&&!R.flags['freeRepair'+R.sector]),'sm'));}
-        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=o.alive&&o.level>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
+        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2RoleLines(s.id).forEach(t=>{const q=el('p','role');q.textContent='▸ '+t;dt.appendChild(q);});r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=o.alive&&o.level>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
       });
       sb.appendChild(col);
     });
@@ -213,10 +214,11 @@ R2V.engineering=root=>{
   }
   root.innerHTML='<section class="panel" style="--pc:var(--salmon)"><div class="ph"><h3>POWER DISTRIBUTION</h3></div><div class="pb vcol"><div class="pbar" id="pbar"></div>'+
     R2_CH.map(c=>'<label class="srow" style="--rc:var(--'+R2_CHC[c]+')"><span>'+r2U(c)+'</span><input type="range" min="0" max="'+Math.floor(RC.ceiling(pf,c))+'" step="1" data-k="'+c+'" aria-label="'+c+' power"><b data-v="'+c+'">0</b></label>').join('')+
-    '<div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
+    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
     '<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SYSTEM EFFECTS</h3></div><div class="pb vcol"><dl class="kv" id="pw-fx"></dl><div class="r2-ship" id="r2-ship"></div></div></section>';
   r2EngTabs(root,'power');
   $('#r2-ship',root).innerHTML=shipSVG('top',{},{labels:false});
+  if(RM.canLandNow(R))$('#pw-now',root).appendChild(r2Btn('LAND THE QUEUED REROUTE NOW (ONCE THIS SECTOR)','orange',()=>r2LandNow()));
   const pr=$('#pw-pre',root);
   Object.keys(R2_PRESET).forEach(k=>pr.appendChild(r2Btn(k,k==='OFFENCE'?'salmon':k==='DEFENCE'?'lav':k==='SENSORS'?'blue':k==='SPEED'?'orange':'peri',()=>{const a=R2_PRESET[k],p={};R2_CH.forEach((c,i)=>p[c]=a[i]);const r=RM.setPower(R,p);if(!r.ok){r2Snd('err');r2Say(r.why,true);}else r2Snd('ok');r2Save();r2Render();})));
   let lastBeep=0;

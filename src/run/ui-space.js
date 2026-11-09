@@ -80,6 +80,7 @@ function r2Space(c){
     x.fillStyle=COL.salmon;x.globalAlpha=.55+.45*pu;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();x.fill();
     x.globalAlpha=pu*.6;x.strokeStyle=COL.salmon;x.beginPath();x.arc(P[0],P[1],(12+8*pu)*d,0,7);x.stroke();x.globalAlpha=1;
     x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';x.fillText('REARGUARD · INBOUND',P[0]+14*d,P[1]+4*d);}
+  if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const O=spProj(c,[0,0,0]),G=spProj(c,R.gateDir.map(q=>q*9));x.strokeStyle='rgba('+spHex('yellow')+',.55)';x.lineWidth=1.5*d;x.setLineDash([8*d,6*d]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(G[0],G[1]);x.stroke();x.setLineDash([]);x.fillStyle=COL.yellow;x.font=(12*d)+'px "Barlow Condensed",sans-serif';x.fillText('GATE BEARING (OPERATIONS)',G[0]+6*d,G[1]);}
   /* the ship: a line along the nose from wherever it is; a dashed ghost for a planned turn */
   const drawShip=(dir,col,dash)=>{const O=spProj(c,ship),T=spProj(c,ship.map((q,i)=>q+dir[i]*1.7));x.strokeStyle=col;x.fillStyle=col;x.lineWidth=3*d;x.setLineDash(dash||[]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(T[0],T[1]);x.stroke();x.setLineDash([]);x.beginPath();x.arc(T[0],T[1],3.5*d,0,7);x.fill();return T;};
   if(turning)drawShip(aim,'rgba('+sal+',.9)',[4*d,3*d]);
@@ -117,7 +118,8 @@ function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p)
 function r2DoScan(){
   const R=R2.R;if(!R||R.phase!=='choose'||R.over||SP.anim||S.engaged)return;
   if(R.intercept&&r2MeetIntercept({kind:'scan',dir:spAim().slice(),mode:SP.mode}))return;
-  const dir=spAim(),r=RM.scan(R,{dir,mode:SP.mode});
+  const dir=spAim(),r=RM.scan(R,{dir,mode:SP.mode,noIntercept:true});
+  if(r.intercept){r2Render();return;}
   if(!r.ok){r2Snd('err');r2Say(r.why||'CANNOT SCAN',true);return;}
   SP.aim=null;
   if(r.turnMin>0)r2Say('HELM: COMING ABOUT '+r.turnDeg+' DEGREES. '+r.turnMin+' MINUTES');
@@ -132,7 +134,16 @@ function r2DoScan(){
     if(r.empty){R.scanMarks=(R.scanMarks||[]).concat([R.nose.map(q=>q*r.reach)]);r2VoxCard(title,['NOTHING FOUND AHEAD.'],'');}
     else r2VoxCard(title,rows,'');
     if(r.gateReading)r2Say('FAINT DISTANT ENERGY READING DEAD AHEAD. TOO FAR TO FOLD');
-    if(r.hint){SP.aim=r.hint.slice(0,3);if(r.hint.focus)SP.mode='focus';r2Say('SCIENCE: FAINT RETURN ON A NEW BEARING. HELM IS SET TO TURN FOR IT'+(r.hint.focus?'. IT IS FAR OUT: FOCUS SCAN SET':''));}
+    if(r.hint){SP.aim=r.hint.slice(0,3);if(r.hint.focus)SP.mode='focus';r2Say('NEW BEARING SET BY SCIENCE'+(r.hint.focus?'. FOCUS SCAN SET':''));}
+    { /* one officer speaks for the scan: a hint first, then a hostile, the gate, then what was found */
+      const hostile=r.hits.map(h=>R.cards[h.ix]).find(c=>c&&c.id&&c.foe&&(c.type==='contact'||c.type==='guardian'));
+      if(r.hint){if(!r2Voice(r.hint.focus?'scanHintFar':'scanHint'))r2Say('FAINT RETURN ON A NEW BEARING');}
+      else if(hostile)r2Voice('scanHostile',{foe:RD.ENEMIES[hostile.foe]?RD.ENEMIES[hostile.foe].name:'a warship'});
+      else if(r.gateReading)r2Voice('gateReading');
+      else if(r.empty)r2Voice('scanEmpty');
+      else if(r.hits.length>1)r2Voice('scanMany',{n:r.hits.length});
+      else{const c=R.cards[r.hits[0].ix];r2Voice('scanFound',{what:c.id?r2NodeName(c,r.hits[0].ix,R.cards).toLowerCase().replace(/^\w/,m=>m.toUpperCase()):spBlipName(c).toLowerCase().replace(/^\w/,m=>m.toUpperCase()),dist:fmt(c.d)});}
+    }
     spCtlKey='';r2Save();r2Render();
   };
   requestAnimationFrame(tick);
@@ -155,7 +166,7 @@ function spControls(host){
   r3.appendChild(Object.assign(el('span','sp-v'),{textContent:'SENSORS '+Math.round(R.power.sensors)+'%  ·  REACH '+fmt(pv.reach)+' LY'}));
   const r4=row('sp-go');
   const go=el('button','btn sp-scan');go.style.setProperty('--bc','var(--blue)');
-  go.textContent=busy?'SCANNING...':(turning?'TURN '+pv.turnDeg+'° AND SCAN':'SCAN AHEAD')+'  ·  '+(turning?pv.turnMin+' + ':'')+pv.scanMin+' MIN';
+  go.textContent=busy?'SCANNING...':(turning?'TURN '+pv.turnDeg+'° AND SCAN':'SCAN AHEAD')+'  ·  '+(turning?pv.turnMin+' + ':'')+pv.scanMin+' MIN'+(pv.half?' (HALF: SAME HEADING)':'');
   go.disabled=busy||S.engaged;go.addEventListener('click',()=>{r2DoScan();});r4.appendChild(go);
   if(turning)btn(r4,'CANCEL TURN',false,()=>{SP.aim=null;},'salmon');
 }

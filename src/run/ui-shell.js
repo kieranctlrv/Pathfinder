@@ -202,6 +202,7 @@ function r2WrapViews(){
   if(R2.wrapped)return;R2.wrapped=true;
   ['science','engineering','tactical','comms','missions','cargo'].forEach(n=>{const o=VIEWS[n];VIEWS[n]=root=>R2.live?R2V[n](root):o(root);});
   const so=VIEWS.settings;VIEWS.settings=root=>{so(root);if(R2.live)r2SettingsTweak(root);};
+  r2WrapLibrary();
 }
 
 /* ---- builders in the shell's own components ---- */
@@ -263,7 +264,7 @@ function r2KeepScroll(name){
 }
 /* ---- the ship's feed (core loop step 2): one saved stream of what the ship tells you ----
    entries: {k:'div'|'sys'|'card', t, rows?, tone?, m: ship minutes}. Kept on the Run (R.vox), newest last. */
-const VOX_MAX=160;
+const VOX_MAX=600,VOX_SHOW=160;
 function r2Vox(e){
   const R=R2.R;if(!R)return;if(!R.vox)R.vox=[];
   e.m=R.shipMin||0;e.id=(R.voxN=(R.voxN||0)+1);R.vox.push(e);if(R.vox.length>VOX_MAX)R.vox.splice(0,R.vox.length-VOX_MAX);
@@ -291,7 +292,7 @@ function r2ShipFeed(){
   if(R2.fdKey===key&&st.childElementCount)return;
   const fresh=R2.fdLast||0,grew=(v.length?v[v.length-1].id:0)>fresh;R2.fdKey=key;
   const out=[],tm=m=>{const t=360+(m||0),x=Math.floor(t%1440);return pad(Math.floor(x/60),2)+':'+pad(x%60,2);};
-  for(let i=0;i<v.length;i++){
+  for(let i=Math.max(0,v.length-VOX_SHOW);i<v.length;i++){
     const e=v[i];
     if(e.k==='sys'){ /* runs of four or more routine lines fold into one, leaving the last two showing */
       let j=i;while(j<v.length&&v[j].k==='sys')j++;
@@ -302,6 +303,7 @@ function r2ShipFeed(){
     }
     let n;
     if(e.k==='div'){n=el('div','fd-div');n.textContent=e.t;}
+    else if(e.k==='off')n=r2VoxOff(e);
     else if(e.k==='card'){
       n=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;n.appendChild(h);
       (e.rows||[]).forEach(r=>{const p=el('p');p.textContent=r;n.appendChild(p);});
@@ -358,6 +360,7 @@ function r2Actions(){
   if(R.over){a.push({t:'VIEW THE RESULT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:0});return a;}
   if(R.phase==='fight'){a.push({t:'OPEN TACTICAL',c:'--salmon',fn:()=>go('tactical'),p:0});return a;}
   if(R.phase==='choose'&&R.resume&&!S.engaged){const rs=R.resume;a.push({t:'RESUME '+r2ResumeText(rs),c:'--orange',fn:()=>r2Resume(),p:0});}
+  if(R.phase==='choose'&&RM.canLandNow(R)&&!S.engaged)a.push({t:'LAND THE REROUTE NOW',c:'--orange',fn:()=>r2LandNow(),p:2});
   if(R.phase==='offers')a.push({t:'OPEN THE OFFERS',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='event')a.push({t:'RESPOND TO THE EVENT',c:'--yellow',fn:()=>{R2.encHide=false;r2Enc();},p:1});
   if(R.phase==='refit'){a.push({t:'OPEN REQUISITION',c:'--yellow',fn:()=>{S.cargoTab='req';go('cargo');},p:1});a.push({t:R.sector>=5?'LEAVE THE GATE':'LEAVE THE GATE: SECTOR '+(R.sector+1),c:'--orange',fn:()=>r2LeaveGate(),p:2});}
@@ -460,7 +463,7 @@ function r2CrewPanel(){
     const o=R.officers[d],lv=clamp(o.level,0,3),r=el('div','cl'+(o.alive?'':' lost'));
     const used=R.fight&&R.fight.orders&&R.fight.orders[d]&&R.fight.orders[d].used;
     if(o.alive&&R.phase==='fight'&&!used)r.classList.add('rdy');
-    r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d];
+    const of=r2Officer(d);r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+'\n'+r2PerkList(d).map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
     r.querySelector('em').textContent=o.alive?R2_RANK[lv]:'LOST';b.appendChild(r);
   });
 }
@@ -525,10 +528,11 @@ const R2K=window.__R2K||8;
 const R2_TRANSIT=3; /* ship minutes per real second while folding */
 /* the fold begins: a queued reroute lands now, and the fold factor is held to what propulsion allows */
 function r2BeginFold(){
-  const R=R2.R;if(R&&RM.applyPending(R)){r2Bridge();r2Say('REROUTE COMPLETE');}
+  const R=R2.R,rr=R&&RM.applyPending(R);if(rr){r2Bridge();r2Say('REROUTE COMPLETE');}
   const mw=Math.floor(maxWarp()*10)/10;if(S.warpSet>mw+.05)S.warpSet=mw;
+  if(R&&S.dest&&SYS[S.dest.id]){r2Say('FOLD '+fmt(S.warpSet)+' TO '+SYS[S.dest.id].name);if(!(rr&&r2Voice('rerouteDone')))r2Voice('foldStart',{dest:SYS[S.dest.id].name.toLowerCase().replace(/(^|\s)\w/g,m=>m.toUpperCase()),f:fmt(S.warpSet)});}
 }
-const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K;
+const r2V=w=>Math.pow(Math.max(w,0),10/3)/8766*8*R2K*(R2.R?RM.role(R2.R,'foldSpeed',1):1);   /* the engine core sets fold speed (step 6) */
 function r2FoldCost(c,w){return Math.round(c.fuel*RM.foldFuelMult(w)*100)/100;}
 function r2CanEngage(){
   const R=R2.R;if(R.phase!=='choose'||R.over||!S.dest||!/^c\d$/.test(S.dest.id))return false;
@@ -583,7 +587,9 @@ function r2FoldCard(ix){
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
   {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}
-   else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');}
+   else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');
+   if(R.ship.lumite<2&&R.phase!=='refit')r2Say('LUMITE LOW: '+(Math.round(R.ship.lumite*10)/10)+' LEFT',true);
+   if(!(R.ship.lumite<1.5&&r2Voice('lumiteLow')))r2Voice('arrive_'+c.type,{foe:E?E.name:(c.foe&&RD.ENEMIES[c.foe]?RD.ENEMIES[c.foe].name:'a warship')});}
   r2Snd('warpUp');
   if(R.phase==='fight'){
     R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;const m=R.fight.meta||{};
@@ -598,7 +604,7 @@ function r2FoldCard(ix){
 }
 function r2LeaveGate(){
   const R=R2.R,r=RM.leaveGate(R);r2Snd('warpUp');
-  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Vox({k:'div',t:'SECTOR '+R.sector+' OF 5 \u00b7 '+r2U(r2Sec().name)});r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));if(curView==='cargo')go('home');}
+  if(r&&r.ok!==false){R2.last='SECTOR ENTRY';R2.encHide=false;r2Vox({k:'div',t:'SECTOR '+R.sector+' OF 5 \u00b7 '+r2U(r2Sec().name)});r2Say('SECTOR '+R.sector+': '+r2U(r2Sec().name));r2Voice('sectorEnter',{sector:r2Sec().name});if(curView==='cargo')go('home');}
   r2Do(r);
 }
 
@@ -615,9 +621,11 @@ function r2Watch(quiet){
   const I=R.intercept;
   if(I&&!I.warned){I.warned=true;const E=RD.ENEMIES[I.foe];
     r2VoxCard('SECURITY: THE REARGUARD IS INBOUND',['A FAST ENERGY SIGNATURE IS CLOSING FROM AFT: '+(E?E.name:'KAEL\'S REARGUARD')+'.','THREAT '+Math.round(R.threat)+'%. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.','TIME TO GET READY: A REROUTE NOW LANDS AT THE FIRST ROUND.'],'red');
+    r2Voice('interceptWarn',{},{urgent:true});
     r2Snd('alert');r2Alert('yellow');r2Save();if(!quiet)r2Render();}
-  if(R.slipNote){const n=R.slipNote;R.slipNote=0;r2VoxCard('SECURITY: WE SLIPPED PAST THEM',['INTERCEPT '+['I','II','III'][n-1]+' LOST OUR TRAIL. NO FIGHT.'],'good');r2Alert('green');}
-  if(R.phase==='choose'&&R.resume&&!R.resume.told){R.resume.told=true;r2VoxCard('BACK ON STATION',[r2ResumeText(R.resume)+' IS READY WHEN YOU ARE.','NOTHING STARTS UNTIL YOU SAY SO.'],'');}
+  if(I&&I.closer){I.closer=false;r2VoxCard('SECURITY: THEY HAVEN\'T FOUND US YET',['THE REARGUARD IS STILL CLOSING. IT REACHES YOU IN '+(I.grace+1)+' MORE ACTION'+(I.grace?'S':'')+'.'],'');r2Voice('interceptCloser',{},{urgent:true});}
+  if(R.slipNote){const n=R.slipNote;R.slipNote=0;r2VoxCard('SECURITY: WE SLIPPED PAST THEM',['INTERCEPT '+['I','II','III'][n-1]+' LOST OUR TRAIL. NO FIGHT.'],'good');r2Voice('interceptSlip',{},{urgent:true});r2Alert('green');}
+  if(R.phase==='choose'&&R.resume&&!R.resume.told){R.resume.told=true;r2VoxCard('BACK ON STATION',[r2ResumeText(R.resume)+' IS READY WHEN YOU ARE.','NOTHING STARTS UNTIL YOU SAY SO.'],'');r2Voice('backOnStation',{},{urgent:true});}
 }
 /* the Rearguard reaches you as you act: the fight comes first, the action waits */
 function r2MeetIntercept(resume){
@@ -627,7 +635,7 @@ function r2MeetIntercept(resume){
   const E=RC.view(R.fight).enemy;
   r2VoxCard('INTERCEPT '+['I','II','III'][r.idx]+': '+E.name,['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','YOUR '+r2ResumeText(resume)+' WAITS UNTIL THE FIGHT IS OVER.'],'red');
   R2.sel=null;R2.feed=[];R2.busy=false;R2.pop=null;
-  r2Say('INTERCEPT '+['I','II','III'][r.idx]+': THE REARGUARD CLOSES IN',true);
+  r2Say('INTERCEPT '+['I','II','III'][r.idx]+': THE REARGUARD CLOSES IN',true);r2Voice('interceptStart',{},{urgent:true});
   r2Snd('alert');r2Alert('red');r2Save();if(curView!=='tactical')go('tactical');r2Render();
   return true;
 }
@@ -664,3 +672,6 @@ function r2FightDock(host){
   host.appendChild(g);
   const t=el('button','btn');t.textContent='OPEN TACTICAL: EVERY CONTROL';t.style.setProperty('--bc','var(--salmon)');t.addEventListener('click',()=>{SND.tap();go('tactical');});host.appendChild(t);
 }
+
+/* a queued reroute landed at once (Threshold Capacitor, a Mk III capacitor, or the Engineering officer), once per sector */
+function r2LandNow(){const R=R2.R,r=RM.landNow(R);if(!r.ok){r2Snd('err');return;}r2Bridge();r2Say('REROUTE LANDED AT ONCE. NEXT CHANCE: NEXT SECTOR');r2Voice('rerouteNow',{},{urgent:true});r2Snd('gain');r2Save();r2Render();}

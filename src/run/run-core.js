@@ -496,6 +496,7 @@ function casualtyRoll(f, sl, already) {
   let p = (already && !stat(f, 'flatSecondHit', 0)) ? 25 : 10;
   if (f.ship.hull < f.ship.hullMax * 0.25 && !stat(f, 'noLowHullCasualty', 0)) p += 5;
   p += stat(f, 'casualty', 0);
+  if (f.flags && f.flags.calmCrew) p -= 3;   /* Medical officer perk (core loop step 6) */
   if (roll(f, Math.max(0, p))) { off.alive = false; f.casualty = { dept }; log(f, 'casualty', { dept }); }
 }
 

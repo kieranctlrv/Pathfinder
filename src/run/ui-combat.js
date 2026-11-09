@@ -475,8 +475,10 @@ function r2RoundCard(){
 }
 function r2Finish(){
   const R=R2.R,f=R.fight;if(!f||!f.over)return;
-  const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}};
+  const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}},names={};
+  Object.keys(f.officers||R.officers).forEach(d=>{const o=(f.officers||R.officers)[d];names[d]=o&&o.nm;});
   const res=RM.resolveFight(R);
+  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm)R.lostNames=(R.lostNames||[]).concat([nm]);}
   R2.feed=[];R2.busy=false;R2.sel=null;R2.pop=null;
   r2Alert('green');
   const eName=(f.enemy&&f.enemy.name)||((RC.view(f).enemy||{}).name)||'THE CONTACT';
@@ -494,6 +496,14 @@ function r2Finish(){
   if(res.result!=='lost')rows.push('HULL '+Math.round(R.ship.hull)+' OF '+R.ship.hullMax);
   r2VoxCard((res.result==='won'?'VICTORY: ':res.result==='fled'?'WITHDREW FROM ':'LOST TO ')+eName,rows,res.result==='won'?'good':'red');
   if(R.phase==='fight'){const E=RC.view(R.fight).enemy;r2VoxCard('ARRIVED: '+E.name+', '+(R2.last||'HOSTILE CONTACT'),['THE FOLD YOU CHOSE BRINGS YOU STRAIGHT INTO A SECOND FIGHT.'],'red');}
+  { /* one officer speaks for the result: a loss first, then a promotion, then the ship or the win */
+    const sm=res.summary||{},cas=sm.casualty;
+    if(cas){const nm=names[cas.dept];r2Voice('casualty',{name:nm||'an officer',dept:r2U(R2_DEPT[cas.dept]).toLowerCase().replace(/^\w/,m=>m.toUpperCase())},{urgent:true});}
+    else if(res.result==='won'&&(sm.levelUps||[]).length)r2Voice('promotion',{},{dept:sm.levelUps[0].dept,urgent:true});
+    else if(res.result==='won'&&R.ship.hull<R.ship.hullMax*0.4)r2Voice('fightWinHurt',{hull:Math.round(R.ship.hull/R.ship.hullMax*100)+'%'},{urgent:true});
+    else if(res.result==='won')r2Voice('fightWin',{},{urgent:true});
+    else if(res.result==='fled')r2Voice('fightFled',{},{urgent:true});
+  }
   if(R.phase==='fight'){R2.sel=null;r2Alert('red');if(curView!=='tactical')go('tactical');}else if(curView==='tactical'&&!R.over)go('home');
   r2Save();r2Render();
 }
