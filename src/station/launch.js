@@ -165,7 +165,7 @@ function lcRecord(main){
 function boot(){
   if(window.__NOLAUNCH__){startMode(window.__MODE__||'campaign',{fresh:!!window.__FRESH__,run:window.__RUNOPT__});return;}
   loadSettings();loadProfile();applyA11y();
-  const L=$('#launch');L.hidden=false;renderLaunch();
+  const L=$('#launch');titleShow(()=>{L.hidden=false;renderLaunch();});
   document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!L.hidden&&LC.view==='main'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='INPUT'){const c=$('.lc-go',L);if(c&&e.target!==c)c.click();}});
 }
 
