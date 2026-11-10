@@ -93,7 +93,7 @@ function e3Draw(){
   const glow=(p,rgb,r)=>{const P=e3Proj(c,e3Cam(e3U(p))),g=x.createRadialGradient(P[0],P[1],0,P[0],P[1],r*d);g.addColorStop(0,'rgba('+rgb+',.9)');g.addColorStop(1,'rgba('+rgb+',0)');x.fillStyle=g;x.beginPath();x.arc(P[0],P[1],r*d,0,Math.PI*2);x.fill();};
   glow([134,0,0],spHex('salmon'),14);glow([148,0,83],spHex('orange'),9);glow([148,0,-83],spHex('orange'),9);glow([914,0,0],spHex('blue'),10);
   /* orientation gizmo */
-  {const o=[60*d,H-34*d],k=22*d;x.font=(10*d)+'px "Barlow Condensed",sans-serif';
+  {const o=[60*d,H-34*d],k=22*d;x.font=cfont(10*d);
     [[[1,0,0],'BOW','peach'],[[0,1,0],'PORT','lav'],[[0,0,1],'DORSAL','blue']].forEach(([v,t,cl])=>{const q=e3Cam(v);if(Math.hypot(q[0],q[2])<0.35)return;x.strokeStyle=COL[cl];x.globalAlpha=q[1]<-0.2?0.45:1;x.lineWidth=1.5*d;x.beginPath();x.moveTo(o[0],o[1]);x.lineTo(o[0]+q[0]*k,o[1]-q[2]*k);x.stroke();x.fillStyle=COL[cl];x.textAlign=q[0]<-0.2?'right':q[0]>0.2?'left':'center';x.fillText(t,o[0]+q[0]*k*1.25,o[1]-q[2]*k*1.25+(q[2]<0?10*d:-2*d));x.textAlign='left';});
     x.globalAlpha=1;}
   /* system markers */
@@ -114,11 +114,11 @@ function e3Draw(){
   if(lm){
     const s=RC.slotById(lid),f=e3Fitted(lid),pp=f&&r2Part(f.part),st=e3State(lid);
     const t1=r2U(s.name),t2=st==='locked'?'LOCKED':!f?'EMPTY':r2U(pp?pp.name:f.part)+' MK '+R2_MK[f.tier-1]+(st==='off'?'  ·  OFFLINE':'');
-    x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';const w1=x.measureText(t1).width;x.font=(12*d)+'px "Barlow Condensed",sans-serif';const w=Math.max(w1,x.measureText(t2).width)+16*d;
+    x.font=cfont(13*d,1);const w1=x.measureText(t1).width;x.font=cfont(12*d);const w=Math.max(w1,x.measureText(t2).width)+16*d;
     let bx=lm.P[0]+14*d,by=lm.P[1]-40*d;if(bx+w>W-4*d)bx=lm.P[0]-14*d-w;if(by<4*d)by=lm.P[1]+14*d;
     x.fillStyle='rgba(6,11,22,.88)';x.fillRect(bx,by,w,34*d);x.fillStyle=COL[E3_DCOL[s.department]]||COL.peri;x.fillRect(bx,by,3*d,34*d);
-    x.fillStyle=COL.chalk||'#fff';x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';x.fillText(t1,bx+9*d,by+14*d);
-    x.fillStyle=st==='off'?COL.salmon:'rgba(200,205,230,.85)';x.font=(12*d)+'px "Barlow Condensed",sans-serif';x.fillText(t2,bx+9*d,by+28*d);
+    x.fillStyle=COL.chalk||'#fff';x.font=cfont(13*d,1);x.fillText(t1,bx+9*d,by+14*d);
+    x.fillStyle=st==='off'?COL.salmon:'rgba(200,205,230,.85)';x.font=cfont(12*d);x.fillText(t2,bx+9*d,by+28*d);
   }
 }
 function e3Anim(){

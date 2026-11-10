@@ -20,7 +20,7 @@ def('command','brief','ROUTINE BRIEFING','a',{
   ["Understood. Anything else?","x"],
   ["We have evidence of a pattern: ships vanishing near the dead zone.","evd",null,"ev:3"]]),
  evd:M("Command listens without interrupting. That matches what Security has been telling us. Investigation of the Dead Zone is authorized, Captain. Be careful out there.",[["Understood.","k"]],[["dest","zone"],["stand","fed",1]]),
- v:M("Very little. Long-range sensors caught a fold signature that matches no registered design. It dropped to sublight about two light years from the border and stopped. Command wants a closer look, but not at the cost of an incident.",[
+ v:M("Very little. Long-range sensors caught a fold signature that matches no registered design. It dropped out of fold about two light years from the border and stopped. Command wants a closer look, but not at the cost of an incident.",[
   ["We'll keep our sensors on it.","k"],
   ["Permission to scan the area?","p"]]),
  p:M("Permission granted. Keep it passive and keep it polite. If they hail you, you're a science vessel on a routine survey. Understood?",[
@@ -268,7 +268,7 @@ def('freighter','mayday','DISTRESS CALL','a',{
 },true);
 
 /* ASHKAR ALLIES */
-def('klingon','honor',"WARRIOR'S GREETING",'a',{
+def('ashkar','honor',"WARRIOR'S GREETING",'a',{
  a:M("Concord vessel. I am {cap}, commander of the {n}. Your ship is large. Is it also strong?",[
   ["Strong enough, Commander. We'd rather prove it in peace.","b"],
   ["Stronger than you'd like, Commander.","br"],
@@ -296,7 +296,7 @@ def('klingon','honor',"WARRIOR'S GREETING",'a',{
  hg3:E("A burned cargo ship. A message in Concord code and another in Ashkar code, both sent from the same source. Someone is stirring the pot.",[["reveal",1],["item","e_raiders"]])
 });
 
-def('klingon','challenge','A TEST OF SKILL','a',{
+def('ashkar','challenge','A TEST OF SKILL','a',{
  a:M("Concord captain. A test of skill. My crew bets your sensors cannot track my ship while I run silent. Do you accept?",[
   ["Accepted. Begin when ready.","b"],
   ["What are the stakes?","st"],
@@ -320,7 +320,7 @@ def('klingon','challenge','A TEST OF SKILL','a',{
 });
 
 /* THESSINE ALLIES */
-def('vulcan','survey','SURVEY LIAISON','a',{
+def('thessine','survey','SURVEY LIAISON','a',{
  a:M("Greetings. I am {cap} of the {n}. Live long and prosper.",[
   ["Peace and long life, Captain.","b"],
   ["What are you surveying?","sv"]]),
@@ -339,7 +339,7 @@ def('vulcan','survey','SURVEY LIAISON','a',{
  nt:E("Time is a resource that logic dictates we use well. I will not detain you. Live long and prosper.")
 });
 
-def('vulcan','ethics','ETHICS QUERY','a',{
+def('thessine','ethics','ETHICS QUERY','a',{
  a:M("Captain, I have a question that has troubled my crew. When your ship faces a choice between a rule and a life, which do you choose?",[
   ["The life. Rules exist to serve people.","l"],
   ["The rule. Rules protect more lives than any single decision.","r"],

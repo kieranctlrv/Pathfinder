@@ -156,7 +156,7 @@ function engage(){
 }
 function disengage(){
   if(!S.engaged){SND.err();return false;}
-  S.engaged=false;SND.warpDown();log('DROPPING TO SUBLIGHT');return true;
+  S.engaged=false;SND.warpDown();log('DROPPING TO CRUISE');return true;
 }
 function goTo(id,andEngage){
   if(!setCourse(id))return false;

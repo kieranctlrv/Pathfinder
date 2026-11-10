@@ -105,7 +105,7 @@ function resetGame(){resetSlot(S.mode);}
 /* ---- cargo manifest ---- */
 VIEWS.cargo=root=>{
   root.innerHTML='<section class="panel" style="--pc:var(--peri)"><div class="ph"><h3>SUPPLIES</h3></div><div class="pb vcol">'+
-    '<dl class="kv"><dt>PHOTON TORPEDOES</dt><dd id="cg-torp">0</dd><dt>SPARE PARTS</dt><dd id="cg-parts">0</dd></dl>'+
+    '<dl class="kv"><dt>TORPEDOES</dt><dd id="cg-torp">0</dd><dt>SPARE PARTS</dt><dd id="cg-parts">0</dd></dl>'+
     '<div class="qrow"><span>LUMITE</span><div class="qb"><i id="cg-dbar"></i></div><b id="cg-dv">0</b></div>'+
     '<div class="rowbtn"><button class="btn" id="cg-use" style="--bc:var(--orange)">INSTALL SPARE PART</button></div>'+
     '<p class="note" id="cg-note"></p>'+

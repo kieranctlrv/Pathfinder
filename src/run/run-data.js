@@ -22,7 +22,7 @@ const SLOTS = [
   sl('eng.fold','Fold coil','engineering','propulsion'),
   sl('eng.shield','Shield generator','engineering','shields'),
   sl('eng.emitters','Emitters','engineering','shields'),
-  sl('eng.deflector','Deflector grid','engineering','shields'),
+  sl('eng.deflector','Screen grid','engineering','shields'),
   sl('sci.array','Sensor array','science','sensors'),
   sl('sci.processor','Processor','science','sensors'),
   sl('sci.jammer','Jammer','science','sensors'),

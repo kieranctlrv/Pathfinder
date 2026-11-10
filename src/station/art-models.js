@@ -325,8 +325,8 @@ const FLD=(kit,params,skin,x,y,s,v,res)=>({kit:kit,params:params,skin:skin,x:x,y
 [
  {id:'SHP-FREIGHT-01',name:'Guild freighter',kind:'ship',refs:[{t:'convkey',k:'freighter'}],fmt:'lit model: hull kit, freight',model:MD('hull',{arch:'freight'},'guild',SHV),vary:'freight',usage:['viewer: hail','viewer: active conversation'],notes:'Spine with three to five accent containers, one to three engines. Each ship varies by its name, so the same ship always looks the same.'},
  {id:'SHP-CRUISER-01',name:'Concord cruiser',kind:'ship',refs:[{t:'convkey',k:'fed'}],fmt:'lit model: hull kit, ring',model:MD('hull',{arch:'ring',len:2.1,pods:2},'concord',SHV),vary:'ring',usage:['viewer: hail','viewer: active conversation'],notes:'Navy livery with a meridian ring and nacelle pods, the Pathfinder family in miniature. Length varies, and some have no pods.'},
- {id:'SHP-WING-01',name:'Ashkar patrol ship',kind:'ship',refs:[{t:'convkey',k:'klingon'},{t:'foe',k:'patrol'}],fmt:'lit model: hull kit, wing',model:MD('hull',{arch:'wing'},'ashkar',{pitch:-.45,sweep:70,frames:8}),usage:['viewer: hail','viewer: active conversation'],notes:'Swept paired blade wings, crimson and bronze, red engine glow. Aggressive and never rounded.'},
- {id:'SHP-LENS-01',name:'Thessine survey ship',kind:'ship',refs:[{t:'convkey',k:'vulcan'}],fmt:'lit model: hull kit, lens',model:MD('hull',{arch:'lens'},'thessine',{pitch:-.4,sweep:70,frames:8}),usage:['viewer: hail','viewer: active conversation'],notes:'A smooth lens with a sensor dome and a mast. Silver green, quiet blue-white engines.'},
+ {id:'SHP-WING-01',name:'Ashkar patrol ship',kind:'ship',refs:[{t:'convkey',k:'ashkar'},{t:'foe',k:'patrol'}],fmt:'lit model: hull kit, wing',model:MD('hull',{arch:'wing'},'ashkar',{pitch:-.45,sweep:70,frames:8}),usage:['viewer: hail','viewer: active conversation'],notes:'Swept paired blade wings, crimson and bronze, red engine glow. Aggressive and never rounded.'},
+ {id:'SHP-LENS-01',name:'Thessine survey ship',kind:'ship',refs:[{t:'convkey',k:'thessine'}],fmt:'lit model: hull kit, lens',model:MD('hull',{arch:'lens'},'thessine',{pitch:-.4,sweep:70,frames:8}),usage:['viewer: hail','viewer: active conversation'],notes:'A smooth lens with a sensor dome and a mast. Silver green, quiet blue-white engines.'},
  {id:'SHP-PATCH-01',name:'Wrecker raider',kind:'ship',refs:[{t:'convkey',k:'unknown'},{t:'foe',k:'raider'},{t:'foe',k:'cutter'}],fmt:'lit model: hull kit, patch',model:MD('hull',{arch:'patch',len:2.0,seed:4},'wrecker',SHV),vary:'patch',usage:['viewer: hail','viewer: active conversation'],notes:'Patchwork hull of mismatched panels, a crooked fin, a hull-cutter arm with a glowing tip. Unidentified contacts use this silhouette until identified.'},
  {id:'SHP-DRONE-02',name:'Lathe drone',kind:'ship',refs:[{t:'contact',k:'drone'},{t:'foe',k:'drone'}],fmt:'lit model: hull kit, drone',model:MD('hull',{arch:'drone'},'lathe',{pitch:-.2,frames:12}),usage:['viewer: hail','viewer: active conversation'],notes:'A spiked ball with one eye. The beacon pixel is the eye. Replaces SHP-DRONE-01.'},
  {id:'SHP-SMUGGLER-01',name:'Smuggler',kind:'ship',refs:[{t:'foe',k:'smuggler'}],fmt:'lit model: hull kit, freight',model:MD('hull',{arch:'freight',len:1.9,boxes:[8,10,8],engines:3,seed:3},'wrecker',SHV),usage:['viewer: hail','tactical'],notes:'A freighter with a bigger engine block and plain containers, in Wrecker colors. Made from the freight kit with no new art code.'},
@@ -359,7 +359,7 @@ const FLD=(kit,params,skin,x,y,s,v,res)=>({kit:kit,params:params,skin:skin,x:x,y
  {id:'VES-PF-FRONT-01',name:'Pathfinder, front view',kind:'vessel',refs:[{t:'vessel',k:'pathfinder'}],fmt:'line art SVG, code-drawn',usage:['Engineering structure view'],notes:'Ring as a full circle, pods top and bottom.'},
  {id:'VES-PF-VECTOR-01',name:'Pathfinder, vector turntable',kind:'vessel',refs:[{t:'vessel',k:'pathfinder'}],fmt:'3D wireframe, canvas',usage:['header window'],notes:'Teal hull, blue pods, amber ring and emitters. Nozzles glow at fold. Tap opens the structure view.'},
  {id:'VES-PF-SHEET-01',name:'Pathfinder concept sheet',kind:'vessel',refs:[{t:'vessel',k:'pathfinder'}],fmt:'external image (reference only)',status:'reference',usage:['not in game'],notes:'The chosen design. Source of truth for proportions, livery, and the ring. Navy, ivory, brass, amber.'},
- {id:'UI-TIDELINE-01',name:'Tideline interface theme',kind:'ui',refs:[{t:'theme',k:'tideline'}],fmt:'CSS theme',usage:['whole interface'],notes:'Navy ground, chamfered panels, department colors, Barlow Condensed.'}
+ {id:'UI-TIDELINE-01',name:'Console interface theme',kind:'ui',refs:[{t:'theme',k:'tideline'}],fmt:'CSS theme',usage:['whole interface'],notes:'Navy ground, chamfered panels, department colors, Barlow Condensed.'}
 ].forEach(artAdd);
 /* retired: hand-placed sprites replaced by models. IDs are never reused. */
 [['SHP-HAULER-01','Guild hauler','SHP-FREIGHT-01'],['SHP-NAVY-01','Concord cruiser','SHP-CRUISER-01'],['SHP-ASHKAR-01','Ashkar patrol ship','SHP-WING-01'],['SHP-THESSINE-01','Thessine survey ship','SHP-LENS-01'],['SHP-RAIDER-01','Wrecker raider','SHP-PATCH-01'],['SHP-DRONE-01','Lathe drone','SHP-DRONE-02'],['SHP-WRECKFLAG-01','Wrecker flagship','SHP-FLAGSHIP-01'],['STN-ANCH74-01','Anchorage 74','STN-ANCH74-02'],['STN-CORVANE-01','Corvane platform','STN-CORVANE-02'],['STN-BRANDT-01','Brandt\u2019s Rest rig','STN-BRANDT-02'],['PLC-SALVAGE-01','Salvage Site','PLC-SALVAGE-02'],['PLC-ASTER-01','Aster Field','PLC-ASTER-02'],['PLC-DERELICT-01','Derelict','PLC-DERELICT-02'],['PLC-DEADZONE-01','The Dead Zone','PLC-DEADZONE-02',1],['PLC-SHROUD-01','The Shroud','PLC-SHROUD-02',1]].forEach(r=>artAdd({id:r[0],name:r[1],kind:r[0].slice(0,3)==='SHP'?'ship':r[0].slice(0,3)==='STN'?'station':'place',refs:[],fmt:'retired',status:'retired',usage:['none'],notes:'Retired. '+(r[3]?'A hand-coded 2D shader that looked poor in the game.':'Hand-placed flat sprite that looked poor beside the planets.')+' Replaced by '+r[2]+'.'}));
@@ -509,7 +509,7 @@ function arrive(){
   const first=!S.visited[d.id];S.visited[d.id]=true;
   if(S.run)runArrive(d.id);
   if(first&&d.id!=='sb74'&&!S.run)addData(5,'NEW SYSTEM SURVEYED');if(d.id==='sb74'&&!S.run)S.stock={dil:20,parts:3,torp:4};else if(!S.run&&SYS[d.id]&&SYS[d.id].depot)S.stock=Object.assign({},SYS[d.id].depot.stock);
-  log('ARRIVED AT '+s.name+'. DROPPING TO SUBLIGHT','','helm');clog('Arrived at '+s.name+'.');
+  log('ARRIVED AT '+s.name+'. DROPPING TO CRUISE','','helm');clog('Arrived at '+s.name+'.');
   if(s.cls&&!PLANETS.some(p=>p.name===s.name)){
     pushPlanet(genPlanet(s.name,s.cls));
   }
@@ -615,7 +615,7 @@ function drawRadar(dt){
   const c=$('#radar');if(!c)return;fit(c);
   const x=c.getContext('2d'),W=c.width,H=c.height,cx=W/2,cy=H/2,d=c.dpr,R=Math.min(W,H)/2-10*d,rng=scanRangeView();
   x.fillStyle='#060B16';x.fillRect(0,0,W,H);
-  x.strokeStyle=COL.peri;x.lineWidth=d;x.fillStyle=COL.peri;x.font=(12*d)+'px Antonio, Arial Narrow, sans-serif';
+  x.strokeStyle=COL.peri;x.lineWidth=d;x.fillStyle=COL.peri;x.font=cfont(12*d);
   for(let i=1;i<=4;i++){x.globalAlpha=.5;x.beginPath();x.arc(cx,cy,R*i/4,0,Math.PI*2);x.stroke();x.globalAlpha=.9;x.fillText(fmt(rng*i/4,0),cx+3*d,cy-R*i/4+12*d);}
   x.globalAlpha=.3;x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy-R);x.lineTo(cx,cy+R);x.stroke();x.globalAlpha=1;
   const a=(S.sweep-90)*Math.PI/180;

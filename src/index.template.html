@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pathfinder Watchstation</title>
+<title>Pathfinder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
 <style><!--@style--></style>
 </head>
-<body>
+<body class="skin-pixel">
 <div id="screen">
+  <div id="topbar" aria-label="Ship status"></div>
   <aside id="side">
-    <div class="s-top"><span>TIDELINE 23295</span><b>01-23564</b></div>
+    <div class="s-top"><span>CNS PATHFINDER</span><b>CN-4417</b></div>
     <nav id="tabs" aria-label="Stations"></nav>
   </aside>
   <main id="main">
@@ -48,7 +49,7 @@
               <li><i></i>CORE OUTPUT <b id="r-out">0 TW</b></li>
               <li><i></i>TRUNK FLOW <b id="r-eps">0%</b></li>
               <li><i></i>LUMITE <b id="r-deu">0%</b></li>
-              <li><i></i>ANTIMATTER <b id="r-am">0%</b></li>
+              <li><i></i>REACTANT <b id="r-am">0%</b></li>
             </ul>
             <canvas id="spark" class="spark"></canvas>
             <div class="gauges" id="gauges"></div>
@@ -68,7 +69,7 @@
               </div>
               <div id="mc-trip" hidden>
                 <div class="stats" id="ht-kv"></div>
-                <div class="mc-trip-row"><input type="range" id="hm-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor"><button class="btn sm" id="hm-dis" style="--bc:var(--salmon)">DROP TO SUBLIGHT</button></div>
+                <div class="mc-trip-row"><input type="range" id="hm-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor"><button class="btn sm" id="hm-dis" style="--bc:var(--salmon)">DROP TO CRUISE</button></div>
               </div>
             </div>
           </div>
@@ -112,7 +113,7 @@
         </section>
         <section class="panel p-warp" data-go="helm" style="--pc:var(--orange)" tabindex="0">
           <div class="ph"><h3>FOLD FIELD</h3></div>
-          <div class="pb wp"><div class="wp-n"><b id="wf-n">0.0</b><small id="wf-s">SUBLIGHT</small></div><div class="wp-c"><canvas id="wf" class="fill"></canvas></div><div class="wp-r"><div><span>ETA</span><b id="wf-eta">--:--</b></div><div><span>BURN</span><b id="wf-burn">--</b></div><div><span>RANGE</span><b id="wf-rng">--</b></div></div><div class="wfl" id="wfl" hidden></div></div>
+          <div class="pb wp"><div class="wp-n"><b id="wf-n">0.0</b><small id="wf-s">CRUISE</small></div><div class="wp-c"><canvas id="wf" class="fill"></canvas></div><div class="wp-r"><div><span>ETA</span><b id="wf-eta">--:--</b></div><div><span>BURN</span><b id="wf-burn">--</b></div><div><span>RANGE</span><b id="wf-rng">--</b></div></div><div class="wfl" id="wfl" hidden></div></div>
         </section>
         <section class="panel p-cat" data-go="science" style="--pc:var(--lav)" tabindex="0">
           <div class="ph"><div class="rowbtn" style="gap:4px"><button class="mini" id="c-prev">PREV</button><button class="mini" id="c-next">NEXT</button><button class="mini" id="c-orb" hidden>ORBIT</button></div><h3 id="cat-t">CATALOG</h3></div>

@@ -122,7 +122,7 @@ function r2Space(c){
   {const t=P(ship.map((v,j)=>v-SCA.disp[j]*1.05)),fl=Math.random()<.5?2:3;x.fillStyle='rgba(255,170,90,.9)';x.fillRect(Math.round(t[0]-1),Math.round(t[1]-1),fl,fl);}
   /* up-scale with hard edges, then labels and a faint scanline at full resolution */
   X.imageSmoothingEnabled=false;X.drawImage(SCA.buf,0,0,W,H);
-  X.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';X.textBaseline='middle';
+  X.font=cfont(13*d,1);X.textBaseline='middle';
   const boxes=[];
   const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=py*k;for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
@@ -131,7 +131,7 @@ function r2Space(c){
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const g=P(R.gateDir.map(q=>q*9));lab(g[0],g[1],'GATE BEARING','rgb('+spHex('yellow')+')');}
   X.fillStyle='rgba(0,0,0,.10)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);
   const vg=X.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.45)');X.fillStyle=vg;X.fillRect(0,0,W,H);
-  X.font=(12*d)+'px "Barlow Condensed",sans-serif';X.fillStyle='rgba(200,206,230,.75)';X.textBaseline='alphabetic';
+  X.font=cfont(12*d);X.fillStyle='rgba(200,206,230,.75)';X.textBaseline='alphabetic';
   X.fillText('SECTOR '+R.sector+' · '+r2U(r2Sec().name)+' · PASSAGE '+Math.min(R.passage,7),12*d,H-12*d);
   if(!choose){X.textAlign='right';X.fillText(r2PhaseText(),W-12*d,H-12*d);X.textAlign='left';}
 }

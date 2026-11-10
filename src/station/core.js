@@ -20,6 +20,8 @@ const fmt=(n,d)=>Number(n).toFixed(d==null?1:d);
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 const REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 const COL={};
+/* canvas font for the current skin (pixel skin draws labels in VT323) */
+function cfont(px,bold){const p=document.body.classList.contains('skin-pixel');return (bold&&!p?'600 ':'')+Math.round(px*(p?1.25:1))+'px '+(p?'VT323,monospace':'"Barlow Condensed",sans-serif');}
 function refreshColors(){
   const cs=getComputedStyle(document.body);
   ['orange','peach','lav','peri','blue','salmon','yellow'].forEach(n=>{COL[n]=(cs.getPropertyValue('--'+n)||'').trim()||'#fff';});
@@ -44,7 +46,7 @@ const shieldCap=()=>clamp(S.power.shld*3-S.mods.shld+(S.upg.shld?10:0)+perk('shi
 const sensorRange=()=>Math.max(2,6+S.power.sens*0.9-S.mods.sens+(S.upg.sens?2:0)+perk('sensor')*3);
 const phaserRate=()=>(1.5+S.power.weap*0.25)*(1+.25*perk('phcap'));
 const avgShield=()=>(S.quad.fore+S.quad.aft+S.quad.port+S.quad.star)/4;
-function stardate(){return 47764+S.gt/86400;}
+function stardate(){return 23295+S.gt/86400;}
 
 /* ---------- audio: synthesized ship sounds ---------- */
 let AC=null,BUS=null,klax=null;

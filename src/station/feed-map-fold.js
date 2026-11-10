@@ -157,7 +157,7 @@ function drawMap(c){
   x.globalAlpha=1;
   x.setLineDash([6*d,6*d]);x.strokeStyle=COL.blue;x.globalAlpha=.18;x.beginPath();x.arc(sp[0],sp[1],sensorRange()*sc,0,Math.PI*2);x.stroke();x.setLineDash([]);x.globalAlpha=1;
   {const fw=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()),rng=S.inv.dilithium/Math.max(.001,dilCost(fw));
-   if(!R2.live&&rng>1&&rng<70){x.save();x.setLineDash([2*d,5*d]);x.strokeStyle=COL.orange;x.globalAlpha=.55;x.lineWidth=2*d;x.beginPath();x.arc(sp[0],sp[1],rng*sc,0,Math.PI*2);x.stroke();x.setLineDash([]);x.globalAlpha=.8;x.fillStyle=COL.orange;x.font=(11*d)+'px Antonio, Arial Narrow, sans-serif';x.textAlign='center';x.fillText('FUEL RANGE',sp[0],sp[1]-rng*sc-5*d);x.restore();}}
+   if(!R2.live&&rng>1&&rng<70){x.save();x.setLineDash([2*d,5*d]);x.strokeStyle=COL.orange;x.globalAlpha=.55;x.lineWidth=2*d;x.beginPath();x.arc(sp[0],sp[1],rng*sc,0,Math.PI*2);x.stroke();x.setLineDash([]);x.globalAlpha=.8;x.fillStyle=COL.orange;x.font=cfont(11*d);x.textAlign='center';x.fillText('FUEL RANGE',sp[0],sp[1]-rng*sc-5*d);x.restore();}}
   let ang=-Math.PI/2;
   if(S.dest){const s=SYS[S.dest.id],q=mapXY(c,s.x,s.y);ang=Math.atan2(q[1]-sp[1],q[0]-sp[0]);x.save();x.setLineDash([10*d,6*d]);x.lineDashOffset=-t*30*d;x.strokeStyle=COL.orange;x.lineWidth=2.4*d;x.beginPath();x.moveTo(sp[0],sp[1]);x.lineTo(q[0],q[1]);x.stroke();x.restore();}
   else if(!S.run&&OBJID&&SYS[OBJID]){const q=mapXY(c,SYS[OBJID].x,SYS[OBJID].y);x.save();x.setLineDash([8*d,8*d]);x.lineDashOffset=-t*26*d;x.strokeStyle=COL.yellow;x.globalAlpha=.7;x.lineWidth=2*d;x.beginPath();x.moveTo(sp[0],sp[1]);x.lineTo(q[0],q[1]);x.stroke();x.restore();}
@@ -178,7 +178,7 @@ function drawMap(c){
     items.push({id:id,p:p,r:r,pri:pri,name:s.name,col:col,must:pri<=3});
   });
   /* labels that never sit on top of each other */
-  x.font=(13*d)+'px Antonio, Arial Narrow, sans-serif';x.textAlign='left';x.textBaseline='top';
+  x.font=cfont(13*d);x.textAlign='left';x.textBaseline='top';
   const boxes=items.map(it=>({id:it.id,x:it.p[0]-it.r*1.9,y:it.p[1]-it.r*1.9,w:it.r*3.8,h:it.r*3.8})),hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y,placed=[];
   items.sort((a,b)=>a.pri-b.pri).forEach(it=>{
     const txt=it.name.length>24?it.name.slice(0,23)+'.':it.name,w=x.measureText(txt).width,h=14*d,pd=3*d,r=it.r;
@@ -199,13 +199,13 @@ function updWarpPanel(){
   if(R2.live){r2WarpPanel();return;}
   const n=$('#wf-n');if(!n)return;
   const v=Math.pow(S.warpEff,10/3)/8766*8,wp=S.warpEff>=1?S.warpEff:(S.warpSet>=1?S.warpSet:0);
-  const t1=fmt(S.warpEff>=.05?S.warpEff:wp||0),st=S.engaged&&S.warpEff>=1?'ENGAGED':(S.warpEff>=.05?'SPOOLING':(wp?'PLAN '+fmt(wp):'SUBLIGHT'));
+  const t1=fmt(S.warpEff>=.05?S.warpEff:wp||0),st=S.engaged&&S.warpEff>=1?'ENGAGED':(S.warpEff>=.05?'SPOOLING':(wp?'PLAN '+fmt(wp):'CRUISE'));
   if(n.textContent!==t1)n.textContent=t1;
   const s=$('#wf-s');if(s&&s.textContent!==st){s.textContent=st;s.className=S.engaged?'on':'';}
   const eta=S.engaged&&S.dest&&S.warpEff>=1?fmtEta(S.distLeft/v):'--:--',bw=S.warpEff>=1?S.warpEff:wp;
   const burn=bw?dilCost(bw).toFixed(2)+'/LY':'--',rng=bw?Math.round(S.inv.dilithium/Math.max(.001,dilCost(bw)))+' LY':'--';
   [['wf-eta',eta],['wf-burn',burn],['wf-rng',rng]].forEach(a=>{const e=$('#'+a[0]);if(e&&e.textContent!==a[1])e.textContent=a[1];});
-  {const w=$('#wfl');if(w)w.textContent='FACTOR '+fmt(S.warpEff)+(S.engaged?'  ENGAGED':'  SUBLIGHT')+'\n'+(S.engaged&&S.dest&&S.warpEff>=1?'ETA '+eta+'  BURN '+burn:(bw?'PLAN '+fmt(bw)+'  BURN '+burn:'LUMITE '+Math.round(S.inv.dilithium)));}
+  {const w=$('#wfl');if(w)w.textContent='FACTOR '+fmt(S.warpEff)+(S.engaged?'  ENGAGED':'  CRUISE')+'\n'+(S.engaged&&S.dest&&S.warpEff>=1?'ETA '+eta+'  BURN '+burn:(bw?'PLAN '+fmt(bw)+'  BURN '+burn:'LUMITE '+Math.round(S.inv.dilithium)));}
 }
 /* the ship log lives in the middle of the header on wide screens */
 let headerLog=false;

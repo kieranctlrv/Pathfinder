@@ -98,9 +98,39 @@ function r2Hdr(){
   const st=r2ShipTime(R);if(c&&c.textContent!==st.hm)c.textContent=st.hm;
   if(h){const t=r2U(sec.name)+', DAY '+st.day+(R2.pause?', PAUSED':'')+', THREAT '+Math.round(R.threat)+'%';if(h.textContent!==t)h.textContent=t;}
   r2PauseBtn(c);
+  r2Top(R,sec,st,fight);
   if(sd&&sd.textContent!==R.seed)sd.textContent=R.seed;
   const m=$('#d-mode');
   if(m){const w=R.over?(R.over==='won'?'VICTORY':'LOST'):fight?'BATTLE STATIONS':R.phase==='refit'?'REFIT GATE':R.phase==='choose'?'PATROL':R.phase==='offers'?'SALVAGE':'EVENT';if(m.textContent!==w){m.textContent=w;m.style.color=fight?'var(--salmon)':'var(--blue)';}}
+}
+/* the top strip: resources as pixel sprites, then threat, ship time, sound and pause */
+function r2Top(R,sec,st,fight){
+  const host=$('#topbar');if(!host)return;
+  if(!host.dataset.built){
+    host.dataset.built='1';host.innerHTML='';
+    host.appendChild(el('b','tb-name','PATHFINDER'));
+    const res=el('div','tb-res');
+    [['hull','HULL','engineering'],['lum','LUMITE','helm'],['sal','SALVAGE','cargo'],['trp','TORPEDOES','cargo'],['dat','DATA','science']].forEach(i=>{
+      const b=el('button','tb-r');b.type='button';b.dataset.k=i[0];b.title=i[1];b.setAttribute('aria-label',i[1]);
+      b.innerHTML='<i class="pxi i-'+i[0]+'"></i><span></span>';b.addEventListener('click',()=>go(i[2]));res.appendChild(b);
+    });
+    host.appendChild(res);
+    host.appendChild(el('span','tb-where'));
+    host.appendChild(el('span','tb-gap'));
+    const th=el('button','tb-r tb-thr');th.type='button';th.dataset.k='thr';th.title='THREAT: HOW CLOSE THE REARGUARD IS';th.innerHTML='<i class="pxi i-thr"></i><span></span>';th.addEventListener('click',()=>go('comms'));host.appendChild(th);
+    const tm=el('span','tb-r tb-time');tm.innerHTML='<i class="pxi i-time"></i><span></span>';host.appendChild(tm);
+    const snd=el('button','tb-btn tb-snd');snd.type='button';snd.addEventListener('click',()=>{setMute(!S.mute);r2Top(R2.R,r2Sec(),r2ShipTime(R2.R),R2.R.phase==='fight');});host.appendChild(snd);
+    const pb=el('button','tb-btn tb-pause');pb.type='button';pb.title='Pause the Run (P). Ship time stops.';pb.addEventListener('click',()=>{if(!R2.R||R2.R.over)return;R2.pause=!R2.pause;if(R2.pause)r2Save();r2Render();});host.appendChild(pb);
+  }
+  const sh=R.ship,hp=sh.hull/sh.hullMax*100,set=(k,v,lv)=>{const b=$('.tb-r[data-k="'+k+'"]',host);if(!b)return;const s=b.lastChild;if(s.textContent!==String(v))s.textContent=v;b.classList.toggle('low',lv===1);b.classList.toggle('crit',lv===2);};
+  set('hull',Math.round(sh.hull),hp<30?2:hp<70?1:0);
+  set('lum',(Math.round(sh.lumite*10)/10).toFixed(1),sh.lumite<2?2:sh.lumite<4?1:0);
+  set('sal',sh.salvage,0);set('trp',Math.round(sh.torpedoes*10)/10,sh.torpedoes<1?1:0);set('dat',R.data,0);
+  set('thr',Math.round(R.threat)+'%',R.threat>=84?2:R.threat>=59?1:0);
+  const w=$('.tb-where',host),wt='SECTOR '+R.sector+' · '+r2U(sec.name)+' · '+Math.min(R.passage,7)+'/7'+(fight?' · ENGAGED':'');if(w.textContent!==wt)w.textContent=wt;w.classList.toggle('hot',fight);
+  const t=$('.tb-time span',host),tt='D'+st.day+' '+st.hm;if(t.textContent!==tt)t.textContent=tt;
+  const sn=$('.tb-snd',host);sn.textContent=S.mute?'SOUND OFF':'SOUND';sn.classList.toggle('on',!!S.mute);
+  const pb=$('.tb-pause',host),pt=R2.pause?'RESUME':'PAUSE';if(pb.textContent!==pt)pb.textContent=pt;pb.classList.toggle('on',!!R2.pause);pb.disabled=!!R.over;
 }
 /* ship time: the Run starts on day 1 at 06:00; R.shipMin counts ship minutes since */
 function r2ShipTime(R){const t=360+(R.shipMin||0),d=Math.floor(t/1440)+1,m=Math.floor(t%1440);return {day:d,hm:pad(Math.floor(m/60),2)+':'+pad(m%60,2)};}
@@ -498,13 +528,13 @@ function r2WarpPanel(){
   const sid=S.dest?S.dest.id:(S.homeSel&&/^c\d$/.test(S.homeSel)?S.homeSel:null);
   const sel=choose?(sid?R.cards[+sid.slice(1)]:null):null,cost=sel?sel.fuel:(choose&&R.cards[0]?R.cards[0].fuel:0);
   const v=r2V(S.warpEff),wp=S.warpEff>=1?S.warpEff:(S.warpSet>=1?S.warpSet:0);
-  const t1=fmt(S.warpEff>=.05?S.warpEff:wp||0),st=R.over?'ENDED':R.phase==='fight'?'IN COMBAT':(S.engaged&&S.warpEff>=1?'ENGAGED':(S.warpEff>=.05?'SPOOLING':(wp?'PLAN '+fmt(wp):'SUBLIGHT')));
+  const t1=fmt(S.warpEff>=.05?S.warpEff:wp||0),st=R.over?'ENDED':R.phase==='fight'?'IN COMBAT':(S.engaged&&S.warpEff>=1?'ENGAGED':(S.warpEff>=.05?'SPOOLING':(wp?'PLAN '+fmt(wp):'CRUISE')));
   if(n.textContent!==t1)n.textContent=t1;
   const s=$('#wf-s');if(s&&s.textContent!==st){s.textContent=st;s.className=S.engaged?'on':'';}
   const eta=S.engaged&&S.dest&&S.warpEff>=1?fmtEta(S.distLeft/v):'--:--';
   const folds=cost>0?Math.floor((sh.lumite+1e-9)/cost):0;
   [['wf-eta',eta],['wf-burn',cost>0?(Math.round(cost*100)/100)+' LUM':'--'],['wf-rng',cost>0?folds+' LEFT':'--']].forEach(a=>{const e=$('#'+a[0]);if(e&&e.textContent!==a[1])e.textContent=a[1];});
-  const w=$('#wfl');if(w)w.textContent='FACTOR '+fmt(S.warpEff)+(S.engaged?'  ENGAGED':'  SUBLIGHT')+'\n'+(S.engaged&&S.dest&&S.warpEff>=1?'ETA '+eta+'  LUMITE '+(Math.round(sh.lumite*10)/10):'LUMITE '+(Math.round(sh.lumite*10)/10)+(cost>0?'  COST '+(Math.round(cost*100)/100):''));
+  const w=$('#wfl');if(w)w.textContent='FACTOR '+fmt(S.warpEff)+(S.engaged?'  ENGAGED':'  CRUISE')+'\n'+(S.engaged&&S.dest&&S.warpEff>=1?'ETA '+eta+'  LUMITE '+(Math.round(sh.lumite*10)/10):'LUMITE '+(Math.round(sh.lumite*10)/10)+(cost>0?'  COST '+(Math.round(cost*100)/100):''));
 }
 function r2HomeTick(){
   const R=R2.R;if(!R)return;const pf=r2Pseudo();

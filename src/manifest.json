@@ -4,7 +4,9 @@
     "src/styles/base.css",
     "src/styles/views.css",
     "src/styles/comms-header-tideline.css",
-    "src/styles/run.css"
+    "src/styles/run.css",
+    "src/styles/icons.css",
+    "src/styles/skin-pixel.css"
   ],
   "scripts": [
     [

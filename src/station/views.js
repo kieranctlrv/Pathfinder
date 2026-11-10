@@ -112,7 +112,7 @@ VIEWS.helm=root=>{
     '<section class="panel" style="--pc:var(--orange)"><div class="ph"><h3>HELM CONTROL</h3></div><div class="pb vcol">'+
     '<div class="wbig"><span id="w-set">0.0</span><small>FOLD FACTOR SET</small></div>'+
     '<input type="range" id="w-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor">'+
-    '<div class="rowbtn"><button class="btn" id="w-eng" style="--bc:var(--orange)">ENGAGE</button><button class="btn" id="w-dis" style="--bc:var(--salmon)">DROP TO SUBLIGHT</button><button class="btn" id="w-inv" style="--bc:var(--yellow)" hidden>INVESTIGATE</button></div>'+
+    '<div class="rowbtn"><button class="btn" id="w-eng" style="--bc:var(--orange)">ENGAGE</button><button class="btn" id="w-dis" style="--bc:var(--salmon)">DROP TO CRUISE</button><button class="btn" id="w-inv" style="--bc:var(--yellow)" hidden>INVESTIGATE</button></div>'+
     '<dl class="kv" id="w-kv"></dl><div class="fuelplan" id="w-fuel"></div>'+
     '<h4>SET COURSE</h4><div class="rowbtn" id="w-dest"></div>'+
     '<div class="prog"><div id="w-prog"></div></div><p class="note" id="w-eta"></p></div></section>';
@@ -236,6 +236,6 @@ function drawPlanetWorld(x,W,H,dt,sc,ov){
 }
 function viewerLabel(){
   if(S.engaged)return 'FOLD '+fmt(S.warpEff)+(S.dest?'\n'+S.dest.name:'');
-  const at=homeAt();return at&&SYS[at]?'SUBLIGHT\nAT '+SYS[at].name:'SUBLIGHT';
+  const at=homeAt();return at&&SYS[at]?'CRUISE\nAT '+SYS[at].name:'CRUISE';
 }
 

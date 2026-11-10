@@ -11,7 +11,7 @@ const ADVICE=[
   [/^DIAGNOSTIC FOUND/,'eng',"Replacing the coupling costs us a little fold now. A bypass only delays the failure."],
   [/^UNIDENTIFIED VESSEL HAILS/,'sec',"I'd raise shields before we say a word. Polite and armed beats polite and dead."],
   [/POWERS UP ITS WEAPONS/,'sec',"Shields first. Red alert might scare them off, but it also tells them we are worried."],
-  [/OFFERS 3 PHOTON TORPEDOES/,'ops',"The trade is fair. Engineering will be a team short for a while."],
+  [/OFFERS 3 TORPEDOES/,'ops',"The trade is fair. Engineering will be a team short for a while."],
   [/^A SUBSPACE ANOMALY/,'sci',"Analysis is the cheapest option. A probe gets better data but costs a torpedo casing."],
   [/^SENSORS DETECT A CONTACT/,'ops',"Scanning costs nothing. Hailing blind tells them we are here."],
   [/^A MICROMETEOROID STORM/,'ops',"Shields absorb it. Changing course adds distance. Holding course unshielded risks the sensor pallet."],

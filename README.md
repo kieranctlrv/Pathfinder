@@ -24,7 +24,8 @@ That writes `dist/index.html`. Open it in a browser, drag it onto Netlify, or pu
 build.py                  glues src/ into dist/index.html
 src/index.template.html   the page shell, with markers where styles and scripts go
 src/manifest.json         which files go where, in order
-src/styles/               the stylesheet, in five parts (fonts, base, views, comms/header, run)
+src/styles/               the stylesheet: fonts, base, views, comms/header, run, icons (pixel
+                          sprites), skin-pixel (the Pixel Console skin)
 src/run/                  Run Mode
   run-data.js               parts, enemies, sectors, numbers (all placeholders)
   run-core.js               turn-based combat engine, no screen code
@@ -127,6 +128,12 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 **7c, the crew between Runs.** Commendations are earned at the end of each Run (sectors cleared, guardians and intercepts beaten, promotions, officers brought home, a win, honours for the fallen with the Med Deck perk) and spent in Launch > The Crew: Academy (a department's officer starts as Lieutenant, then Lt Commander), Drills (five small permanent bonuses, three levels each), and Veterans (an officer who reaches Lt Commander and comes home joins the roster; pick who serves next Run, one berth free and more to buy; a veteran starts ranked, learns 50% faster, and is lost for good if killed, remembered in the memorial).
 
 **Bot numbers after step 7** (100 Runs, careful but simple play): fresh crew wins about 5% and usually reaches Sector 5; a fully trained crew wins about 40%. Normal fights run 3 to 10 turns, guardians 8 to 15. `BOT_POWER=balanced` and `BOT_CREW=max` switch the bot's routing and crew.
+
+## UI pass, reskin 1 (Pixel Console)
+
+The game now targets desktop (1280x720 up to 4K) and Steam Deck (1280x800); the phone layout is frozen and untested. The interface has skins, set by a class on `body` (`skin-pixel` is the default and the only one so far; Bridge Console and Flight Deck Glass come next, with a toggle in Settings). A skin only changes tokens, fonts and frames, in its own stylesheet; the layout is shared. Pixel Console uses the Sweetie-16 palette, VT323 for text and Silkscreen for headings (both embedded, OFL), square panels with pixel bevels, and alerts that tint the frames only so department colours keep their meaning. Canvas labels follow the skin through `cfont()`.
+
+In a Run the campaign header, colour strips, sidebar plate and bottom resource bar are gone; one top strip carries hull, lumite, salvage, torpedoes and data as 16x16 sprites (`icons.css`), then where you are, threat, ship time, sound and pause. Star Trek wording is scrubbed from what players see (sublight, photon, the tea order, holodeck, antimatter, the Tideline plate, alien script keys and captain names). Storage keys still say `lcars-` so old saves load.
 
 ## History
 

@@ -13,7 +13,7 @@ function campaignDossier(body){
 function computerReply(q){
   const s=q.toLowerCase();
   const rules=[
-    [/black tea|tea/,()=>'GALLEY SYNTHESIZER ORDER COMPLETE. TEA, BLACK, HOT, IS READY.'],
+    [/coffee|galley|tea/,()=>'GALLEY ORDER COMPLETE. COFFEE, STRONG, IS READY AT THE HATCH.'],
     [/stardate|\btime\b|\bdate\b/,()=>'CURRENT CYCLE DATE '+fmt(stardate(),1)+'. SHIP TIME '+$('#clock').textContent+'.'],
     [/\bhull\b|damage|repair/,()=>'HULL INTEGRITY '+Math.round(S.hull/Math.max(1,hullMaxV())*100)+'%. '+(hasDamage()?'SYSTEM DAMAGE DETECTED. ':'NO SYSTEM DAMAGE. ')+(S.inv.parts||0)+' SPARE PARTS ABOARD.'],
     [/fuel|dilithium|range/,()=>'LUMITE '+Math.round(S.inv.dilithium)+' OF 40. AT FOLD 6 THAT IS ABOUT '+Math.round(S.inv.dilithium/Math.max(.001,dilCost(6)))+' LIGHT YEARS.'],
@@ -30,12 +30,11 @@ function computerReply(q){
     [/sensor|scan|range/,()=>'SENSOR RANGE IS '+fmt(sensorRange())+' LIGHT YEARS. '+S.contacts.filter(c=>c.known).length+' CONTACTS ARE CURRENTLY TRACKED.'],
     [/crew|complement|people/,()=>'CURRENT COMPLEMENT IS 1,014 PERSONS.'],
     [/pathfinder|sentinel|\bship\b/,()=>'CNS PATHFINDER CN-4417. SENTINEL-CLASS LONG-RANGE CRUISER. LENGTH 410 METERS. 14 DECKS. MAXIMUM CRUISING SPEED FOLD 9.2.'],
-    [/thessine|vulcan/,()=>'THE THESSINE ARE A CALM, SCHOLARLY PEOPLE WHO RUN THE SURVEY WORLDS ON THE CONCORD’S EDGE. SURVEY WORLD: THESSA PRIME.'],
-    [/ashkar|klingon/,()=>'THE ASHKAR HIERARCHY IS A PROUD, HONOR-BOUND MARTIAL CIVILIZATION RULED BY A CASTE OF CAPTAINS. THE LANES ACCORD KEEPS THE PEACE.'],
+    [/thessine/,()=>'THE THESSINE ARE A CALM, SCHOLARLY PEOPLE WHO RUN THE SURVEY WORLDS ON THE CONCORD’S EDGE. SURVEY WORLD: THESSA PRIME.'],
+    [/ashkar/,()=>'THE ASHKAR HIERARCHY IS A PROUD, HONOR-BOUND MARTIAL CIVILIZATION RULED BY A CASTE OF CAPTAINS. THE LANES ACCORD KEEPS THE PEACE.'],
     [/wreckers?|salvage/,()=>'THE WRECKERS ARE A SALVAGE RING TURNED PREDATORY, MOSTLY CONCORD-BORN. THEY ARE SUSPECTED OF TAKING GUILD CONVOYS NEAR THE DEAD ZONE.'],
     [/guild|lanefarer/,()=>'THE LANEFARERS’ GUILD CARRIES THE FRONTIER’S CARGO. INDEPENDENT, PRACTICAL, AND OFTEN FIRST TO ANSWER A DISTRESS CALL.'],
     [/lantern/,()=>'LANTERN IS A QUIET WORLD OF SMALL, CLOSE-KNIT TOWNS ON THE CONCORD FRONTIER.'],
-    [/borg/,()=>'ACCESS TO THAT FILE IS RESTRICTED.'],
     [/self.?destruct/,()=>'SELF-DESTRUCT REQUIRES COMMAND AUTHORIZATION. REQUEST DENIED.'],
     [/help|what can/,()=>'TRY: STATUS, CYCLE DATE, HULL, FUEL, SUPPLY, CREW, HOLD, POWER, FOLD, SHIELDS, SENSORS, PATHFINDER, THESSINE, ASHKAR, WRECKERS, GUILD.'],
     [/\bhello\b|\bhi\b|computer/,()=>'WORKING.']
@@ -74,7 +73,7 @@ VIEWS.library=root=>{
     '<p class="note" id="l-mode"></p><div class="term" id="l-term"></div><div class="inrow"><input type="text" id="l-in" placeholder="ASK COMPASS" autocomplete="off" aria-label="Ask the computer"><button class="btn" id="l-go" style="--bc:var(--orange)">ENTER</button></div></div></section>'+
     '<section class="panel" style="--pc:var(--orange)"><div class="ph"><h3>QUICK QUERIES</h3></div><div class="pb vcol" id="l-q"></div></section>';
   const term=$('#l-term'),inp=$('#l-in');$('#l-mode').textContent=libModeText();
-  const QS=['STATUS REPORT','CYCLE DATE','POWER ALLOCATION','SENSOR RANGE','SHIP SPECIFICATIONS','THESSINE','ASHKAR','WRECKERS','GUILD','TEA, BLACK, HOT','HELP'];
+  const QS=['STATUS REPORT','CYCLE DATE','POWER ALLOCATION','SENSOR RANGE','SHIP SPECIFICATIONS','THESSINE','ASHKAR','WRECKERS','GUILD','GALLEY: COFFEE','HELP'];
   const addQ=t=>{const p=el('p','a');p.textContent=t;term.appendChild(p);term.scrollTop=term.scrollHeight;return p;};
   function typeInto(node,text){
     if(REDUCED){node.textContent=text;return;}
@@ -188,7 +187,7 @@ function setAlert(level){
 }
 
 /* ---------- events and idle chatter ---------- */
-const CHATTER=['DECK 7 ENVIRONMENTAL CONTROLS ADJUSTED','HOLODECK 2 PROGRAM TERMINATED','TRANSFER ROOM 3 DIAGNOSTIC COMPLETE','POWER TRUNK TEMPERATURES NOMINAL','TURBOLIFT 4 MAINTENANCE COMPLETE','SENSOR ARRAY CALIBRATION CYCLE COMPLETE','COMPUTER CORE BACKUP COMPLETE','SHUTTLEBAY 2 ATMOSPHERIC CHECK COMPLETE','SYNTHESIZER PATTERN BUFFERS PURGED','DECK 9 LIGHTING CYCLE ADJUSTED','SUBSPACE RELAY 4 SIGNAL NOMINAL','LIBRARY INDEX UPDATED','SCIENCE LAB 5 REQUESTS SENSOR DATA ACCESS','SHIP CLOCK SYNCHRONIZED WITH NAVY TIME','INERTIAL DAMPERS WITHIN TOLERANCE','BOW PROJECTOR DISH ALIGNMENT CHECK COMPLETE'];
+const CHATTER=['DECK 7 ENVIRONMENTAL CONTROLS ADJUSTED','SIM DECK 2 SESSION ENDED','TRANSFER ROOM 3 DIAGNOSTIC COMPLETE','POWER TRUNK TEMPERATURES NOMINAL','TURBOLIFT 4 MAINTENANCE COMPLETE','SENSOR ARRAY CALIBRATION CYCLE COMPLETE','COMPUTER CORE BACKUP COMPLETE','SHUTTLEBAY 2 ATMOSPHERIC CHECK COMPLETE','SYNTHESIZER PATTERN BUFFERS PURGED','DECK 9 LIGHTING CYCLE ADJUSTED','SUBSPACE RELAY 4 SIGNAL NOMINAL','LIBRARY INDEX UPDATED','SCIENCE LAB 5 REQUESTS SENSOR DATA ACCESS','SHIP CLOCK SYNCHRONIZED WITH NAVY TIME','INERTIAL DAMPERS WITHIN TOLERANCE','BOW PROJECTOR DISH ALIGNMENT CHECK COMPLETE'];
 let lastChat='';
 function chatter(){
   if(R2.live)return;
@@ -227,7 +226,7 @@ function evUnknownHail(){
     ['OFFER APOLOGY','--peri',()=>{SND.ok();if(chance(.6)){log(c.name+' ACCEPTS THE APOLOGY AND DEPARTS');leave(c);}else log(c.name+' DOES NOT RESPOND','warn');}],
     ['RED ALERT','--salmon',()=>{setAlert('red');log(c.name+' BREAKS OFF AND LEAVES THE AREA','alert');leave(c);}]
   ],{onTimeout:()=>{log('NO RESPONSE. '+c.name+' FIRES A WARNING SHOT','alert');tempMod('shld',20,25000,'SHIELD EMITTERS DAMAGED BY WARNING SHOT','SHIELD EMITTERS REPAIRED');}});
-  const trade=()=>scenario(c.name+' OFFERS 3 PHOTON TORPEDOES FOR ENGINEERING SUPPORT.',[
+  const trade=()=>scenario(c.name+' OFFERS 3 TORPEDOES FOR ENGINEERING SUPPORT.',[
     ['ACCEPT TRADE','--orange',()=>{SND.ok();addStock('torp',2);tempMod('warp',.7,25000,'ENGINEERING TEAM LOANED: MAX FOLD REDUCED','TEAM RETURNED: MAX FOLD RESTORED');log('TRADE COMPLETE. TORPEDOES +3');leave(c);}],
     ['DECLINE POLITELY','--peri',()=>{SND.back();log('OFFER DECLINED. '+c.name+' WISHES YOU WELL');leave(c);}]
   ],{onTimeout:()=>{log('OFFER FROM '+c.name+' EXPIRED');leave(c);}});
@@ -269,7 +268,7 @@ function evDistress(){
   scenario(c.name+' REPORTS LOSS OF MAIN POWER AND REQUESTS HELP.',[
     ['OPEN CHANNEL','--peri',()=>{S.commsSel=c.id;startConv(c,'mayday');go('comms');}],
     ['TRANSFER POWER','--orange',()=>{SND.ok();tempMod('warp',1,30000,'POWER TRANSFERRED: MAX FOLD REDUCED','TRANSFER COMPLETE: MAX FOLD RESTORED');addStock('torp',2);log('POWER TRANSFER COMPLETE. 2 TORPEDOES RECEIVED AS PAYMENT');thanks('YOU HAVE OUR THANKS, PATHFINDER. WE OWE YOU ONE.');}],
-    ['SEND REPAIR CREW','--peri',()=>{SND.ok();log('DAMAGE CONTROL TEAM BEAMED OVER');setTimeout(()=>{log(c.name+' POWER RESTORED');thanks('MAIN POWER IS BACK. THANK YOU, PATHFINDER.');},8000);}],
+    ['SEND REPAIR CREW','--peri',()=>{SND.ok();log('DAMAGE CONTROL TEAM SENT ACROSS BY SHUTTLE');setTimeout(()=>{log(c.name+' POWER RESTORED');thanks('MAIN POWER IS BACK. THANK YOU, PATHFINDER.');},8000);}],
     ['RELAY TO ANCHORAGE','--blue',()=>{SND.ok();log('DISTRESS RELAYED TO ANCHORAGE 74. HELP IS ON THE WAY');setTimeout(()=>thanks('ANCHORAGE 74 TUG HAS ARRIVED. THANKS FOR THE RELAY.'),12000);}],
     ['IGNORE','--lav',ignore]
   ],{onTimeout:ignore});
@@ -474,7 +473,7 @@ function clockTick(){
   const c=$('#clock'),t=shipHM();if(c&&c.textContent!==t)c.textContent=t;
   const a=$('#d-day'),b=$('#d-date'),s=$('#sd'),st=$('#hstat');
   if(a)a.textContent='DAY '+shipDay();if(b)b.textContent=shipWatch();if(s)s.textContent=fmt(stardate(),1);
-  if(st){const at=homeAt(),t2=S.engaged?'FOLD '+fmt(S.warpEff)+(S.dest?', UNDER WAY TO '+S.dest.name:''):'SUBLIGHT, '+(at&&SYS[at]?'AT '+SYS[at].name:'DEEP SPACE');if(st.textContent!==t2)st.textContent=t2;}
+  if(st){const at=homeAt(),t2=S.engaged?'FOLD '+fmt(S.warpEff)+(S.dest?', UNDER WAY TO '+S.dest.name:''):'CRUISE, '+(at&&SYS[at]?'AT '+SYS[at].name:'DEEP SPACE');if(st.textContent!==t2)st.textContent=t2;}
 }
 function blinkSquares(){
   const sq=$$('.strip .sq');if(sq.length)vpick(sq).classList.toggle('dim');

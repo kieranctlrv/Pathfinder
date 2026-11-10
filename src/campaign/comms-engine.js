@@ -1,7 +1,7 @@
 /* ---- conversation engine ---- */
 const FIXED=[{id:'cmd',name:'NAVY COMMAND',type:'command',seen:[]},{id:'sb74',name:'ANCHORAGE 74',type:'station',seen:[]}];
-const CAPS={fed:['Okafor','Lindqvist','Takeshi','Moreau','Ibarra','Vasquez'],freighter:['Brava','Halloran','Mbeki','Dax-Teni','Corvin'],klingon:['Kargan','Torg','Vorn','Kell'],vulcan:['Sorel-Vey','Ilvane','Maesh']};
-function convKey(c){if(c.type==='ally')return /^AHS/.test(c.name)?'klingon':'vulcan';return c.type;}
+const CAPS={fed:['Okafor','Lindqvist','Takeshi','Moreau','Ibarra','Vasquez'],freighter:['Brava','Halloran','Mbeki','Daro-Teni','Corvin'],ashkar:['Varrak','Ostrem','Vorn','Kelshar'],thessine:['Imre-Vay','Ilvane','Maesh']};
+function convKey(c){if(c.type==='ally')return /^AHS/.test(c.name)?'ashkar':'thessine';return c.type;}
 function capName(c){if(!c.cap){const p=CAPS[convKey(c)];c.cap=p?pick(p):'';}return c.cap;}
 function fill(t,c){
   return String(t).replace(/\{(\w+)\}/g,(m,k)=>{
