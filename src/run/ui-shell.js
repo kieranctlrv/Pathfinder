@@ -18,7 +18,9 @@ const R2_PRESET={BALANCED:[25,25,25,25],OFFENCE:[10,20,10,60],DEFENCE:[20,60,10,
 const R2_PRE={bal:'BALANCED',cru:'SPEED',def:'DEFENCE',sur:'OFFENCE'};
 const r2U=s=>String(s==null?'':s).toUpperCase();
 const r2Part=id=>RC.partById(id);
-const r2PName=h=>{const p=r2Part(h.part);return r2U(p?p.name:h.part)+' MK '+R2_MK[clamp((h.tier||1),1,3)-1];};
+const r2PName=h=>{const p=r2Part(h.part);return r2U(p?p.name:h.part)+' MK '+R2_MK[clamp((h.tier||1),1,3)-1]+(h.lv?' · LV '+h.lv:'');};
+/* a part's level line: LV, XP to the next level, and what teaches it */
+function r2PartLv(f){const lv=f.lv||0,xp=f.xp||0,nx=RC.PART_XP[lv],p=r2Part(f.part);return 'PART LEVEL '+lv+(lv<3?' · XP '+xp+' OF '+nx:' · MAX')+' · LEARNS FROM PASSAGES AND WON FIGHTS'+(p&&p.slot==='weapon'?', AND FROM ITS HITS':'');}
 const r2Time=s=>{s=Math.floor(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':':'')+(h&&m<10?'0':'')+m+':'+(x<10?'0':'')+x;};
 const r2Pseudo=()=>({ship:R2.R.ship,officers:R2.R.officers,power:R2.R.power,boosts:[],flags:{},enemy:{},weapons:{}});
 const r2Stat=(k,b)=>RM.stat(R2.R,k,b);
@@ -207,6 +209,7 @@ function r2Start(o){
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&R2.live&&!R2.R.over){R2.pause=true;r2Save();r2Render();}});
   window.addEventListener('pagehide',()=>{if(R2.live)r2Save();});
   if(R.over)r2Record();
+  if(R.partUps&&R.partUps.length){const ups=R.partUps;R.partUps=[];r2VoxCard('PART LEVEL UP',ups.map(u=>{const p=r2Part(u.part),pk=p&&p.perks.find(k=>k.l===u.lv);return r2PName(u)+(pk?': '+pk.n+' UNLOCKED':'');}),'good');r2Snd('gain');}
   r2Say('RUN STARTED. SEED '+R.seed+'.');
   r2Save();go(R.phase==='fight'&&!R.over?'tactical':'home');r2Render();
 }

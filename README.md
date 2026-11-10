@@ -135,6 +135,16 @@ The game now targets desktop (1280x720 up to 4K) and Steam Deck (1280x800); the 
 
 In a Run the campaign header, colour strips, sidebar plate and bottom resource bar are gone; one top strip carries hull, lumite, salvage, torpedoes and data as 16x16 sprites (`icons.css`), then where you are, threat, ship time, sound and pause. Star Trek wording is scrubbed from what players see (sublight, photon, the tea order, holodeck, antimatter, the Tideline plate, alien script keys and captain names). Storage keys still say `lcars-` so old saves load.
 
+## Playtest 1 fixes
+
+- **Map:** the scan space zooms to fit what matters (ship, contacts, the cone's reach, the Rearguard) and, while folding, frames the ship and its destination with the remaining distance on the label; other blips and the cone hide under way. Labels stay inside the view.
+- **Helm Control (Run):** one fold card (destination, distance, ETA, lumite cost and after, threat) under the fold factor, Engage and Stop.
+- **Prize screens:** only new items are choices; the hold is one quiet line (opens to manage, or opens itself when full).
+- **Home crew panel:** one line per officer: department, name, rank, progress to the next rank, officer perks unlocked.
+- **Power:** rerouting lands at once. Free outside combat; in a fight you set it on your turn before you act. The Engineering order is now **Overcharge** (a surge on one channel for a couple of turns; reactor perks build on it). Quick Reroute perks now grant one more Overcharge per fight.
+- **Parts level themselves:** MK is the part's build (better base stats); LV 0 to 3 is what it has learned, and each LV unlocks one of its perks. Every fitted, working part gains 1 XP per passage and 1 per won fight (+2 per guardian); weapons also learn from their hits (up to 2 a fight). An officer's rank teaches their department's parts 25% faster per rank. A part keeps its XP in the hold; a new part starts at LV 0. Thresholds `PART_XP` in run-core (12, 38, 76). Bot: fresh crew wins about 6%, fully trained about 36%.
+- **Guardian fight crash** fixed (a trait raising armour above the base design broke the armour readout).
+
 ## History
 
 The source was split from Build 5 (Oct 8, 2026: loot rolls, risky options, shop, content hooks). The first commit's `dist/index.html` is byte-for-byte identical to that build.

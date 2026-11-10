@@ -145,6 +145,7 @@ function applyCrew(R, crew) {
 function nextCards(R) {
   R.resume = null;
   R.passage++;
+  if (R.passage > 1) R.partUps = (R.partUps || []).concat(C.partGain(R.ship, null, 1, R.officers));   /* each passage served teaches every fitted part a little */
   if (R.passage > PASSAGES || (R.sector === 5 && R.passage > GUARDIAN)) return;
   const sec = SECTORS[R.sector - 1], cards = [];
   const mk = (type, extra) => Object.assign({ type, fuel: foldCost(R), threat: threatCost(R, FOLD_THREAT) }, extra || {});
@@ -240,6 +241,8 @@ function resolveFight(R) {
   const f = R.fight; if (!f || !f.over) return { ok: false, why: 'fight not over' };
   const sum = C.finish(f), meta = f.meta || {};
   R.ship = f.ship; R.officers = f.officers;
+  R.partUps = (R.partUps || []).concat(sum.partUps || []);
+  if (f.over === 'won' && meta.guardian) R.partUps = R.partUps.concat(C.partGain(R.ship, null, 2, R.officers));
   if (f.over === 'lost' || R.ship.hull <= 0) { endRun(R, 'lost', 'THE PATHFINDER IS LOST'); return { ok: true, result: 'lost' }; }
   if (f.over === 'fled') { R.fight = null; R.stats.fled = (R.stats.fled || 0) + 1; log(R, 'fled', {}); const n = after(R); return Object.assign({ result: 'fled' }, n); }
   R.stats.won++; if (meta.guardian) R.stats.guardians = (R.stats.guardians || 0) + 1; if (meta.hunt !== null && meta.hunt !== undefined) R.stats.interceptsWon = (R.stats.interceptsWon || 0) + 1;
@@ -415,8 +418,8 @@ function fitFromHold(R, holdIx, slotId) {
   const tmp = JSON.parse(JSON.stringify(R.ship)); if (!C.fitPart(tmp, slotId, h.part, h.tier)) return { ok: false, why: 'does not fit that slot' };
   const snap = JSON.stringify(R.ship);
   R.ship.hold.splice(holdIx, 1);
-  C.fitPart(R.ship, slotId, h.part, h.tier);
-  if (old) R.ship.hold.push({ part: old.part, tier: old.tier });
+  C.fitPart(R.ship, slotId, h.part, h.tier, h.xp);
+  if (old) R.ship.hold.push({ part: old.part, tier: old.tier, xp: old.xp || 0 });   /* a part keeps what it learned in the hold */
   if (R.ship.hold.length > stat(R, 'holdSlots', 0)) { R.ship = JSON.parse(snap); return { ok: false, why: 'the hold would overflow' }; }
   delete R.ship.offline[slotId];                // a freshly fitted part is a working part
   return { ok: true };

@@ -9,7 +9,7 @@ function r2Choice(label,tags,fn,dis,col){
 }
 function r2PerkLines(h){
   const p=r2Part(h.part);if(!p)return [];
-  return p.perks.map(pk=>['L'+pk.l+' '+pk.n+': '+pk.t,'info']);
+  return p.perks.map(pk=>['LV'+pk.l+' '+pk.n+(pk.t?': '+pk.t:''),'info']);
 }
 function r2OfferText(o){
   if(o.kind==='part')return r2PName(o)+(o.bonus?' + '+o.bonus+' SALVAGE':'');
@@ -227,11 +227,11 @@ R2V.engineering=root=>{
         row.children[0].textContent=r2U(s.name);
         if(locked){row.children[1].textContent=s.unlock==='guardian1'?'LOCKED: SECTOR 1 GUARDIAN':'LOCKED: SECTOR 2 GUARDIAN';row.disabled=true;}
         else if(!f)row.children[1].textContent='EMPTY';
-        else{const pp=r2Part(f.part);row.children[1].textContent=r2U(pp?pp.name:f.part)+' MK '+R2_MK[f.tier-1];row.children[2].textContent=R.ship.offline[s.id]?'OFFLINE':'PERKS '+(pp?pp.perks.filter(k=>o.alive&&o.level>=k.l).length:0)+'/'+(pp?pp.perks.length:0);}
+        else{const pp=r2Part(f.part);row.children[1].textContent=r2U(pp?pp.name:f.part)+' MK '+R2_MK[f.tier-1];row.children[2].textContent=R.ship.offline[s.id]?'OFFLINE':'LV '+(f.lv||0)+' '+'◆'.repeat(f.lv||0)+'◇'.repeat(Math.max(0,3-(f.lv||0)));}
         if(f)row.addEventListener('click',()=>{R2.openSlot=R2.openSlot===s.id?null:s.id;r2Snd('tap');remountView('engineering');});
         col.appendChild(row);
         if(f&&R.ship.offline[s.id]){const c=RM.repairCost(R);col.appendChild(r2Btn('REPAIR '+r2U(s.name)+': '+c+' SALVAGE','salmon',()=>r2Do(RM.repairPart(R,s.id),'REPAIRED'),R.ship.salvage<c&&!(r2Stat('freeRepairPerSector',0)&&!R.flags['freeRepair'+R.sector]),'sm'));}
-        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2RoleLines(s.id).forEach(t=>{const q=el('p','role');q.textContent='▸ '+t;dt.appendChild(q);});r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=o.alive&&o.level>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
+        if(f&&R2.openSlot===s.id){const dt=el('div','r2-detail');r2RoleLines(s.id).forEach(t=>{const q=el('p','role');q.textContent='▸ '+t;dt.appendChild(q);});{const q=el('p','role');q.textContent='▸ '+r2PartLv(f);dt.appendChild(q);}r2PerkLines(f).forEach((t,i)=>{const pk=r2Part(f.part).perks[i],on=(f.lv||0)>=pk.l;const q=el('p',on?'on':'');q.textContent=(on?'◆ ':'◇ ')+t[0];dt.appendChild(q);});col.appendChild(dt);}
       });
       sb.appendChild(col);
     });

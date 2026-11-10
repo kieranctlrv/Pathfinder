@@ -39,12 +39,26 @@ function newShip(opts) {
 }
 function newOfficers() { const o = {}; Object.keys(D.DEPT).forEach(d => o[d] = { level: 0, xp: 0, alive: true }); return o; }
 function slotsAvailable(ship) { return D.SLOTS.filter(s => s.unlock === 'start' || ship.unlocked.indexOf(s.id) >= 0); }
-function fitPart(ship, slotId, partId, tier) {
+function fitPart(ship, slotId, partId, tier, xp) {
   const s = slotById(slotId), p = partById(partId);
   if (!s || !p) return false;
   if (!(p.slot === slotId || (p.slot === 'weapon' && /^sec\.w[1-4]$/.test(slotId)))) return false;
   if (ship.unlocked.indexOf(slotId) < 0 && s.unlock !== 'start') return false;
-  ship.fitted[slotId] = { part: partId, tier: tier || 1 }; return true;
+  ship.fitted[slotId] = { part: partId, tier: tier || 1 }; if (xp) { ship.fitted[slotId].xp = xp; ship.fitted[slotId].lv = partLevel(xp); } return true;
+}
+/* parts level themselves (playtest, option A): a part learns from the work it does and unlocks its own perks.
+   MK is the part's build (better base stats); LV is what it has learned (0..3, perks). Swapping a part starts the new one at LV 0. */
+const PART_XP = [12, 38, 76];         // XP for LV 1, 2, 3
+function partLevel(xp) { let l = 0; while (l < 3 && (xp || 0) >= PART_XP[l]) l++; return l; }
+function partGain(ship, slots, n, officers) {   // slots: null = every fitted part; officers: a ranked officer teaches their department's parts faster (+25% a rank)
+  const ups = [];
+  Object.keys(ship.fitted).forEach(sl => {
+    const fit = ship.fitted[sl]; if (!fit || (slots && slots.indexOf(sl) < 0) || ship.offline[sl]) return;
+    const o = officers && slotById(sl) && officers[slotById(sl).department], amt = (typeof n === 'function' ? n(sl, fit) : n) * (o && o.alive ? 1 + 0.25 * (o.level || 0) : 1); if (!(amt > 0)) return;
+    const was = fit.lv || 0; fit.xp = Math.round(((fit.xp || 0) + amt) * 10) / 10; fit.lv = partLevel(fit.xp);
+    if (fit.lv > was) ups.push({ slot: sl, part: fit.part, tier: fit.tier, lv: fit.lv });
+  });
+  return ups;
 }
 
 /* ---------- fight state ---------- */
@@ -95,8 +109,7 @@ function activeEffects(f, slotId) {
   const out = [];
   const tm = 1 + 0.2 * ((fit.tier || 1) - 1);     // each tier strengthens base effects by 20% (placeholder)
   part.base.forEach(e => out.push([tm === 1 || e.k !== 's' ? e : { k: 's', key: e.key, op: e.op, v: e.op === 'a' ? e.v * tm : 1 + (e.v - 1) * tm }, fr]));
-  const off = f.officers[slot.department];
-  if (off && off.alive) part.perks.forEach(pk => { if (off.level >= pk.l && !pk.d) pk.e.forEach(e => out.push([e, fr])); });
+  part.perks.forEach(pk => { if ((fit.lv || 0) >= pk.l && !pk.d) pk.e.forEach(e => out.push([e, fr])); });   /* the part's own level unlocks its perks */
   return out;
 }
 function channelPower(f, ch) {
@@ -309,6 +322,7 @@ function resolveShot(f, sl, shotIx, evs) {
     evs.push(log(f, 'weakPoint', { part: m }));
   }
   if (f.enemy.dodge > 0 && stat(f, 'wearDodge', 0)) E.dodge = Math.max(0, E.dodge - stat(f, 'wearDodge', 0));
+  f.partHits = f.partHits || {}; f.partHits[sl] = (f.partHits[sl] || 0) + 1;
   evs.push(log(f, 'hit', { slot: sl, screen: Math.round(toScreen), hull: Math.round(hullDmg), kin }));
   if (E.hull <= 0) win(f);
   return true;
@@ -536,6 +550,7 @@ function finish(f) {            // apply xp, officer level-ups, replacement; ret
   const out = { result: f.over, levelUps: [], casualty: f.casualty, salvage: 0 };
   const E = D.ENEMIES[f.enemyId];
   if (f.over === 'won') { out.salvage = Math.round(E.hull / 12); f.ship.salvage += out.salvage; }
+  out.partUps = f.over === 'won' ? partGain(f.ship, null, sl => 1 + Math.min(2, (f.partHits || {})[sl] || 0), f.officers) : [];   /* a won fight teaches every working part; weapons learn from their hits */
   Object.keys(f.officers).forEach(d => {
     const o = f.officers[d]; if (!o.alive) return;
     o.xp += Math.round(f.xp[d] * (o.vet ? 1.5 : 1));   /* veterans learn faster (step 7c) */
@@ -564,7 +579,7 @@ function view(f) {
   };
 }
 
-const api = { rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
+const api = { PART_XP, partLevel, partGain, rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
