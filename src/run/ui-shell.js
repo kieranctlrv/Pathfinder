@@ -563,7 +563,7 @@ function r2Preset(k){
   const R=R2.R,name=R2_PRE[k],a=R2_PRESET[name];if(!a)return;
   const p={};R2_CH.forEach((c,i)=>p[c]=a[i]);
   const r=RM.setPower(R,p);
-  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('REROUTE QUEUED: '+name+'. LANDS '+(R.phase==='fight'?'NEXT ROUND':'ON YOUR NEXT FOLD'));}
+  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('POWER REROUTED: '+name);}
   r2Save();r2Render();
 }
 const R2K=window.__R2K||8;

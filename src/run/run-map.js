@@ -82,7 +82,7 @@ const ROLE_TEXT = {
   reach: v => 'SCAN REACH X' + v.toFixed(2), scanTime: v => 'SCAN TIME X' + v.toFixed(2), turnTime: v => 'TURN TIME X' + v.toFixed(2),
   foldSpeed: v => 'FOLD SPEED X' + v.toFixed(2), idNear: v => 'IDENTIFIES CONTACTS WITHIN ' + v + ' LY MORE ON FIRST PASS',
   faintId: () => 'FAINT SIGNALS (WRECKS, ANOMALIES, TRACES) IDENTIFIED ON FIRST PASS', grace: v => 'HIDES YOU: THE REARGUARD NEEDS ' + v + ' MORE ACTION TO REACH YOU',
-  fastReroute: () => 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE'
+  fastReroute: () => 'OVERCHARGE CAN BE ORDERED ONE MORE TIME EACH FIGHT'
 };
 function partRoles(R, slotId) {        /* the roles one fitted part gives, at its Mk */
   const f = R.ship.fitted[slotId]; if (!f || R.ship.offline[slotId]) return {};
@@ -104,7 +104,7 @@ const OPERK = [
   { d: 'science', l: 2, id: 'rescanHalf', t: 'A SECOND SCAN ON THE SAME HEADING TAKES HALF THE TIME' },
   { d: 'operations', l: 1, id: 'quickHint', t: 'THE HEADING HINT COMES AFTER ONE EMPTY SCAN, NOT TWO' },
   { d: 'operations', l: 2, id: 'gateBearing', t: 'THE GATE BEARING IS KNOWN FROM PASSAGE 3' },
-  { d: 'engineering', l: 1, id: 'fastReroute', t: 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE' },
+  { d: 'engineering', l: 1, id: 'fastReroute', t: 'OVERCHARGE CAN BE ORDERED ONE MORE TIME EACH FIGHT' },
   { d: 'security', l: 1, id: 'earlyWarn', t: 'THE REARGUARD IS SPOTTED ONE ACTION EARLIER' },
   { d: 'medical', l: 1, id: 'calmCrew', t: 'CASUALTY CHANCE IN FIGHTS IS LOWER' }
 ];
@@ -216,6 +216,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
+  if (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute')) R.fight.flags.fastRR = 1;   /* one more Overcharge */
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
   log(R, 'fight', { foe, guardian: !!guardian, hunt });
   return { ok: true, phase: 'fight' };
@@ -456,14 +457,16 @@ function endRun(R, result, why) {
   R.score = Math.round((R.sector - 1) * 100 + R.stats.won * 10 + R.stats.dataEarned + (result === 'won' ? 300 : 0) + Math.round(R.ship.hull / 4));
   log(R, 'end', { result }); emit(R, 'run.end', { result });
 }
-/* power routing takes one turn: a change is queued and lands at the next fold (or scan), or the next combat round */
+/* power routing lands at once (playtest): free outside combat; in combat you set it on your turn, before you act */
 function setPower(R, p) {
+  R.pendPower = null;
+  if (R.fight && !R.fight.over) { const r = C.setPower(R.fight, p); if (r.ok) R.power = R.fight.power; return r; }
   const f = pseudoFight(R); f.power = Object.assign({}, R.power); const r = C.setPower(f, p);
   if (!r.ok) return r;
-  R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
+  R.power = Object.assign({}, f.power); return { ok: true };
 }
 /* a Threshold Capacitor (or any capacitor at Mk III) or the Engineering officer can land one queued reroute at once each sector */
-function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
+function canLandNow(R) { return false && !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
 function landNow(R) { if (!canLandNow(R)) return { ok: false, why: 'not available' }; R.flags['fastRR' + R.sector] = 1; applyPending(R); log(R, 'fastReroute', {}); return { ok: true }; }
 function applyPending(R) {
   if (!R.pendPower) return false;

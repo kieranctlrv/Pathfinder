@@ -128,14 +128,14 @@ function r2CombatControls(host,f,v){
   host.appendChild(Object.assign(el('h4'),{textContent:'OFFICER ORDERS (FREE)'}));
   const keys={reroute:'Z',dodge:'X',weakpoint:'C',alpha:'V',triage:'B'},orr=r2Row();
   v.orders.forEach(o=>{
-    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':r2U(o.name);
+    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':o.name==='reroute'?'OVERCHARGE':r2U(o.name);
     const pips='◆'.repeat(o.level)+'◇'.repeat(3-o.level);
     orr.appendChild(r2Btn(nm+' ['+keys[o.name]+'] '+(o.alive?(o.ready?pips:'USED'):'LOST'),R2_CHC[{reroute:'propulsion',dodge:'propulsion',weakpoint:'sensors',alpha:'weapons',triage:'shields'}[o.name]],()=>r2Order(o.name),dis||!o.ready,'sm'+((o.name==='alpha'&&sel&&sel.type==='alpha')||(R2.pop&&R2.pop.o===o.name)?' on':'')));
   });
   host.appendChild(orr);
   if(R2.pop&&R2.pop.o){
     const pp=r2Row();
-    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('SURGE POWER INTO:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');r2Save();r2Render();},false,'sm')));}
+    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('OVERCHARGE WHICH CHANNEL:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');r2Save();r2Render();},false,'sm')));}
     if(R2.pop.o==='weakpoint'){pp.appendChild(r2Note('MARK AN ENEMY PART. THE NEXT HIT STRIKES IT:'));def.parts.forEach(pt=>pp.appendChild(r2Btn(r2U(pt.name),'blue',()=>{const r=RC.order(f,'weakpoint',{part:pt.id});R2.pop=null;r2Snd(r.ok?'scan':'err');r2Save();r2Render();},false,'sm')));}
     host.appendChild(pp);
   }
@@ -386,7 +386,7 @@ function r2TacPanel(host,f,v){
   host.appendChild(Object.assign(el('h4'),{textContent:'OFFICER ORDERS · FREE · ONCE EACH PER FIGHT'}));
   const keys={reroute:'Z',dodge:'X',weakpoint:'C',alpha:'V',triage:'B'},dn={reroute:'ENG',dodge:'OPS',weakpoint:'SCI',alpha:'SEC',triage:'MED'},orr=el('div','r2-or');
   v.orders.forEach(o=>{
-    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':r2U(o.name);
+    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':o.name==='reroute'?'OVERCHARGE':r2U(o.name);
     const b=r2Btn('',R2_CHC[{reroute:'propulsion',dodge:'propulsion',weakpoint:'sensors',alpha:'weapons',triage:'shields'}[o.name]],()=>r2Order(o.name),dis||!o.ready,'r2-o'+((o.name==='alpha'&&sel&&sel.type==='alpha')||(R2.pop&&R2.pop.o===o.name)?' on':''));
     b.innerHTML='<span>'+keys[o.name]+' · '+dn[o.name]+'</span><span>'+nm+'</span><small>'+(o.alive?(o.ready?'READY':'USED'):'LOST')+' <i>'+'◆'.repeat(o.level)+'◇'.repeat(3-o.level)+'</i></small>';
     orr.appendChild(b);
@@ -394,7 +394,7 @@ function r2TacPanel(host,f,v){
   host.appendChild(orr);
   if(R2.pop&&R2.pop.o&&R2.pop.o!=='brace'){
     const pp=r2Row();
-    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('SURGE POWER INTO:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');if(r.ok)r2Say('ORDER: REROUTE TO '+r2U(c));r2Save();r2Render();},false,'sm')));}
+    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('OVERCHARGE WHICH CHANNEL:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');if(r.ok)r2Say('ORDER: REROUTE TO '+r2U(c));r2Save();r2Render();},false,'sm')));}
     if(R2.pop.o==='weakpoint'){pp.appendChild(r2Note('MARK AN ENEMY PART. THE NEXT HIT STRIKES IT:'));def.parts.forEach(pt=>pp.appendChild(r2Btn(r2U(pt.name),'blue',()=>{const r=RC.order(f,'weakpoint',{part:pt.id});R2.pop=null;r2Snd(r.ok?'scan':'err');r2Save();r2Render();},false,'sm')));}
     host.appendChild(pp);
   }

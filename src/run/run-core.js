@@ -394,7 +394,7 @@ function act(f, a) {              // pick your action; the enemy's hidden pick r
 }
 
 /* ---------- orders (free, once per fight unless a perk says otherwise) ---------- */
-function orderUses(f, name) { return 1 + stat(f, 'order.uses.' + name, 0); }
+function orderUses(f, name) { return 1 + stat(f, 'order.uses.' + name, 0) + (name === 'reroute' && f.flags && f.flags.fastRR ? 1 : 0); }   /* 'reroute' is the Overcharge order */
 function orderCd(f, name, dept) {
   let cd = name === 'reroute' ? stat(f, 'reroute.cd', 0) : 2;
   if (name === 'reroute' && stat(f, 'reroute.cdHalf', 0)) cd = Math.ceil(cd / 2);

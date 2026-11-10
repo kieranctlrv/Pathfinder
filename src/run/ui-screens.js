@@ -239,7 +239,7 @@ R2V.engineering=root=>{
   }
   root.innerHTML='<section class="panel" style="--pc:var(--salmon)"><div class="ph"><h3>POWER DISTRIBUTION</h3></div><div class="pb vcol"><div class="pbar" id="pbar"></div>'+
     R2_CH.map(c=>'<label class="srow" style="--rc:var(--'+R2_CHC[c]+')"><span>'+r2U(c)+'</span><input type="range" min="0" max="'+Math.floor(RC.ceiling(pf,c))+'" step="1" data-k="'+c+'" aria-label="'+c+' power"><b data-v="'+c+'">0</b></label>').join('')+
-    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
+    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. CHANGES LAND AT ONCE. IN A FIGHT, SET IT ON YOUR TURN BEFORE YOU ACT; OVERCHARGE ADDS A SURGE ON TOP.</p></div></section>'+
     '<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SYSTEM EFFECTS</h3></div><div class="pb vcol"><dl class="kv" id="pw-fx"></dl><div class="r2-ship" id="r2-ship"></div></div></section>';
   r2EngTabs(root,'power');
   $('#r2-ship',root).innerHTML=shipSVG('top',{},{labels:false});

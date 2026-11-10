@@ -122,9 +122,9 @@ P('eng.defl.layer','Layered Grid','eng.deflector',0,[S('layerRegen','a',20),S('s
   pk(2,'Layer 35%','',[S('layerRegen','a',10)]),
   pk(3,'No penalty','',[S('screenCap','m',1.111)])]),
 P('eng.cap.std','Standard Capacitor','eng.capacitor',1,[],[
-  pk(1,'Surge +1 turn','Reroute surge lasts +1 turn.',[S('rerouteTurns','a',1)]),
-  pk(2,'Quick reroute','One queued reroute each sector can land at once.',[S('fastReroute','a',1)]),
-  pk(3,'Surge +10%','Reroute surges are 10 points stronger.',[S('reroute.boost','a',10)])]),
+  pk(1,'Surge +1 turn','Overcharge lasts +1 turn.',[S('rerouteTurns','a',1)]),
+  pk(2,'Extra overcharge','Overcharge can be ordered one more time each fight.',[S('fastReroute','a',1)]),
+  pk(3,'Surge +10%','Overcharge is 10 points stronger.',[S('reroute.boost','a',10)])]),
 P('eng.cap.thr','Threshold Capacitor','eng.capacitor',0,[],[
   pk(1,'Threshold 35%','',[S('thr:eng.cap.thr','a',-5)]),
   pk(2,'Shield link','While Shields is also at 30% or more, screens regenerate +5%.',[S('regenIfShields30','a',5)]),
@@ -150,14 +150,14 @@ P('eng.fold.quiet','Quiet Coil','eng.fold',0,[S('foldThreat','m',0.85),S('foldCo
 P('eng.reactor.std','Standard Reactor','eng.reactor',1,[S('reroute.cd','a',3),S('reroute.boost','a',20),S('reroute.turns','a',2)],[
   pk(1,'Cooldown -1','',[S('reroute.cd','a',-1)]),
   pk(2,'Surge +25%','',[S('reroute.boost','a',5)]),
-  pk(3,'Twice','Reroute usable twice per fight.',[S('order.uses.reroute','a',1)])]),
+  pk(3,'Twice','Overcharge usable twice per fight.',[S('order.uses.reroute','a',1)])]),
 P('eng.reactor.heavy','Heavy Reactor','eng.reactor',0,[S('ceil.all','a',10),S('reroute.cd','a',3),S('reroute.boost','a',20),S('reroute.turns','a',2),S('reroute.cd','a',1)],[
   pk(1,'No cooldown penalty','',[S('reroute.cd','a',-1)]),
-  pk(2,'Two channels','Reroute can target two channels at half effect each.',[S('reroute.split','a',1)]),
+  pk(2,'Two channels','Overcharge can split across two channels at half effect each.',[S('reroute.split','a',1)]),
   pk(3,'Ceilings +5%','',[S('ceil.all','a',5)])]),
 P('eng.reactor.surge','Surge Reactor','eng.reactor',0,[S('reroute.cd','a',3),S('reroute.boost','a',30),S('reroute.turns','a',1)],[
   pk(1,'Surge 2 turns','',[S('reroute.turns','a',1)]),
-  pk(2,'Opening free','Reroute is free if cast in the first turn of a fight.',[S('reroute.freeFirst','a',1)]),
+  pk(2,'Opening free','Overcharge is free if ordered on the first turn of a fight.',[S('reroute.freeFirst','a',1)]),
   pk(3,'Cooldown halved','',[S('reroute.cdHalf','a',1)])]),
 P('eng.hull.std','Standard Plating','eng.hull',1,[S('armour','a',20)],[
   pk(1,'Armour +5%','',[S('armour','a',5)]),

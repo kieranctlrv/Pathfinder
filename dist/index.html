@@ -1453,9 +1453,9 @@ P('eng.defl.layer','Layered Grid','eng.deflector',0,[S('layerRegen','a',20),S('s
   pk(2,'Layer 35%','',[S('layerRegen','a',10)]),
   pk(3,'No penalty','',[S('screenCap','m',1.111)])]),
 P('eng.cap.std','Standard Capacitor','eng.capacitor',1,[],[
-  pk(1,'Surge +1 turn','Reroute surge lasts +1 turn.',[S('rerouteTurns','a',1)]),
-  pk(2,'Quick reroute','One queued reroute each sector can land at once.',[S('fastReroute','a',1)]),
-  pk(3,'Surge +10%','Reroute surges are 10 points stronger.',[S('reroute.boost','a',10)])]),
+  pk(1,'Surge +1 turn','Overcharge lasts +1 turn.',[S('rerouteTurns','a',1)]),
+  pk(2,'Extra overcharge','Overcharge can be ordered one more time each fight.',[S('fastReroute','a',1)]),
+  pk(3,'Surge +10%','Overcharge is 10 points stronger.',[S('reroute.boost','a',10)])]),
 P('eng.cap.thr','Threshold Capacitor','eng.capacitor',0,[],[
   pk(1,'Threshold 35%','',[S('thr:eng.cap.thr','a',-5)]),
   pk(2,'Shield link','While Shields is also at 30% or more, screens regenerate +5%.',[S('regenIfShields30','a',5)]),
@@ -1481,14 +1481,14 @@ P('eng.fold.quiet','Quiet Coil','eng.fold',0,[S('foldThreat','m',0.85),S('foldCo
 P('eng.reactor.std','Standard Reactor','eng.reactor',1,[S('reroute.cd','a',3),S('reroute.boost','a',20),S('reroute.turns','a',2)],[
   pk(1,'Cooldown -1','',[S('reroute.cd','a',-1)]),
   pk(2,'Surge +25%','',[S('reroute.boost','a',5)]),
-  pk(3,'Twice','Reroute usable twice per fight.',[S('order.uses.reroute','a',1)])]),
+  pk(3,'Twice','Overcharge usable twice per fight.',[S('order.uses.reroute','a',1)])]),
 P('eng.reactor.heavy','Heavy Reactor','eng.reactor',0,[S('ceil.all','a',10),S('reroute.cd','a',3),S('reroute.boost','a',20),S('reroute.turns','a',2),S('reroute.cd','a',1)],[
   pk(1,'No cooldown penalty','',[S('reroute.cd','a',-1)]),
-  pk(2,'Two channels','Reroute can target two channels at half effect each.',[S('reroute.split','a',1)]),
+  pk(2,'Two channels','Overcharge can split across two channels at half effect each.',[S('reroute.split','a',1)]),
   pk(3,'Ceilings +5%','',[S('ceil.all','a',5)])]),
 P('eng.reactor.surge','Surge Reactor','eng.reactor',0,[S('reroute.cd','a',3),S('reroute.boost','a',30),S('reroute.turns','a',1)],[
   pk(1,'Surge 2 turns','',[S('reroute.turns','a',1)]),
-  pk(2,'Opening free','Reroute is free if cast in the first turn of a fight.',[S('reroute.freeFirst','a',1)]),
+  pk(2,'Opening free','Overcharge is free if ordered on the first turn of a fight.',[S('reroute.freeFirst','a',1)]),
   pk(3,'Cooldown halved','',[S('reroute.cdHalf','a',1)])]),
 P('eng.hull.std','Standard Plating','eng.hull',1,[S('armour','a',20)],[
   pk(1,'Armour +5%','',[S('armour','a',5)]),
@@ -2074,7 +2074,7 @@ function act(f, a) {              // pick your action; the enemy's hidden pick r
 }
 
 /* ---------- orders (free, once per fight unless a perk says otherwise) ---------- */
-function orderUses(f, name) { return 1 + stat(f, 'order.uses.' + name, 0); }
+function orderUses(f, name) { return 1 + stat(f, 'order.uses.' + name, 0) + (name === 'reroute' && f.flags && f.flags.fastRR ? 1 : 0); }   /* 'reroute' is the Overcharge order */
 function orderCd(f, name, dept) {
   let cd = name === 'reroute' ? stat(f, 'reroute.cd', 0) : 2;
   if (name === 'reroute' && stat(f, 'reroute.cdHalf', 0)) cd = Math.ceil(cd / 2);
@@ -2333,7 +2333,7 @@ const ROLE_TEXT = {
   reach: v => 'SCAN REACH X' + v.toFixed(2), scanTime: v => 'SCAN TIME X' + v.toFixed(2), turnTime: v => 'TURN TIME X' + v.toFixed(2),
   foldSpeed: v => 'FOLD SPEED X' + v.toFixed(2), idNear: v => 'IDENTIFIES CONTACTS WITHIN ' + v + ' LY MORE ON FIRST PASS',
   faintId: () => 'FAINT SIGNALS (WRECKS, ANOMALIES, TRACES) IDENTIFIED ON FIRST PASS', grace: v => 'HIDES YOU: THE REARGUARD NEEDS ' + v + ' MORE ACTION TO REACH YOU',
-  fastReroute: () => 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE'
+  fastReroute: () => 'OVERCHARGE CAN BE ORDERED ONE MORE TIME EACH FIGHT'
 };
 function partRoles(R, slotId) {        /* the roles one fitted part gives, at its Mk */
   const f = R.ship.fitted[slotId]; if (!f || R.ship.offline[slotId]) return {};
@@ -2355,7 +2355,7 @@ const OPERK = [
   { d: 'science', l: 2, id: 'rescanHalf', t: 'A SECOND SCAN ON THE SAME HEADING TAKES HALF THE TIME' },
   { d: 'operations', l: 1, id: 'quickHint', t: 'THE HEADING HINT COMES AFTER ONE EMPTY SCAN, NOT TWO' },
   { d: 'operations', l: 2, id: 'gateBearing', t: 'THE GATE BEARING IS KNOWN FROM PASSAGE 3' },
-  { d: 'engineering', l: 1, id: 'fastReroute', t: 'ONE QUEUED REROUTE EACH SECTOR CAN LAND AT ONCE' },
+  { d: 'engineering', l: 1, id: 'fastReroute', t: 'OVERCHARGE CAN BE ORDERED ONE MORE TIME EACH FIGHT' },
   { d: 'security', l: 1, id: 'earlyWarn', t: 'THE REARGUARD IS SPOTTED ONE ACTION EARLIER' },
   { d: 'medical', l: 1, id: 'calmCrew', t: 'CASUALTY CHANCE IN FIGHTS IS LOWER' }
 ];
@@ -2467,6 +2467,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
+  if (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute')) R.fight.flags.fastRR = 1;   /* one more Overcharge */
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
   log(R, 'fight', { foe, guardian: !!guardian, hunt });
   return { ok: true, phase: 'fight' };
@@ -2707,14 +2708,16 @@ function endRun(R, result, why) {
   R.score = Math.round((R.sector - 1) * 100 + R.stats.won * 10 + R.stats.dataEarned + (result === 'won' ? 300 : 0) + Math.round(R.ship.hull / 4));
   log(R, 'end', { result }); emit(R, 'run.end', { result });
 }
-/* power routing takes one turn: a change is queued and lands at the next fold (or scan), or the next combat round */
+/* power routing lands at once (playtest): free outside combat; in combat you set it on your turn, before you act */
 function setPower(R, p) {
+  R.pendPower = null;
+  if (R.fight && !R.fight.over) { const r = C.setPower(R.fight, p); if (r.ok) R.power = R.fight.power; return r; }
   const f = pseudoFight(R); f.power = Object.assign({}, R.power); const r = C.setPower(f, p);
   if (!r.ok) return r;
-  R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
+  R.power = Object.assign({}, f.power); return { ok: true };
 }
 /* a Threshold Capacitor (or any capacitor at Mk III) or the Engineering officer can land one queued reroute at once each sector */
-function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
+function canLandNow(R) { return false && !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
 function landNow(R) { if (!canLandNow(R)) return { ok: false, why: 'not available' }; R.flags['fastRR' + R.sector] = 1; applyPending(R); log(R, 'fastReroute', {}); return { ok: true }; }
 function applyPending(R) {
   if (!R.pendPower) return false;
@@ -8069,7 +8072,7 @@ function r2Preset(k){
   const R=R2.R,name=R2_PRE[k],a=R2_PRESET[name];if(!a)return;
   const p={};R2_CH.forEach((c,i)=>p[c]=a[i]);
   const r=RM.setPower(R,p);
-  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('REROUTE QUEUED: '+name+'. LANDS '+(R.phase==='fight'?'NEXT ROUND':'ON YOUR NEXT FOLD'));}
+  if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('POWER REROUTED: '+name);}
   r2Save();r2Render();
 }
 const R2K=window.__R2K||8;
@@ -8913,7 +8916,7 @@ R2V.engineering=root=>{
   }
   root.innerHTML='<section class="panel" style="--pc:var(--salmon)"><div class="ph"><h3>POWER DISTRIBUTION</h3></div><div class="pb vcol"><div class="pbar" id="pbar"></div>'+
     R2_CH.map(c=>'<label class="srow" style="--rc:var(--'+R2_CHC[c]+')"><span>'+r2U(c)+'</span><input type="range" min="0" max="'+Math.floor(RC.ceiling(pf,c))+'" step="1" data-k="'+c+'" aria-label="'+c+' power"><b data-v="'+c+'">0</b></label>').join('')+
-    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. THIS IS THE POWER YOU TAKE INTO THE NEXT FIGHT. REROUTE SURGES IT DURING ONE.</p></div></section>'+
+    '<div class="rowbtn" id="pw-now"></div><div class="rowbtn" id="pw-pre"></div><p class="note">FOUR CHANNELS SHARE 100 POINTS. EACH HAS A CEILING SET BY YOUR PARTS. CHANGES LAND AT ONCE. IN A FIGHT, SET IT ON YOUR TURN BEFORE YOU ACT; OVERCHARGE ADDS A SURGE ON TOP.</p></div></section>'+
     '<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SYSTEM EFFECTS</h3></div><div class="pb vcol"><dl class="kv" id="pw-fx"></dl><div class="r2-ship" id="r2-ship"></div></div></section>';
   r2EngTabs(root,'power');
   $('#r2-ship',root).innerHTML=shipSVG('top',{},{labels:false});
@@ -9152,14 +9155,14 @@ function r2CombatControls(host,f,v){
   host.appendChild(Object.assign(el('h4'),{textContent:'OFFICER ORDERS (FREE)'}));
   const keys={reroute:'Z',dodge:'X',weakpoint:'C',alpha:'V',triage:'B'},orr=r2Row();
   v.orders.forEach(o=>{
-    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':r2U(o.name);
+    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':o.name==='reroute'?'OVERCHARGE':r2U(o.name);
     const pips='◆'.repeat(o.level)+'◇'.repeat(3-o.level);
     orr.appendChild(r2Btn(nm+' ['+keys[o.name]+'] '+(o.alive?(o.ready?pips:'USED'):'LOST'),R2_CHC[{reroute:'propulsion',dodge:'propulsion',weakpoint:'sensors',alpha:'weapons',triage:'shields'}[o.name]],()=>r2Order(o.name),dis||!o.ready,'sm'+((o.name==='alpha'&&sel&&sel.type==='alpha')||(R2.pop&&R2.pop.o===o.name)?' on':'')));
   });
   host.appendChild(orr);
   if(R2.pop&&R2.pop.o){
     const pp=r2Row();
-    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('SURGE POWER INTO:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');r2Save();r2Render();},false,'sm')));}
+    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('OVERCHARGE WHICH CHANNEL:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');r2Save();r2Render();},false,'sm')));}
     if(R2.pop.o==='weakpoint'){pp.appendChild(r2Note('MARK AN ENEMY PART. THE NEXT HIT STRIKES IT:'));def.parts.forEach(pt=>pp.appendChild(r2Btn(r2U(pt.name),'blue',()=>{const r=RC.order(f,'weakpoint',{part:pt.id});R2.pop=null;r2Snd(r.ok?'scan':'err');r2Save();r2Render();},false,'sm')));}
     host.appendChild(pp);
   }
@@ -9410,7 +9413,7 @@ function r2TacPanel(host,f,v){
   host.appendChild(Object.assign(el('h4'),{textContent:'OFFICER ORDERS · FREE · ONCE EACH PER FIGHT'}));
   const keys={reroute:'Z',dodge:'X',weakpoint:'C',alpha:'V',triage:'B'},dn={reroute:'ENG',dodge:'OPS',weakpoint:'SCI',alpha:'SEC',triage:'MED'},orr=el('div','r2-or');
   v.orders.forEach(o=>{
-    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':r2U(o.name);
+    const nm=o.name==='weakpoint'?'WEAK POINT':o.name==='alpha'?'ALPHA STRIKE':o.name==='reroute'?'OVERCHARGE':r2U(o.name);
     const b=r2Btn('',R2_CHC[{reroute:'propulsion',dodge:'propulsion',weakpoint:'sensors',alpha:'weapons',triage:'shields'}[o.name]],()=>r2Order(o.name),dis||!o.ready,'r2-o'+((o.name==='alpha'&&sel&&sel.type==='alpha')||(R2.pop&&R2.pop.o===o.name)?' on':''));
     b.innerHTML='<span>'+keys[o.name]+' · '+dn[o.name]+'</span><span>'+nm+'</span><small>'+(o.alive?(o.ready?'READY':'USED'):'LOST')+' <i>'+'◆'.repeat(o.level)+'◇'.repeat(3-o.level)+'</i></small>';
     orr.appendChild(b);
@@ -9418,7 +9421,7 @@ function r2TacPanel(host,f,v){
   host.appendChild(orr);
   if(R2.pop&&R2.pop.o&&R2.pop.o!=='brace'){
     const pp=r2Row();
-    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('SURGE POWER INTO:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');if(r.ok)r2Say('ORDER: REROUTE TO '+r2U(c));r2Save();r2Render();},false,'sm')));}
+    if(R2.pop.o==='reroute'){pp.appendChild(r2Note('OVERCHARGE WHICH CHANNEL:'));R2_CH.forEach(c=>pp.appendChild(r2Btn(r2U(c),R2_CHC[c],()=>{const r=RC.order(f,'reroute',{channel:c});R2.pop=null;r2Snd(r.ok?'gain':'err');if(r.ok)r2Say('ORDER: REROUTE TO '+r2U(c));r2Save();r2Render();},false,'sm')));}
     if(R2.pop.o==='weakpoint'){pp.appendChild(r2Note('MARK AN ENEMY PART. THE NEXT HIT STRIKES IT:'));def.parts.forEach(pt=>pp.appendChild(r2Btn(r2U(pt.name),'blue',()=>{const r=RC.order(f,'weakpoint',{part:pt.id});R2.pop=null;r2Snd(r.ok?'scan':'err');r2Save();r2Render();},false,'sm')));}
     host.appendChild(pp);
   }
@@ -9670,7 +9673,7 @@ const CREW_DRILLS={
   helm:{n:'HELM DRILLS',d:'operations',t:'+3 DODGE PER LEVEL',key:'dodge',per:3,cost:[6,12,20]},
   damage:{n:'DAMAGE CONTROL DRILLS',d:'medical',t:'-2 CASUALTY CHANCE PER LEVEL',key:'casualty',per:-2,cost:[6,12,20]},
   sensor:{n:'SENSOR DRILLS',d:'science',t:'+0.5 LY SCAN REACH PER LEVEL',key:'scanRange',per:0.5,cost:[6,12,20]},
-  power:{n:'POWER DRILLS',d:'engineering',t:'+5 REROUTE SURGE PER LEVEL',key:'reroute.boost',per:5,cost:[6,12,20]}
+  power:{n:'POWER DRILLS',d:'engineering',t:'+5 OVERCHARGE PER LEVEL',key:'reroute.boost',per:5,cost:[6,12,20]}
 };
 const CREW_ACADEMY_COST=[15,35];     /* starting rank Lieutenant, then Lieutenant Commander */
 const CREW_SLOT_COST=[0,25,60];      /* veteran berths: the first is free */

@@ -4,7 +4,7 @@ const CREW_DRILLS={
   helm:{n:'HELM DRILLS',d:'operations',t:'+3 DODGE PER LEVEL',key:'dodge',per:3,cost:[6,12,20]},
   damage:{n:'DAMAGE CONTROL DRILLS',d:'medical',t:'-2 CASUALTY CHANCE PER LEVEL',key:'casualty',per:-2,cost:[6,12,20]},
   sensor:{n:'SENSOR DRILLS',d:'science',t:'+0.5 LY SCAN REACH PER LEVEL',key:'scanRange',per:0.5,cost:[6,12,20]},
-  power:{n:'POWER DRILLS',d:'engineering',t:'+5 REROUTE SURGE PER LEVEL',key:'reroute.boost',per:5,cost:[6,12,20]}
+  power:{n:'POWER DRILLS',d:'engineering',t:'+5 OVERCHARGE PER LEVEL',key:'reroute.boost',per:5,cost:[6,12,20]}
 };
 const CREW_ACADEMY_COST=[15,35];     /* starting rank Lieutenant, then Lieutenant Commander */
 const CREW_SLOT_COST=[0,25,60];      /* veteran berths: the first is free */
