@@ -86,7 +86,8 @@ function partRoles(R, slotId) {        /* the roles one fitted part gives, at it
 function role(R, key, def) {          /* multipliers multiply, the rest add */
   const mul = key === 'reach' || key === 'scanTime' || key === 'turnTime' || key === 'foldSpeed';
   let v = null; Object.keys(R.ship.fitted).forEach(sl => { const x = partRoles(R, sl)[key]; if (x == null) return; v = v == null ? x : (mul ? v * x : v + x); });
-  return v == null ? def : v;
+  if (v == null) v = def;
+  return mul ? v * stat(R, 'role.' + key, 1) : v + stat(R, 'role.' + key, 0);   /* perks reach the same roles through role.<key> stats */
 }
 function roleLines(R, slotId) { const o = partRoles(R, slotId); return Object.keys(o).map(k => ROLE_TEXT[k] ? ROLE_TEXT[k](o[k]) : k); }
 /* officer perks: the officer must be alive; a replacement gets them back as they level */
@@ -283,7 +284,7 @@ function riskCost(R, not) {
 /* wrecks and traces: after the event, 2 safe options (one grade down) and 2 risky ones (one grade up, with a cost) */
 function nodeOptions(R, node) {
   const base = rollGrade(R, 0), safe = [], risky = [];
-  for (let i = 0; i < 2; i++) safe.push(dropOf(R, gradeUp(base, -1), safe.map(x => x.kind)));
+  for (let i = 0; i < 2 + Math.round(stat(R, 'offerExtra', 0)); i++) safe.push(dropOf(R, gradeUp(base, -1), safe.map(x => x.kind)));
   let rc = null;
   for (let i = 0; i < 2; i++) { const o = dropOf(R, gradeUp(base, 1), risky.map(x => x.kind)); o.risk = riskCost(R, rc && rc.type); rc = o.risk; risky.push(o); }
   const free = stampOffers(safe.concat(risky), 'f');
@@ -320,7 +321,7 @@ function applyOffer(R, of) {
     R.ship.hold.push({ part: of.part, tier: of.tier }); R.stats.partsFound++; if (of.bonus) R.ship.salvage += of.bonus;
   } else if (of.kind === 'salvage') R.ship.salvage += of.amount;
   else if (of.kind === 'torpedoes') R.ship.torpedoes += of.amount;
-  else if (of.kind === 'lumite') R.ship.lumite = Math.min(stat(R, 'lumiteCap', 10), R.ship.lumite + of.amount);
+  else if (of.kind === 'lumite') R.ship.lumite = Math.min(stat(R, 'lumiteCap', 10), R.ship.lumite + of.amount * stat(R, 'lumiteGain', 1));
   else if (of.kind === 'repair') R.ship.hull = Math.min(R.ship.hullMax, R.ship.hull + of.amount);
   else if (of.kind === 'data') { R.data += of.amount; R.stats.dataEarned += of.amount; }
   return { ok: true };
@@ -434,7 +435,7 @@ function setPower(R, p) {
   R.pendPower = Object.assign({}, f.power); return { ok: true, pending: true };
 }
 /* a Threshold Capacitor (or any capacitor at Mk III) or the Engineering officer can land one queued reroute at once each sector */
-function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
+function canLandNow(R) { return !!(R.pendPower && !R.fight && !R.flags['fastRR' + R.sector] && (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute'))); }
 function landNow(R) { if (!canLandNow(R)) return { ok: false, why: 'not available' }; R.flags['fastRR' + R.sector] = 1; applyPending(R); log(R, 'fastReroute', {}); return { ok: true }; }
 function applyPending(R) {
   if (!R.pendPower) return false;

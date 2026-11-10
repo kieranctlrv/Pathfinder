@@ -4,11 +4,13 @@
 global.FT={};
 const M=require('../src/run/run-map.js'),C=require('../src/run/run-core.js');
 const N=+(process.argv[2]||100);
-function fightTurn(R){const f=R.fight;const L=C.legal(f);
- const v=C.view?C.view(f):null;
+/* the bot plays like a careful player: fire the best ready weapon; otherwise read the enemy, brace where they aim, repair */
+const POWER=process.env.BOT_POWER||'offence';
+function fightTurn(R){const f=R.fight;const L=C.legal(f),E=f.enemy;
  const fire=L.filter(a=>a.type==='fire');
- if(!f.flags||!f.flags.scanned){} 
  if(fire.length) return fire.sort((x,y)=>C.hitChance(f,y.slot)-C.hitChance(f,x.slot))[0];
+ if(!(E.scanned>0)){const sc=L.find(a=>a.type==='scan');if(sc)return sc;}
+ if(E.intent&&E.intent.arc){const b=L.find(a=>a.type==='brace'&&a.arc===E.intent.arc);if(b)return b;}
  const rep=L.find(a=>a.type==='repair'); if(rep) return rep;
  const br=L.find(a=>a.type==='brace'); return br||L.find(a=>a.type==='pass');}
 function play(seed){const R=M.newRun({seed});let g=0,turns=0,fights=0;
@@ -26,7 +28,7 @@ function play(seed){const R=M.newRun({seed});let g=0,turns=0,fights=0;
    const c0=R.cards[best],fac=[6,5,4,3,2].find(w=>R.ship.lumite+1e-9>=Math.round(c0.fuel*M.foldFuelMult(w)*100)/100)||2;
    if(!M.fold(R,best,{factor:fac}).ok){M.endRun(R,'lost','STRANDED');}}
   else if(R.phase==='fight'){const f=R.fight;
-   if(f.turn<=1&&!R.pendPower&&R.power.weapons<40)M.setPower(R,{propulsion:10,shields:20,sensors:10,weapons:60}); /* red alert lands on Defence; a player reroutes to Offence (lands next round) */
+   if(POWER==='offence'&&f.turn<=1&&!R.pendPower&&R.power.weapons<40)M.setPower(R,{propulsion:10,shields:20,sensors:10,weapons:60}); /* red alert lands on Defence; a player reroutes to Offence (lands next round) */
    if(R.pendPower&&f.turn>=1&&!f.over){}if(f.over){fights++;turns+=f.turn||0;const k='S'+R.sector+(f.meta.guardian?' guardian':f.meta.hunt!=null?' hunt':' contact');(global.FT[k]=global.FT[k]||[]).push([f.turn,f.over,Math.round(100*R.fight.ship.hull/R.fight.ship.hullMax)]);M.resolveFight(R);continue;}C.act(f,fightTurn(R));if(!f.over)M.applyPending(R);}
   else if(R.phase==='offers'){const O=R.offers;if(!O.taken&&O.free.length){const o=O.free.find(x=>!x.risk)||O.free[0];M.claim(R,o.id);}
     if(O.shop||O.trader){O.paid.forEach(o=>{if(o.kind==='repair'&&R.ship.hull<R.ship.hullMax*0.7)M.claim(R,o.id);if(o.kind==='lumite'&&R.ship.lumite<5)M.claim(R,o.id);});}

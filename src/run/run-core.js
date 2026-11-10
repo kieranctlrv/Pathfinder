@@ -20,6 +20,9 @@ const partById = id => D.PARTS.find(p => p.id === id);
 /* ---------- rng (mulberry32, state kept in the fight) ---------- */
 function rnd(f) { let t = (f.rng += 0x6D2B79F5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 const roll = (f, pct) => rnd(f) * 100 < pct;
+/* streak-free chance (step 7a): each kind of roll keeps a running total that starts at a random point, so an 80% shot
+   hits exactly 4 times in 5 over a fight, in an unpredictable order, and never misses three times running by bad luck */
+function luck(f, key, pct) { f.luck = f.luck || {}; let a = f.luck[key]; if (a == null) a = rnd(f); a += Math.max(0, Math.min(100, pct)) / 100; const hit = a >= 1; if (hit) a -= 1; f.luck[key] = a; return hit; }
 const pick = (f, arr) => arr[Math.floor(rnd(f) * arr.length)];
 
 /* ---------- ship and officers ---------- */
@@ -120,7 +123,7 @@ function wstat(f, slotId, key, base) {          // weapon-local keys ('w.*') fro
 }
 const played = (f, key) => f.flags[key] ? 0 : 1;   // helper for once-per-fight flags
 function once(f, key) { if (f.flags[key]) return false; f.flags[key] = 1; return true; }
-function pw(f, ch, sat) { return 0.5 + Math.min(channelPower(f, ch), sat) / sat; }   // 0.5 .. 1.5 efficiency
+function pw(f, ch, sat) { return 0.75 + 0.5 * Math.min(channelPower(f, ch), sat) / sat; }   // 0.75 .. 1.25: power is an edge, not the decider (step 7a)
 
 /* ---------- power ---------- */
 function setPower(f, p) {
@@ -209,10 +212,25 @@ function weaponReady(f, sl) {
   if (w.charge < 1) return false;
   return true;
 }
+/* weapons power: 0.85x at 0 to 1.15x at 50 and above (step 7a) */
+function weaponPowerMul(f) { return 0.85 + 0.3 * Math.min(channelPower(f, 'weapons') + wstat(f, 'sec.coupling', 'cw.powerBonus', 0), 50) / 50; }
+/* ---- ratings (step 7a): the same yardstick for both ships. ehp = damage it takes to destroy, dpt = expected damage per turn ---- */
+function rating(f) {
+  const E = f.enemy, def = D.ENEMIES[f.enemyId];
+  const foeAtk = def.intents.reduce((a, i) => { const at = i.atk && def.attacks.find(x => x.id === i.atk); return a + (at ? at.dmg * (E.dmgMul || 1) * i.w : 0); }, 0) / def.intents.reduce((a, i) => a + i.w, 0);
+  const foeAcc = Math.max(5, Math.min(100, (E.accuracy != null ? E.accuracy : def.accuracy) + stat(f, 'enemyAcc', 0) - dodgeChance(f))) / 100;
+  const foeEhp = (E.hullMax || E.hull) + (E.screenMax || 0) * 0.67 + (E.armour || 0) * 10;
+  let youDpt = 0;
+  Object.keys(f.weapons).forEach(sl => { const kin = !!wstat(f, sl, 'w.kinetic', 0), rt = kin ? 1.5 : lanceRecharge(f, sl); youDpt += wstat(f, sl, 'w.dmg', 0) * weaponPowerMul(f) * stat(f, 'dmgAll', 1) * hitChance(f, sl, kin) / 100 / rt; });
+  const youEhp = f.ship.hullMax + 4 * ARC_CAP * stat(f, 'screenCap', 1) * 0.35;
+  const foeDpt = foeAtk * foeAcc;
+  return { you: { ehp: Math.round(youEhp), dpt: Math.round(youDpt * 10) / 10 }, foe: { ehp: Math.round(foeEhp), dpt: Math.round(foeDpt * 10) / 10 },
+    turnsToWin: Math.round(foeEhp / Math.max(1, youDpt) * 10) / 10, turnsToLose: Math.round(youEhp / Math.max(1, foeDpt) * 10) / 10 };
+}
 function torpCost(f, sl) { return Math.max(0.5, wstat(f, sl, 'w.cost', 1)); }
 function lanceRecharge(f, sl) {
   const pwr = channelPower(f, 'weapons') + wstat(f, 'sec.coupling', 'cw.powerBonus', 0);
-  let t = pwr < 20 ? 3 : pwr < 40 ? 2 : 1;
+  let t = pwr < 10 ? 3 : 2;   /* a steady rhythm at any routing; only a starved channel (under 10) slows it (step 7a) */
   t += wstat(f, sl, 'w.recharge', 0);
   const slowerGone = wstat(f, 'sec.coupling', 'cw.slowerGoneAt', 0);
   if (!(slowerGone && channelPower(f, 'weapons') >= slowerGone)) t += wstat(f, 'sec.coupling', 'cw.slower', 0);
@@ -245,10 +263,10 @@ function resolveShot(f, sl, shotIx, evs) {
   const kin = !!wstat(f, sl, 'w.kinetic', 0);
   const first = f.shotsFired === 0;
   const sure = first && stat(f, 'firstShotSure', 0) > 0;
-  const hit = sure || roll(f, hitChance(f, sl, kin));
+  const hit = sure || luck(f, 'you:' + sl, hitChance(f, sl, kin));
   f.shotsFired++; addXp(f, 'security', 1);
   if (!hit) { evs.push(log(f, 'miss', { slot: sl })); if (kin && wstat(f, sl, 'w.refundMiss', 0)) f.ship.torpedoes += torpCost(f, sl) / (wstat(f, sl, 'w.shots', 1)); return false; }
-  let raw = wstat(f, sl, 'w.dmg', 0) * (0.75 + 0.5 * Math.min(channelPower(f, 'weapons'), 50) / 50) * stat(f, 'dmgAll', 1);
+  let raw = wstat(f, sl, 'w.dmg', 0) * weaponPowerMul(f) * stat(f, 'dmgAll', 1);
   raw *= rangeMod(f, sl, kin);
   if (!kin && w.held > 0 && wstat(f, sl, 'w.held', 0)) { raw *= 1 + wstat(f, sl, 'w.held', 0) / 100; evs.push(log(f, 'held', { slot: sl })); }
   if (w.charge > 1 || (w.stored)) raw *= 1 + wstat(f, 'sec.coupling', 'cw.storedDmg', 0) / 100 * (w.charge > 1 ? 1 : 0);
@@ -260,7 +278,7 @@ function resolveShot(f, sl, shotIx, evs) {
     const mult = kin ? (wstat(f, sl, 'w.pastScreens', 0) ? 1 : 0.5) : 1.5;
     toScreen = Math.min(E.screen, raw * mult);
     hullRaw = raw - toScreen / mult;
-    E.screen -= toScreen;
+    E.screen -= toScreen; if (toScreen > 0) E.struck = 1;
     if (wstat(f, sl, 'w.stallRegen', 0)) E.stall = 1;
   }
   let hullDmg = 0;
@@ -418,13 +436,14 @@ function enemyTurn(f) {
   if (E.down > 0) E.down--;
   else if (E.noRegen > 0) E.noRegen--;
   else if (E.stall > 0) E.stall--;
-  else if (E.screen < E.screenMax) E.screen = Math.min(E.screenMax, E.screen + PIP * 0.5 * stat(f, 'enemyRegen', 1));
+  else if (E.screen > 0 && E.screen < E.screenMax && !E.struck) E.screen = Math.min(E.screenMax, E.screen + PIP * 0.5 * stat(f, 'enemyRegen', 1));
+  E.struck = 0;   /* screens only regenerate on a turn they were not struck, and a broken screen stays down until repaired (step 7a) */
   f.enemy.noBlock = 0;
   log(f, 'enemy', { intent: intent.id, atk: intent.atk, arc: intent.arc });
   if (intent.atk) enemyAttack(f, def.attacks.find(a => a.id === intent.atk), intent.arc);
   else if (intent.id === 'close') f.range = RANGES[Math.min(2, rangeIdx(f.range) + 1)];
   else if (intent.id === 'open') f.range = RANGES[Math.max(0, rangeIdx(f.range) - 1)];
-  else if (intent.id === 'repair') { E.screen = Math.min(E.screenMax, E.screen + PIP * 2); E.repaired++; }
+  else if (intent.id === 'repair') { E.screen = Math.min(E.screenMax, E.screen + PIP); E.repaired++; }
 }
 function dodgeChance(f) {
   let d = stat(f, 'dodge', 0) + channelPower(f, 'propulsion') * 0.25 * stat(f, 'propEff', 1);
@@ -441,9 +460,9 @@ function enemyAttack(f, atk, arc) {
   if (stat(f, 'firstEnemyMiss', 0) && once(f, 'firstEnemyMiss')) { log(f, 'enemyMiss', { why: 'decoy' }); return; }
   // dodge
   let dodged = false;
-  if (f.flags.dodgeOrder) { f.flags.dodgeOrder = false; if (stat(f, 'sureDodge', 0) && once(f, 'sureDodge')) dodged = true; else dodged = roll(f, Math.min(95, dodgeChance(f) + 30 + (f.brace ? 10 : 0))); }
-  else dodged = roll(f, dodgeChance(f) + (f.brace ? 10 : 0));
-  if (!dodged && !roll(f, Math.min(100, acc))) dodged = 'miss';
+  if (f.flags.dodgeOrder) { f.flags.dodgeOrder = false; if (stat(f, 'sureDodge', 0) && once(f, 'sureDodge')) dodged = true; else dodged = luck(f, 'dodge', Math.min(95, dodgeChance(f) + 30 + (f.brace ? 10 : 0))); }
+  else dodged = luck(f, 'dodge', dodgeChance(f) + (f.brace ? 10 : 0));
+  if (!dodged && !luck(f, 'foe', Math.min(100, acc))) dodged = 'miss';
   if (dodged) {
     log(f, dodged === 'miss' ? 'enemyMiss' : 'dodge', {});
     if (dodged !== 'miss') { addXp(f, 'operations', 1); const cut = stat(f, 'dodgeCut', 0); if (cut) f.nextHit = 1 - cut / 100; }
@@ -534,7 +553,7 @@ function view(f) {
   };
 }
 
-const api = { ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
+const api = { rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
