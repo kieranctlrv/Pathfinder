@@ -36,58 +36,7 @@ function spCone(x,c,dir,mode,frac,rgb,alpha,dash){
   x.setLineDash([]);
 }
 function spHex(n){const v=(COL[n]||'#ffffff').replace('#','');const h=v.length===3?v.split('').map(q=>q+q).join(''):v;return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)].join(',');}
-function r2Space(c){
-  if(!c||c.hidden||!c.offsetParent)return;fit(c);spInstall(c);
-  const R=R2.R,x=c.getContext('2d'),W=c.width,H=c.height,d=c.dpr||1,now=performance.now();
-  x.fillStyle='#060B16';x.fillRect(0,0,W,H);
-  if(!R)return;
-  const choose=R.phase==='choose'&&!R.over;
-  /* grid on the ship's plane, and the sector axes */
-  x.lineWidth=1*d;x.strokeStyle='rgba(143,155,196,.16)';
-  for(let i=-8;i<=8;i+=2){let A=spProj(c,[i,-8,0]),B=spProj(c,[i,8,0]);x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke();A=spProj(c,[-8,i,0]);B=spProj(c,[8,i,0]);x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke();}
-  x.font=(11*d)+'px "Barlow Condensed",sans-serif';
-  [[[9,0,0],'SECTOR X'],[[0,9,0],'SECTOR Y'],[[0,0,5.5],'UP']].forEach(([p,l])=>{const O=spProj(c,[0,0,0]),P=spProj(c,p);x.strokeStyle='rgba(143,155,196,.45)';x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(P[0],P[1]);x.stroke();x.fillStyle='rgba(143,155,196,.7)';x.fillText(l,P[0]+4*d,P[1]-4*d);});
-  /* cones: the planned facing (ghost), the current one, and a sweep while scanning */
-  const blue=spHex('blue'),sal=spHex('salmon'),aim=spAim(),turning=choose&&!SP.anim&&spAng(spNose(),aim)>1;
-  if(choose){
-    if(SP.anim){const t=clamp((now-SP.anim.t0)/800,0,1);spCone(x,c,SP.anim.dir,SP.anim.mode,t,blue,.12);}
-    else{if(turning)spCone(x,c,aim,SP.mode,1,sal,.035,[5*d,4*d]);spCone(x,c,spNose(),SP.mode,1,blue,turning?.02:.045);}
-  }
-  /* empty-scan marks */
-  (R.scanMarks||[]).forEach(p=>{const P=spProj(c,p),s=5*d;x.strokeStyle='rgba(143,155,196,.6)';x.lineWidth=1.5*d;x.beginPath();x.moveTo(P[0]-s,P[1]-s);x.lineTo(P[0]+s,P[1]+s);x.moveTo(P[0]+s,P[1]-s);x.lineTo(P[0]-s,P[1]+s);x.stroke();});
-  /* contacts (only what has been found) */
-  const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
-  const sel=S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):null,dest=S.dest&&/^c\d$/.test(S.dest.id)?+S.dest.id.slice(1):null;
-  const ship=spShipPos();
-  if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found){const A=spProj(c,ship),B=spProj(c,cc.p);x.strokeStyle='rgba('+spHex('orange')+',.9)';x.lineWidth=2*d;x.setLineDash([6*d,4*d]);x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke();x.setLineDash([]);}}
-  try{mdPump(4);}catch(_){}
-  const boxes=[],list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)):[];
-  list.sort((a,b)=>spProj(c,a.cc.p)[2]-spProj(c,b.cc.p)[2]).forEach(({cc,ix})=>{
-    const P=spProj(c,cc.p),B=spProj(c,[cc.p[0],cc.p[1],0]),col=cc.id?(COL[SP_TCOL[cc.type]]||COL.orange):'#9aa6cc';
-    x.strokeStyle='rgba(143,155,196,.45)';x.lineWidth=1*d;x.setLineDash([2*d,3*d]);x.beginPath();x.moveTo(P[0],P[1]);x.lineTo(B[0],B[1]);x.stroke();x.setLineDash([]);
-    x.fillStyle='rgba(143,155,196,.5)';x.beginPath();x.ellipse(B[0],B[1],3*d,1.5*d,0,0,7);x.fill();
-    const s=(shown.has(ix)?9:7)*d;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();
-    if(cc.id){x.fillStyle=col;x.fill();}else{x.strokeStyle=col;x.lineWidth=2*d;x.stroke();}
-    if(cc.id&&cc.foe&&(cc.type==='contact'||cc.type==='guardian')){try{const art=mdCanvas(r2ArtDef(cc.foe),now);if(art){const w=(cc.type==='guardian'?64:50)*d,h=w*art.height/art.width;x.imageSmoothingEnabled=false;x.drawImage(art,P[0]-w/2,P[1]-h-10*d,w,h);}}catch(_){}}
-    if(sel===ix||dest===ix){x.strokeStyle=COL.peach||'#fff';x.lineWidth=1.5*d;x.beginPath();x.arc(P[0],P[1],13*d,0,7);x.stroke();}
-    const lab=(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(cc.d)+' LY';x.font=(13*d)+'px "Barlow Condensed",sans-serif';
-    const lw=x.measureText(lab).width;let ly=P[1]+4*d;
-    for(let k=0;k<6&&boxes.some(b=>P[0]+12*d<b[0]+b[2]&&P[0]+12*d+lw>b[0]&&Math.abs(ly-b[1])<15*d);k++)ly+=15*d;
-    boxes.push([P[0]+12*d,ly,lw]);x.fillStyle=cc.id?col:'#9aa6cc';x.fillText(lab,P[0]+12*d,ly);
-  });
-  if(R.intercept&&R.intercept.p&&!R.over){const I=R.intercept,P=spProj(c,I.p),O=spProj(c,ship),pu=REDUCED?.6:.5+.5*Math.sin(now/220),s=8*d;
-    x.strokeStyle='rgba('+sal+','+(.35+.4*pu)+')';x.lineWidth=1.5*d;x.setLineDash([3*d,5*d]);x.beginPath();x.moveTo(P[0],P[1]);x.lineTo(O[0],O[1]);x.stroke();x.setLineDash([]);
-    x.fillStyle=COL.salmon;x.globalAlpha=.55+.45*pu;x.beginPath();x.moveTo(P[0],P[1]-s);x.lineTo(P[0]+s,P[1]);x.lineTo(P[0],P[1]+s);x.lineTo(P[0]-s,P[1]);x.closePath();x.fill();
-    x.globalAlpha=pu*.6;x.strokeStyle=COL.salmon;x.beginPath();x.arc(P[0],P[1],(12+8*pu)*d,0,7);x.stroke();x.globalAlpha=1;
-    x.font='600 '+(13*d)+'px "Barlow Condensed",sans-serif';x.fillText('REARGUARD · INBOUND',P[0]+14*d,P[1]+4*d);}
-  if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const O=spProj(c,[0,0,0]),G=spProj(c,R.gateDir.map(q=>q*9));x.strokeStyle='rgba('+spHex('yellow')+',.55)';x.lineWidth=1.5*d;x.setLineDash([8*d,6*d]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(G[0],G[1]);x.stroke();x.setLineDash([]);x.fillStyle=COL.yellow;x.font=(12*d)+'px "Barlow Condensed",sans-serif';x.fillText('GATE BEARING (OPERATIONS)',G[0]+6*d,G[1]);}
-  /* the ship: a line along the nose from wherever it is; a dashed ghost for a planned turn */
-  const drawShip=(dir,col,dash)=>{const O=spProj(c,ship),T=spProj(c,ship.map((q,i)=>q+dir[i]*1.7));x.strokeStyle=col;x.fillStyle=col;x.lineWidth=3*d;x.setLineDash(dash||[]);x.beginPath();x.moveTo(O[0],O[1]);x.lineTo(T[0],T[1]);x.stroke();x.setLineDash([]);x.beginPath();x.arc(T[0],T[1],3.5*d,0,7);x.fill();return T;};
-  if(turning)drawShip(aim,'rgba('+sal+',.9)',[4*d,3*d]);
-  const T=drawShip(spNose(),COL.peach||'#ffcc99');x.fillStyle=COL.peach||'#ffcc99';x.font=(12*d)+'px "Barlow Condensed",sans-serif';x.fillText('PATHFINDER',T[0]+6*d,T[1]-6*d);
-  const O=spProj(c,ship);x.beginPath();x.arc(O[0],O[1],4*d,0,7);x.fill();
-  if(!choose){x.fillStyle='rgba(143,155,196,.8)';x.font=(14*d)+'px "Barlow Condensed",sans-serif';x.fillText(r2PhaseText(),14*d,H-14*d);}
-}
+/* r2Space (the drawing) lives in ui-scanart.js: the pixel-art scan space */
 /* pointer: camera drag, helm drag, tap to select a contact */
 function spInstall(c){
   if(c.dataset.sp)return;c.dataset.sp='1';c.style.touchAction='none';

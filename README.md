@@ -30,7 +30,8 @@ src/run/                  Run Mode
   run-core.js               turn-based combat engine, no screen code
   run-map.js                Run structure: passages, folds, loot, shop, content hooks
   ui-shell.js               bridge from the Run engine to the station screens
-  ui-space.js               3D scan space on the Home map
+  ui-space.js               3D scan space: camera, aiming, scan action, controls
+  ui-scanart.js             the scan space drawn as pixel art (stars, grid, cones, icons, the ship)
   ui-ship3d.js              the ship in 3D (Engineering > Structure)
   ui-screens.js             Run versions of the station screens and the offer/event overlay
   ui-combat.js              Battle Stations and the tactical stage
