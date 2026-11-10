@@ -1049,6 +1049,10 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .lg-stream{flex:1;min-height:0;overflow:auto;padding-right:6px;font-size:calc(14px*var(--ts,1))}
 .lg-stream .fd-sys{display:flex;gap:10px;margin:2px 0;color:var(--lav)}.lg-stream .fd-sys time{opacity:.7;flex:none}
 .lg-stream .fd-sys.bad{color:var(--salmon)}
+/* step 7b: enemy traits */
+.r2-trt{display:flex;flex-direction:column;gap:1px;margin-top:3px}
+.r2-trt span{align-self:flex-start;padding:0 8px;border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);font-size:calc(11px*var(--ts,1));letter-spacing:.12em}
+.r2-trt small{color:var(--lav);font-size:calc(10px*var(--ts,1));letter-spacing:.06em;margin-bottom:2px}
 </style>
 </head>
 <body>
@@ -1515,11 +1519,21 @@ const ENEMIES = {
     attacks:[{id:'lance', dmg:34, kind:'energy', arcs:'any'}], intents:[{id:'strike',w:7,atk:'lance'},{id:'close',w:1},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'engine',name:'Engine core'}] },
   screenship: { id:'screenship', name:'Cordon Screenship', faction:'Ninth Cordon', role:'escort', sectors:[1,5], hull:110, screenPips:5, armourPips:1, speed:9, accuracy:78, dodge:0, weakSide:'aft',
     attacks:[{id:'lance', dmg:22, kind:'energy', arcs:'any'}], intents:[{id:'strike',w:4,atk:'lance'},{id:'repair',w:4},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'engine',name:'Engine core'}] },
-  kael: { id:'kael', name:'Warden Idris Kael', faction:'Ninth Cordon', role:'warden', sectors:[5,5], hull:200, screenPips:5, armourPips:5, speed:9, accuracy:85, dodge:5, weakSide:'aft',
-    attacks:[{id:'broadside', dmg:78, kind:'kinetic', arcs:'side'},{id:'lance', dmg:40, kind:'energy', arcs:'any'}], intents:[{id:'broadside',w:5,atk:'broadside'},{id:'strike',w:4,atk:'lance'},{id:'repair',w:2},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'belt',name:'Armour belt'},{id:'engine',name:'Engine core'}] },
+  kael: { id:'kael', name:'Warden Idris Kael', faction:'Ninth Cordon', role:'warden', sectors:[5,5], hull:220, screenPips:5, armourPips:3, speed:9, accuracy:85, dodge:5, weakSide:'aft',
+    attacks:[{id:'broadside', dmg:66, kind:'kinetic', arcs:'side'},{id:'lance', dmg:36, kind:'energy', arcs:'any'}], intents:[{id:'broadside',w:5,atk:'broadside'},{id:'strike',w:4,atk:'lance'},{id:'repair',w:2},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'belt',name:'Armour belt'},{id:'engine',name:'Engine core'}] },
 };
 
-const api = { S, H, DEPT, CHANNELS, SLOTS, PARTS, ENEMIES };
+/* enemy traits (step 7b): each reshapes an archetype the same way everywhere. Fights pick them by progress, never by luck of the roll alone */
+const TRAITS = {
+  armoured:  { id:'armoured',  name:'Armoured',  t:'+2 armour. Torpedoes are the answer.', mod:{ armour:2, hullMul:0.85 } },
+  fast:      { id:'fast',      name:'Fast',      t:'+4 speed and +10 dodge, a little less hull.', mod:{ speed:4, dodge:10, hullMul:0.9 } },
+  heavy:     { id:'heavy',     name:'Heavy-gunned', t:'Hits 25% harder, aims 8 worse. Brace for it.', mod:{ dmgMul:1.25, acc:-8 } },
+  marksman:  { id:'marksman',  name:'Sharpshooting', t:'Aims 10 better, hits 10% softer.', mod:{ acc:10, dmgMul:0.9 } },
+  menders:   { id:'menders',   name:'Mending',   t:'+1 screen and repairs it more often. Break it and keep it broken.', mod:{ screen:1, repairW:3 } },
+  ghost:     { id:'ghost',     name:'Ghosted',   t:'Its next move stays read one turn less.', mod:{ scanCut:1, dodge:5 } },
+  boarders:  { id:'boarders',  name:'Boarding',  t:'Hits on your hull put your crew at risk.', mod:{ boarders:6 } }
+};
+const api = { S, H, DEPT, CHANNELS, SLOTS, PARTS, ENEMIES, TRAITS };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunData = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -1535,6 +1549,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = api; else 
 'use strict';
 const D = (typeof require !== 'undefined') ? require('./run-data.js') : root.RunData;
 const PIP = 20;
+const REPAIRS_MAX = 3;
 const ARC_CAP = 45, ARC_REGEN = 5;   // placeholders: per-arc screen capacity and regen per turn                       // enemy screen pip = 20 points
 const ARCS = ['fore', 'aft', 'port', 'stbd'];
 const RANGES = ['long', 'standard', 'close'];
@@ -1588,7 +1603,15 @@ function start(ship, officers, enemyId, seed, power, opts) {
   };
   const cap = stat(f, 'screenCap', 1) * ARC_CAP;
   ARCS.forEach(a => f.arcs[a] = cap);
-  f.enemy.screenMax = E.screenPips * PIP * stat(f, 'enemyScreenCap', 1);
+  /* traits (step 7b) reshape this enemy */
+  const TT = (opts.traits || []).map(t => D.TRAITS[t]).filter(Boolean);
+  f.enemy.acc = E.accuracy; f.enemy.traits = TT.map(t => t.id); f.enemy.boarders = 0; f.enemy.scanCut = 0;
+  let pips = E.screenPips, repairW = 0;
+  TT.forEach(t => { const m = t.mod; f.enemy.armour += m.armour || 0; f.enemy.speed += m.speed || 0; f.enemy.dodge += m.dodge || 0; f.enemy.acc += m.acc || 0; f.dmgScale *= m.dmgMul || 1;
+    pips += m.screen || 0; repairW += m.repairW || 0; f.enemy.scanCut += m.scanCut || 0; f.enemy.boarders += m.boarders || 0; });
+  if (repairW) { f.enemy.intents = E.intents.map(i => Object.assign({}, i)); const rp = f.enemy.intents.find(i => i.id === 'repair'); if (rp) rp.w += repairW; else f.enemy.intents.push({ id: 'repair', w: repairW }); }
+  if (opts.name) f.enemy.name = opts.name;
+  f.enemy.screenMax = pips * PIP * stat(f, 'enemyScreenCap', 1);
   f.enemy.screen = f.enemy.screenMax;
   // weapons
   Object.keys(ship.fitted).forEach(sl => { if (/^sec\.w[1-4]$/.test(sl) && !ship.offline[sl]) f.weapons[sl] = { charge: Math.max(1, wstat(f, 'sec.coupling', 'cw.stored', 1)), cd: 0, held: 0, shots: 0, bonus: 0, used: {} }; });
@@ -1712,7 +1735,7 @@ function log(f, t, d) { const e = Object.assign({ t, turn: f.turn }, d || {}); f
 function addXp(f, dept, n) { f.xp[dept] += n; }
 function rangeIdx(r) { return RANGES.indexOf(r); }
 function rollIntent(f) {
-  const E = D.ENEMIES[f.enemyId]; const tab = E.intents.slice();
+  const E = D.ENEMIES[f.enemyId]; const tab = (f.enemy.intents || E.intents).filter(i => !(i.id === 'repair' && f.enemy.repaired >= REPAIRS_MAX));   /* three repairs and their spares are gone (step 7b) */
   const total = tab.reduce((a, i) => a + i.w, 0); let r = rnd(f) * total, ch = tab[0];
   for (const i of tab) { if ((r -= i.w) < 0) { ch = i; break; } }
   const atk = ch.atk ? E.attacks.find(a => a.id === ch.atk) : null;
@@ -1743,8 +1766,8 @@ function weaponPowerMul(f) { return 0.85 + 0.3 * Math.min(channelPower(f, 'weapo
 /* ---- ratings (step 7a): the same yardstick for both ships. ehp = damage it takes to destroy, dpt = expected damage per turn ---- */
 function rating(f) {
   const E = f.enemy, def = D.ENEMIES[f.enemyId];
-  const foeAtk = def.intents.reduce((a, i) => { const at = i.atk && def.attacks.find(x => x.id === i.atk); return a + (at ? at.dmg * (E.dmgMul || 1) * i.w : 0); }, 0) / def.intents.reduce((a, i) => a + i.w, 0);
-  const foeAcc = Math.max(5, Math.min(100, (E.accuracy != null ? E.accuracy : def.accuracy) + stat(f, 'enemyAcc', 0) - dodgeChance(f))) / 100;
+  const foeAtk = def.intents.reduce((a, i) => { const at = i.atk && def.attacks.find(x => x.id === i.atk); return a + (at ? at.dmg * f.dmgScale * i.w : 0); }, 0) / def.intents.reduce((a, i) => a + i.w, 0);
+  const foeAcc = Math.max(5, Math.min(100, (E.acc != null ? E.acc : def.accuracy) + stat(f, 'enemyAcc', 0) - dodgeChance(f))) / 100;
   const foeEhp = (E.hullMax || E.hull) + (E.screenMax || 0) * 0.67 + (E.armour || 0) * 10;
   let youDpt = 0;
   Object.keys(f.weapons).forEach(sl => { const kin = !!wstat(f, sl, 'w.kinetic', 0), rt = kin ? 1.5 : lanceRecharge(f, sl); youDpt += wstat(f, sl, 'w.dmg', 0) * weaponPowerMul(f) * stat(f, 'dmgAll', 1) * hitChance(f, sl, kin) / 100 / rt; });
@@ -1810,7 +1833,7 @@ function resolveShot(f, sl, shotIx, evs) {
   let hullDmg = 0;
   if (hullRaw > 0) {
     const armourPips = kin ? E.armour - Math.floor(E.armour * wstat(f, sl, 'w.pierce', 0) / 100) : E.armour;
-    const tm = kin ? (E.armour > 0 ? 1.5 : 1) : (E.armour > 0 && E.screen <= 0 ? 0.5 : 1);
+    const tm = kin ? Math.min(1.5, 1 + 0.1 * armourPips) : (E.screen <= 0 ? Math.max(0.5, 1 - 0.08 * E.armour) : 1);   /* each armour pip blunts lances and feeds torpedoes (step 7b) */
     hullDmg = hullRaw * tm * (1 - 0.05 * armourPips);
     E.hull = Math.max(0, E.hull - hullDmg);
   }
@@ -1877,7 +1900,7 @@ function doPlayer(f, a, evs) {
       Object.keys(f.weapons).forEach(sl => { if (weaponReady(f, sl) && !f.over) fireOne(f, sl, {}, evs); });
       break;
     case 'scan':
-      f.enemy.scanned = stat(f, 'scanTurns', 2) + (channelPower(f, 'sensors') >= 30 ? 1 : 0);
+      f.enemy.scanned = Math.max(1, stat(f, 'scanTurns', 2) + (channelPower(f, 'sensors') >= 30 ? 1 : 0) - (f.enemy.scanCut || 0));
       addXp(f, 'science', 1); evs.push(log(f, 'scan', { intent: f.enemy.intent })); break;
     case 'range': {
       const ni = Math.max(0, Math.min(2, rangeIdx(f.range) + a.dir));
@@ -1981,7 +2004,7 @@ function enemyAttack(f, atk, arc) {
   const evs = [];
   if (stat(f, 'cancelVolley', 0) && once(f, 'cancelVolley')) { log(f, 'volleyCancelled', {}); return; }
   // jammer / accuracy
-  let acc = D.ENEMIES[f.enemyId].accuracy + stat(f, 'enemyAcc', 0);
+  let acc = (f.enemy.acc != null ? f.enemy.acc : D.ENEMIES[f.enemyId].accuracy) + stat(f, 'enemyAcc', 0);
   if (f.range === 'close') acc += stat(f, 'enemyAccClose', 0); else if (f.range === 'standard') acc += stat(f, 'enemyAccStd', 0); else acc += stat(f, 'enemyAccLong', 0);
   if (stat(f, 'firstEnemyMiss', 0) && once(f, 'firstEnemyMiss')) { log(f, 'enemyMiss', { why: 'decoy' }); return; }
   // dodge
@@ -2041,7 +2064,8 @@ function casualtyRoll(f, sl, already) {
   let p = (already && !stat(f, 'flatSecondHit', 0)) ? 25 : 10;
   if (f.ship.hull < f.ship.hullMax * 0.25 && !stat(f, 'noLowHullCasualty', 0)) p += 5;
   p += stat(f, 'casualty', 0);
-  if (f.flags && f.flags.calmCrew) p -= 3;   /* Medical officer perk (core loop step 6) */
+  if (f.flags && f.flags.calmCrew) p -= 3;
+  p += f.enemy.boarders || 0;   /* boarding trait */   /* Medical officer perk (core loop step 6) */
   if (roll(f, Math.max(0, p))) { off.alive = false; f.casualty = { dept }; log(f, 'casualty', { dept }); }
 }
 
@@ -2072,7 +2096,7 @@ function view(f) {
     turn: f.turn, over: f.over, range: f.range, hull: f.ship.hull, hullMax: f.ship.hullMax, torpedoes: f.ship.torpedoes,
     arcs: ARCS.map(a => ({ arc: a, pct: Math.round(100 * f.arcs[a] / (ARC_CAP * stat(f, 'screenCap', 1))) })),
     power: Object.assign({}, f.power), dodge: Math.round(dodgeChance(f)),
-    enemy: { name: def.name, hull: Math.round(E.hull), hullMax: E.hullMax, screenPips: Math.ceil(E.screen / PIP), screenPipsMax: Math.ceil(E.screenMax / PIP), armour: E.armour, intent: E.scanned > 0 ? E.intent : null, scanned: E.scanned },
+    enemy: { name: E.name || def.name, traits: (E.traits || []).map(t => D.TRAITS[t]),  hull: Math.round(E.hull), hullMax: E.hullMax, screenPips: Math.ceil(E.screen / PIP), screenPipsMax: Math.ceil(E.screenMax / PIP), armour: E.armour, intent: E.scanned > 0 ? E.intent : null, scanned: E.scanned },
     weapons: Object.keys(f.weapons).map(sl => ({ slot: sl, part: f.ship.fitted[sl].part, ready: weaponReady(f, sl), charge: f.weapons[sl].charge, cd: f.weapons[sl].cd, offline: !partActive(f, sl) })),
     orders: Object.keys(D.DEPT).map(d => ({ dept: d, name: ORDERS[d], ready: orderOk(f, d, ORDERS[d]), level: f.officers[d].level, alive: f.officers[d].alive })),
     timeline: timeline(f, 3), first: firstActor(f), speed: { you: Math.round(playerSpeed(f) * 10) / 10, enemy: E.speed }, braceCut: Math.round(braceCut(f) * 100), offline: Object.keys(f.ship.offline), acted: !!f.acted
@@ -2102,7 +2126,15 @@ const SECTORS = [
 ];
 const PASSAGES = 7, GUARDIAN = 6, GATE = 7, TRACE = 3, SHOP_AT = 4;
 const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
-const GUARDIANS = { 1: 'screenship', 2: 'lancer', 3: 'ironclad', 4: 'ironclad', 5: 'kael' };
+const GUARDIANS = { 1: 'raider', 2: 'lancer', 3: 'ironclad', 4: 'screenship', 5: 'kael' };
+/* ---- difficulty (step 7b): one curve and one dial. Enemies grow a little each passage; roles set how hard a fight is meant to be;
+   traits change how a fight plays, by progress, not by luck. DIFFICULTY.dial scales everything (1 = standard) ---- */
+const DIFFICULTY = { dial: 1, hpPerPassage: 0.008, dmgPerPassage: 0.012,
+  role: { contact: { hp: 1, dmg: 1 }, intercept: { hp: 1, dmg: 1 }, guardian: { hp: 1.2, dmg: 1.05 } },
+  traitsAt: [[0, 0], [8, 1], [22, 2]],   /* [passages travelled, traits] for contacts and intercepts */
+  guardianTraits: { 1: ['armoured'], 2: ['marksman'], 3: ['marksman'], 4: ['heavy', 'menders'], 5: [] },
+  traitPool: { cutter: ['fast', 'heavy', 'boarders'], picket: ['fast', 'ghost', 'marksman'], raider: ['armoured', 'heavy', 'boarders', 'fast'], lancer: ['marksman', 'ghost', 'fast'],
+    screenship: ['menders', 'marksman', 'ghost'], ironclad: ['heavy', 'menders', 'boarders'], kael: ['heavy'] } };
 const GUARDIAN_SCALE = { hp: 1.25, dmg: 1.1 };
 const FOLD_THREAT = 8, HUNT_DROP = 35, FOLD_FUEL = 1;
 /* ---- time (core loop step 1): ship time is the cost; threat follows it ----
@@ -2150,7 +2182,7 @@ const ROLE = {
   'sci.array.std': { reach: 1 }, 'sci.array.long': { reach: 1.2 }, 'sci.array.track': { reach: 1, idNear: 2 },
   'sci.proc.std': { scanTime: 1 }, 'sci.proc.tact': { scanTime: 0.85 }, 'sci.proc.analytic': { scanTime: 0.9 },
   'sci.comms.std': { faintId: 1 }, 'sci.comms.listen': { faintId: 1, idNear: 1 },
-  'sci.jam.std': { grace: 1 }, 'sci.jam.decoy': { grace: 1 },
+  'sci.jam.decoy': { grace: 1 },   /* the standard jammer earns this at officer level 2 (Deep jam) */
   'ops.thr.std': { turnTime: 1 }, 'ops.thr.vector': { turnTime: 0.6 }, 'ops.thr.evade': { turnTime: 0.8 },
   'ops.engine.std': { foldSpeed: 1 }, 'ops.engine.burst': { foldSpeed: 1.15 }, 'ops.engine.eff': { foldSpeed: 0.95 },
   'eng.cap.thr': { fastReroute: 1 }
@@ -2222,6 +2254,8 @@ function nextCards(R) {
   else if (R.passage === GUARDIAN) cards.push(mk('guardian', { foe: GUARDIANS[R.sector] }));
   else {
     const shop = R.passage === SHOP_AT, n = shop ? 2 : 2 + (rnd(R) < 0.45 ? 1 : 0), used = {};
+    if (R.breather || (R.fightStreak || 0) >= 2) used.contact = 1;   /* pacing (step 7b): never three fights running, and a breather after a guardian or intercept */
+    R.breather = 0;
     if (R.passage === TRACE) { cards.push(mk('trace', { threat: threatCost(R, FOLD_THREAT - 2), fuel: foldCost(R, 1) })); used.trace = 1; }
     let guard = 0;
     while (cards.length < n && guard++ < 50) {
@@ -2269,9 +2303,18 @@ function fold(R, ix, opts) {
   if (hunt !== null) { R.cur.then = c; return arriveHunt(R, hunt); }
   return arrive(R, c);
 }
-function scale(R, guardian) { const k = 1 + 0.18 * (R.sector - 1); return { hp: k * (guardian ? GUARDIAN_SCALE.hp : 1), dmg: (1 + 0.1 * (R.sector - 1)) * (guardian ? GUARDIAN_SCALE.dmg : 1) }; }
+function scale(R, guardian, hunt, foe) {
+  const pl = progress(R), d = (R.diff || DIFFICULTY.dial), rl = DIFFICULTY.role[guardian ? 'guardian' : hunt != null ? 'intercept' : 'contact'];
+  let traits = [];
+  if (guardian) traits = (DIFFICULTY.guardianTraits[R.sector] || []).slice();
+  else { let n = 0; DIFFICULTY.traitsAt.forEach(t => { if (pl >= t[0]) n = t[1]; }); const pool = (DIFFICULTY.traitPool[foe] || []).slice(); while (traits.length < n && pool.length) traits.push(pool.splice(Math.floor(rnd(R) * pool.length), 1)[0]); }
+  const hullMul = traits.reduce((a, t) => a * ((D.TRAITS[t] && D.TRAITS[t].mod.hullMul) || 1), 1);
+  const name = traits.length ? traits.map(t => D.TRAITS[t].name).join(' ') + ' ' + D.ENEMIES[foe].name : null;
+  return { hp: (1 + DIFFICULTY.hpPerPassage * pl) * rl.hp * d * hullMul, dmg: (1 + DIFFICULTY.dmgPerPassage * pl) * rl.dmg * d, traits, name };
+}
 function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routing (step 5); a queued reroute lands at the first round */
-  const sc = scale(R, guardian);
+  R.fightStreak = (R.fightStreak || 0) + 1;
+  const sc = scale(R, guardian, hunt, foe);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
@@ -2283,7 +2326,7 @@ function arriveHunt(R, idx) { R.stats.hunts++; return startFight(R, HUNT_FOE[idx
 function arrive(R, c) {
   if (c.type === 'contact') return startFight(R, c.foe, false);
   if (c.type === 'guardian') return startFight(R, c.foe, true);
-  emit(R, 'node.arrive', { card: c });
+  emit(R, 'node.arrive', { card: c }); R.fightStreak = 0;
   if (c.type === 'wreck') { R.offers = nodeOptions(R, 'wreck'); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
   if (c.type === 'outpost') { R.offers = traderOffers(R); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
   if (c.type === 'shop') { R.offers = shopStock(R); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
@@ -2303,6 +2346,7 @@ function resolveFight(R) {
   R.stats.won++;
   const bh = stat(R, 'betweenFightHull', 0); if (bh) R.ship.hull = Math.min(R.ship.hullMax, R.ship.hull + R.ship.hullMax * bh / 100);
   if (meta.hunt !== null && meta.hunt !== undefined) R.threat = Math.max(0, R.threat - HUNT_DROP);
+  if (meta.guardian || (meta.hunt !== null && meta.hunt !== undefined)) R.breather = 1;   /* pacing: the next passage offers no hostile contact */
   R.fight = null;
   if (meta.guardian && R.sector === 5) { endRun(R, 'won', 'KAEL IS BEATEN. THE TRAIL ENDS HERE.'); return { ok: true, result: 'won' }; }
   emit(R, 'fight.win', { guardian: !!meta.guardian, hunt: meta.hunt });
@@ -2545,6 +2589,8 @@ function passTime(R, minutes, idle) {
 }
 /* ---- intercepts (core loop step 5): a crossed threat mark sends the Rearguard. It shows as a fast blip aft,
    and reaches you on your next scan or fold. That action waits until the fight is over and is then offered again. ---- */
+/* the Rearguard sends what this sector's pickets and hunters fly; the third intercept sends the heaviest of them (step 7b) */
+function interceptFoe(R, idx) { const pool = CONTACTS[R.sector] || ['picket']; const byHull = pool.slice().sort((a, b) => D.ENEMIES[a].hull - D.ENEMIES[b].hull); return byHull[Math.min(byHull.length - 1, idx)]; }
 function checkMarks(R) {
   if (R.over || R.intercept) return null;
   let idx = -1; MARKS.forEach((m, i) => { if (i >= R.marks && R.threat >= m) idx = i; });
@@ -2553,7 +2599,7 @@ function checkMarks(R) {
   R.marks = Math.max(R.marks, Math.min(3, idx + 1));
   const n = unit(R.nose || [1, 0, 0]), p = [-n[0] * 6.5, -n[1] * 6.5, -n[2] * 6.5 + 0.8];
   const grace = Math.round(role(R, 'grace', 0)) + (perk(R, 'earlyWarn') ? 1 : 0);
-  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
+  R.intercept = { idx, foe: interceptFoe(R, idx), p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
   log(R, 'interceptWarn', { idx }); emit(R, 'intercept.warn', { idx });
   return R.intercept;
 }
@@ -2565,7 +2611,7 @@ function meetIntercept(R, resume) {
   R.intercept = null;
   if ((first && stat(R, 'noHuntFirstFold', 0) > 0) || silent) { log(R, 'interceptSlipped', { idx: I.idx }); R.slipNote = I.idx + 1; return { ok: true, slipped: true, idx: I.idx }; }
   R.stats.hunts++; R.cur = { type: 'intercept', hunt: I.idx, resume: resume || null };
-  const r = startFight(R, HUNT_FOE[I.idx], false, I.idx);
+  const r = startFight(R, I.foe, false, I.idx);
   return Object.assign(r, { intercept: true, idx: I.idx });
 }
 /* faster folds burn more lumite: fold 5 costs the card's base, fold 9 about 2.4 times, fold 2 about a quarter */
@@ -8953,7 +8999,8 @@ function r2Stage(host,f,v,opt){
   const sc=E.screenPipsMax?'◆'.repeat(Math.min(es,E.screenPipsMax))+'◇'.repeat(Math.max(0,E.screenPipsMax-es)):'NONE',ar=def.armourPips?'◆'.repeat(E.armour)+'◇'.repeat(def.armourPips-E.armour):'NONE';
   const intent=E.intent?r2U(E.intent.atk||E.intent.id)+(E.intent.arc?' → '+r2U(E.intent.arc):'')+' · '+E.scanned+' TURN'+(E.scanned===1?'':'S'):'HIDDEN · SCAN TO READ';
   info.innerHTML='<h3></h3><small></small><div class="r2-bar"><span>HULL</span><div class="qb"><i></i></div><b></b></div><div class="r2-pp"><span>SCREEN</span><b class="sc"></b></div><div class="r2-pp"><span>ARMOUR</span><b class="ar"></b></div><div class="r2-it"></div>';
-  info.querySelector('h3').textContent=r2U(def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+def.speed;
+  info.querySelector('h3').textContent=r2U(E.name||def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+v.speed.enemy;
+  if((E.traits||[]).length){const tr=el('div','r2-trt');E.traits.forEach(t=>{const b=el('span');b.textContent=r2U(t.name);b.title=t.t;tr.appendChild(b);const d=el('small');d.textContent=r2U(t.t);tr.appendChild(d);});info.appendChild(tr);}
   info.querySelector('i').style.width=clamp(D.eh/E.hullMax*100,0,100)+'%';info.querySelector('.r2-bar b').textContent=Math.round(D.eh)+' / '+E.hullMax;
   info.querySelector('.sc').textContent=sc;info.querySelector('.ar').textContent=ar;
   const it=info.querySelector('.r2-it');it.textContent='NEXT MOVE: '+intent;it.classList.toggle('known',!!E.intent);

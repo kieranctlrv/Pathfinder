@@ -328,11 +328,21 @@ const ENEMIES = {
     attacks:[{id:'lance', dmg:34, kind:'energy', arcs:'any'}], intents:[{id:'strike',w:7,atk:'lance'},{id:'close',w:1},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'engine',name:'Engine core'}] },
   screenship: { id:'screenship', name:'Cordon Screenship', faction:'Ninth Cordon', role:'escort', sectors:[1,5], hull:110, screenPips:5, armourPips:1, speed:9, accuracy:78, dodge:0, weakSide:'aft',
     attacks:[{id:'lance', dmg:22, kind:'energy', arcs:'any'}], intents:[{id:'strike',w:4,atk:'lance'},{id:'repair',w:4},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'engine',name:'Engine core'}] },
-  kael: { id:'kael', name:'Warden Idris Kael', faction:'Ninth Cordon', role:'warden', sectors:[5,5], hull:200, screenPips:5, armourPips:5, speed:9, accuracy:85, dodge:5, weakSide:'aft',
-    attacks:[{id:'broadside', dmg:78, kind:'kinetic', arcs:'side'},{id:'lance', dmg:40, kind:'energy', arcs:'any'}], intents:[{id:'broadside',w:5,atk:'broadside'},{id:'strike',w:4,atk:'lance'},{id:'repair',w:2},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'belt',name:'Armour belt'},{id:'engine',name:'Engine core'}] },
+  kael: { id:'kael', name:'Warden Idris Kael', faction:'Ninth Cordon', role:'warden', sectors:[5,5], hull:220, screenPips:5, armourPips:3, speed:9, accuracy:85, dodge:5, weakSide:'aft',
+    attacks:[{id:'broadside', dmg:66, kind:'kinetic', arcs:'side'},{id:'lance', dmg:36, kind:'energy', arcs:'any'}], intents:[{id:'broadside',w:5,atk:'broadside'},{id:'strike',w:4,atk:'lance'},{id:'repair',w:2},{id:'hold',w:1}], parts:[{id:'screen',name:'Screen array'},{id:'belt',name:'Armour belt'},{id:'engine',name:'Engine core'}] },
 };
 
-const api = { S, H, DEPT, CHANNELS, SLOTS, PARTS, ENEMIES };
+/* enemy traits (step 7b): each reshapes an archetype the same way everywhere. Fights pick them by progress, never by luck of the roll alone */
+const TRAITS = {
+  armoured:  { id:'armoured',  name:'Armoured',  t:'+2 armour. Torpedoes are the answer.', mod:{ armour:2, hullMul:0.85 } },
+  fast:      { id:'fast',      name:'Fast',      t:'+4 speed and +10 dodge, a little less hull.', mod:{ speed:4, dodge:10, hullMul:0.9 } },
+  heavy:     { id:'heavy',     name:'Heavy-gunned', t:'Hits 25% harder, aims 8 worse. Brace for it.', mod:{ dmgMul:1.25, acc:-8 } },
+  marksman:  { id:'marksman',  name:'Sharpshooting', t:'Aims 10 better, hits 10% softer.', mod:{ acc:10, dmgMul:0.9 } },
+  menders:   { id:'menders',   name:'Mending',   t:'+1 screen and repairs it more often. Break it and keep it broken.', mod:{ screen:1, repairW:3 } },
+  ghost:     { id:'ghost',     name:'Ghosted',   t:'Its next move stays read one turn less.', mod:{ scanCut:1, dodge:5 } },
+  boarders:  { id:'boarders',  name:'Boarding',  t:'Hits on your hull put your crew at risk.', mod:{ boarders:6 } }
+};
+const api = { S, H, DEPT, CHANNELS, SLOTS, PARTS, ENEMIES, TRAITS };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunData = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

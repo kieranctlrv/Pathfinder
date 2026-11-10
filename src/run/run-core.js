@@ -9,6 +9,7 @@
 'use strict';
 const D = (typeof require !== 'undefined') ? require('./run-data.js') : root.RunData;
 const PIP = 20;
+const REPAIRS_MAX = 3;
 const ARC_CAP = 45, ARC_REGEN = 5;   // placeholders: per-arc screen capacity and regen per turn                       // enemy screen pip = 20 points
 const ARCS = ['fore', 'aft', 'port', 'stbd'];
 const RANGES = ['long', 'standard', 'close'];
@@ -62,7 +63,15 @@ function start(ship, officers, enemyId, seed, power, opts) {
   };
   const cap = stat(f, 'screenCap', 1) * ARC_CAP;
   ARCS.forEach(a => f.arcs[a] = cap);
-  f.enemy.screenMax = E.screenPips * PIP * stat(f, 'enemyScreenCap', 1);
+  /* traits (step 7b) reshape this enemy */
+  const TT = (opts.traits || []).map(t => D.TRAITS[t]).filter(Boolean);
+  f.enemy.acc = E.accuracy; f.enemy.traits = TT.map(t => t.id); f.enemy.boarders = 0; f.enemy.scanCut = 0;
+  let pips = E.screenPips, repairW = 0;
+  TT.forEach(t => { const m = t.mod; f.enemy.armour += m.armour || 0; f.enemy.speed += m.speed || 0; f.enemy.dodge += m.dodge || 0; f.enemy.acc += m.acc || 0; f.dmgScale *= m.dmgMul || 1;
+    pips += m.screen || 0; repairW += m.repairW || 0; f.enemy.scanCut += m.scanCut || 0; f.enemy.boarders += m.boarders || 0; });
+  if (repairW) { f.enemy.intents = E.intents.map(i => Object.assign({}, i)); const rp = f.enemy.intents.find(i => i.id === 'repair'); if (rp) rp.w += repairW; else f.enemy.intents.push({ id: 'repair', w: repairW }); }
+  if (opts.name) f.enemy.name = opts.name;
+  f.enemy.screenMax = pips * PIP * stat(f, 'enemyScreenCap', 1);
   f.enemy.screen = f.enemy.screenMax;
   // weapons
   Object.keys(ship.fitted).forEach(sl => { if (/^sec\.w[1-4]$/.test(sl) && !ship.offline[sl]) f.weapons[sl] = { charge: Math.max(1, wstat(f, 'sec.coupling', 'cw.stored', 1)), cd: 0, held: 0, shots: 0, bonus: 0, used: {} }; });
@@ -186,7 +195,7 @@ function log(f, t, d) { const e = Object.assign({ t, turn: f.turn }, d || {}); f
 function addXp(f, dept, n) { f.xp[dept] += n; }
 function rangeIdx(r) { return RANGES.indexOf(r); }
 function rollIntent(f) {
-  const E = D.ENEMIES[f.enemyId]; const tab = E.intents.slice();
+  const E = D.ENEMIES[f.enemyId]; const tab = (f.enemy.intents || E.intents).filter(i => !(i.id === 'repair' && f.enemy.repaired >= REPAIRS_MAX));   /* three repairs and their spares are gone (step 7b) */
   const total = tab.reduce((a, i) => a + i.w, 0); let r = rnd(f) * total, ch = tab[0];
   for (const i of tab) { if ((r -= i.w) < 0) { ch = i; break; } }
   const atk = ch.atk ? E.attacks.find(a => a.id === ch.atk) : null;
@@ -217,8 +226,8 @@ function weaponPowerMul(f) { return 0.85 + 0.3 * Math.min(channelPower(f, 'weapo
 /* ---- ratings (step 7a): the same yardstick for both ships. ehp = damage it takes to destroy, dpt = expected damage per turn ---- */
 function rating(f) {
   const E = f.enemy, def = D.ENEMIES[f.enemyId];
-  const foeAtk = def.intents.reduce((a, i) => { const at = i.atk && def.attacks.find(x => x.id === i.atk); return a + (at ? at.dmg * (E.dmgMul || 1) * i.w : 0); }, 0) / def.intents.reduce((a, i) => a + i.w, 0);
-  const foeAcc = Math.max(5, Math.min(100, (E.accuracy != null ? E.accuracy : def.accuracy) + stat(f, 'enemyAcc', 0) - dodgeChance(f))) / 100;
+  const foeAtk = def.intents.reduce((a, i) => { const at = i.atk && def.attacks.find(x => x.id === i.atk); return a + (at ? at.dmg * f.dmgScale * i.w : 0); }, 0) / def.intents.reduce((a, i) => a + i.w, 0);
+  const foeAcc = Math.max(5, Math.min(100, (E.acc != null ? E.acc : def.accuracy) + stat(f, 'enemyAcc', 0) - dodgeChance(f))) / 100;
   const foeEhp = (E.hullMax || E.hull) + (E.screenMax || 0) * 0.67 + (E.armour || 0) * 10;
   let youDpt = 0;
   Object.keys(f.weapons).forEach(sl => { const kin = !!wstat(f, sl, 'w.kinetic', 0), rt = kin ? 1.5 : lanceRecharge(f, sl); youDpt += wstat(f, sl, 'w.dmg', 0) * weaponPowerMul(f) * stat(f, 'dmgAll', 1) * hitChance(f, sl, kin) / 100 / rt; });
@@ -284,7 +293,7 @@ function resolveShot(f, sl, shotIx, evs) {
   let hullDmg = 0;
   if (hullRaw > 0) {
     const armourPips = kin ? E.armour - Math.floor(E.armour * wstat(f, sl, 'w.pierce', 0) / 100) : E.armour;
-    const tm = kin ? (E.armour > 0 ? 1.5 : 1) : (E.armour > 0 && E.screen <= 0 ? 0.5 : 1);
+    const tm = kin ? Math.min(1.5, 1 + 0.1 * armourPips) : (E.screen <= 0 ? Math.max(0.5, 1 - 0.08 * E.armour) : 1);   /* each armour pip blunts lances and feeds torpedoes (step 7b) */
     hullDmg = hullRaw * tm * (1 - 0.05 * armourPips);
     E.hull = Math.max(0, E.hull - hullDmg);
   }
@@ -351,7 +360,7 @@ function doPlayer(f, a, evs) {
       Object.keys(f.weapons).forEach(sl => { if (weaponReady(f, sl) && !f.over) fireOne(f, sl, {}, evs); });
       break;
     case 'scan':
-      f.enemy.scanned = stat(f, 'scanTurns', 2) + (channelPower(f, 'sensors') >= 30 ? 1 : 0);
+      f.enemy.scanned = Math.max(1, stat(f, 'scanTurns', 2) + (channelPower(f, 'sensors') >= 30 ? 1 : 0) - (f.enemy.scanCut || 0));
       addXp(f, 'science', 1); evs.push(log(f, 'scan', { intent: f.enemy.intent })); break;
     case 'range': {
       const ni = Math.max(0, Math.min(2, rangeIdx(f.range) + a.dir));
@@ -455,7 +464,7 @@ function enemyAttack(f, atk, arc) {
   const evs = [];
   if (stat(f, 'cancelVolley', 0) && once(f, 'cancelVolley')) { log(f, 'volleyCancelled', {}); return; }
   // jammer / accuracy
-  let acc = D.ENEMIES[f.enemyId].accuracy + stat(f, 'enemyAcc', 0);
+  let acc = (f.enemy.acc != null ? f.enemy.acc : D.ENEMIES[f.enemyId].accuracy) + stat(f, 'enemyAcc', 0);
   if (f.range === 'close') acc += stat(f, 'enemyAccClose', 0); else if (f.range === 'standard') acc += stat(f, 'enemyAccStd', 0); else acc += stat(f, 'enemyAccLong', 0);
   if (stat(f, 'firstEnemyMiss', 0) && once(f, 'firstEnemyMiss')) { log(f, 'enemyMiss', { why: 'decoy' }); return; }
   // dodge
@@ -515,7 +524,8 @@ function casualtyRoll(f, sl, already) {
   let p = (already && !stat(f, 'flatSecondHit', 0)) ? 25 : 10;
   if (f.ship.hull < f.ship.hullMax * 0.25 && !stat(f, 'noLowHullCasualty', 0)) p += 5;
   p += stat(f, 'casualty', 0);
-  if (f.flags && f.flags.calmCrew) p -= 3;   /* Medical officer perk (core loop step 6) */
+  if (f.flags && f.flags.calmCrew) p -= 3;
+  p += f.enemy.boarders || 0;   /* boarding trait */   /* Medical officer perk (core loop step 6) */
   if (roll(f, Math.max(0, p))) { off.alive = false; f.casualty = { dept }; log(f, 'casualty', { dept }); }
 }
 
@@ -546,7 +556,7 @@ function view(f) {
     turn: f.turn, over: f.over, range: f.range, hull: f.ship.hull, hullMax: f.ship.hullMax, torpedoes: f.ship.torpedoes,
     arcs: ARCS.map(a => ({ arc: a, pct: Math.round(100 * f.arcs[a] / (ARC_CAP * stat(f, 'screenCap', 1))) })),
     power: Object.assign({}, f.power), dodge: Math.round(dodgeChance(f)),
-    enemy: { name: def.name, hull: Math.round(E.hull), hullMax: E.hullMax, screenPips: Math.ceil(E.screen / PIP), screenPipsMax: Math.ceil(E.screenMax / PIP), armour: E.armour, intent: E.scanned > 0 ? E.intent : null, scanned: E.scanned },
+    enemy: { name: E.name || def.name, traits: (E.traits || []).map(t => D.TRAITS[t]),  hull: Math.round(E.hull), hullMax: E.hullMax, screenPips: Math.ceil(E.screen / PIP), screenPipsMax: Math.ceil(E.screenMax / PIP), armour: E.armour, intent: E.scanned > 0 ? E.intent : null, scanned: E.scanned },
     weapons: Object.keys(f.weapons).map(sl => ({ slot: sl, part: f.ship.fitted[sl].part, ready: weaponReady(f, sl), charge: f.weapons[sl].charge, cd: f.weapons[sl].cd, offline: !partActive(f, sl) })),
     orders: Object.keys(D.DEPT).map(d => ({ dept: d, name: ORDERS[d], ready: orderOk(f, d, ORDERS[d]), level: f.officers[d].level, alive: f.officers[d].alive })),
     timeline: timeline(f, 3), first: firstActor(f), speed: { you: Math.round(playerSpeed(f) * 10) / 10, enemy: E.speed }, braceCut: Math.round(braceCut(f) * 100), offline: Object.keys(f.ship.offline), acted: !!f.acted

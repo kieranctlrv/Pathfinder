@@ -25,11 +25,11 @@ function play(seed){const R=M.newRun({seed});let g=0,turns=0,fights=0;
    if(bs===-1e9){M.endRun(R,'lost','STRANDED');break;}
    M.passTime(R,Math.round((R.cards[best].d||5)*9*5/6),false); /* fold time: about 9 ship minutes per LY at factor 5, here factor 6 */
    R.botScan=0;R.botHint=null;
-   const c0=R.cards[best],fac=[6,5,4,3,2].find(w=>R.ship.lumite+1e-9>=Math.round(c0.fuel*M.foldFuelMult(w)*100)/100)||2;
+   const c0=R.cards[best],fac=[5,4,3,2].find(w=>R.ship.lumite+1e-9>=Math.round(c0.fuel*M.foldFuelMult(w)*100)/100)||2;
    if(!M.fold(R,best,{factor:fac}).ok){M.endRun(R,'lost','STRANDED');}}
   else if(R.phase==='fight'){const f=R.fight;
    if(POWER==='offence'&&f.turn<=1&&!R.pendPower&&R.power.weapons<40)M.setPower(R,{propulsion:10,shields:20,sensors:10,weapons:60}); /* red alert lands on Defence; a player reroutes to Offence (lands next round) */
-   if(R.pendPower&&f.turn>=1&&!f.over){}if(f.over){fights++;turns+=f.turn||0;const k='S'+R.sector+(f.meta.guardian?' guardian':f.meta.hunt!=null?' hunt':' contact');(global.FT[k]=global.FT[k]||[]).push([f.turn,f.over,Math.round(100*R.fight.ship.hull/R.fight.ship.hullMax)]);M.resolveFight(R);continue;}C.act(f,fightTurn(R));if(!f.over)M.applyPending(R);}
+   if(R.pendPower&&f.turn>=1&&!f.over){}if(f.over){fights++;turns+=f.turn||0;const k='S'+R.sector+(f.meta.guardian?' guardian':f.meta.hunt!=null?' hunt':' contact');(global.FT[k]=global.FT[k]||[]).push([f.turn,f.over,Math.round(100*R.fight.ship.hull/R.fight.ship.hullMax)]);if(f.turn>30)(global.LONG=global.LONG||[]).push(k+' '+(f.enemy.name||f.enemyId)+' t'+f.turn+' eh'+Math.round(f.enemy.hull)+'/'+f.enemy.hullMax+' sc'+Math.round(f.enemy.screen)+' w'+Object.keys(f.weapons).length+' torp'+f.ship.torpedoes);M.resolveFight(R);continue;}C.act(f,fightTurn(R));if(!f.over)M.applyPending(R);}
   else if(R.phase==='offers'){const O=R.offers;if(!O.taken&&O.free.length){const o=O.free.find(x=>!x.risk)||O.free[0];M.claim(R,o.id);}
     if(O.shop||O.trader){O.paid.forEach(o=>{if(o.kind==='repair'&&R.ship.hull<R.ship.hullMax*0.7)M.claim(R,o.id);if(o.kind==='lumite'&&R.ship.lumite<5)M.claim(R,o.id);});}
     while(R.ship.hold.length){const r=M.fitFromHold(R,0);if(!r||!r.ok){M.sellFromHold(R,0);}}
@@ -46,3 +46,4 @@ console.log('won',ok.filter(r=>r.over==='won').length,'avg fight turns',(ok.redu
 console.log('whys',[...new Set(ok.map(r=>r.why))]);
 
 for(const k of Object.keys(FT).sort()){const a=FT[k];const lost=a.filter(x=>x[1]==='lost').length;console.log(k.padEnd(14),'n',a.length,'avg turns',(a.reduce((p,x)=>p+x[0],0)/a.length).toFixed(1),'lost',lost,'avg hull after',(a.reduce((p,x)=>p+x[2],0)/a.length).toFixed(0)+'%');}
+if(global.LONG)console.log('long fights',global.LONG.length,global.LONG.slice(0,12));

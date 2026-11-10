@@ -301,7 +301,8 @@ function r2Stage(host,f,v,opt){
   const sc=E.screenPipsMax?'◆'.repeat(Math.min(es,E.screenPipsMax))+'◇'.repeat(Math.max(0,E.screenPipsMax-es)):'NONE',ar=def.armourPips?'◆'.repeat(E.armour)+'◇'.repeat(def.armourPips-E.armour):'NONE';
   const intent=E.intent?r2U(E.intent.atk||E.intent.id)+(E.intent.arc?' → '+r2U(E.intent.arc):'')+' · '+E.scanned+' TURN'+(E.scanned===1?'':'S'):'HIDDEN · SCAN TO READ';
   info.innerHTML='<h3></h3><small></small><div class="r2-bar"><span>HULL</span><div class="qb"><i></i></div><b></b></div><div class="r2-pp"><span>SCREEN</span><b class="sc"></b></div><div class="r2-pp"><span>ARMOUR</span><b class="ar"></b></div><div class="r2-it"></div>';
-  info.querySelector('h3').textContent=r2U(def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+def.speed;
+  info.querySelector('h3').textContent=r2U(E.name||def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+v.speed.enemy;
+  if((E.traits||[]).length){const tr=el('div','r2-trt');E.traits.forEach(t=>{const b=el('span');b.textContent=r2U(t.name);b.title=t.t;tr.appendChild(b);const d=el('small');d.textContent=r2U(t.t);tr.appendChild(d);});info.appendChild(tr);}
   info.querySelector('i').style.width=clamp(D.eh/E.hullMax*100,0,100)+'%';info.querySelector('.r2-bar b').textContent=Math.round(D.eh)+' / '+E.hullMax;
   info.querySelector('.sc').textContent=sc;info.querySelector('.ar').textContent=ar;
   const it=info.querySelector('.r2-it');it.textContent='NEXT MOVE: '+intent;it.classList.toggle('known',!!E.intent);

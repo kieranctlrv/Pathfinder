@@ -278,3 +278,7 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .lg-stream{flex:1;min-height:0;overflow:auto;padding-right:6px;font-size:calc(14px*var(--ts,1))}
 .lg-stream .fd-sys{display:flex;gap:10px;margin:2px 0;color:var(--lav)}.lg-stream .fd-sys time{opacity:.7;flex:none}
 .lg-stream .fd-sys.bad{color:var(--salmon)}
+/* step 7b: enemy traits */
+.r2-trt{display:flex;flex-direction:column;gap:1px;margin-top:3px}
+.r2-trt span{align-self:flex-start;padding:0 8px;border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);font-size:calc(11px*var(--ts,1));letter-spacing:.12em}
+.r2-trt small{color:var(--lav);font-size:calc(10px*var(--ts,1));letter-spacing:.06em;margin-bottom:2px}

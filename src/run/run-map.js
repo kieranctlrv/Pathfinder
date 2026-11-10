@@ -16,7 +16,15 @@ const SECTORS = [
 ];
 const PASSAGES = 7, GUARDIAN = 6, GATE = 7, TRACE = 3, SHOP_AT = 4;
 const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
-const GUARDIANS = { 1: 'screenship', 2: 'lancer', 3: 'ironclad', 4: 'ironclad', 5: 'kael' };
+const GUARDIANS = { 1: 'raider', 2: 'lancer', 3: 'ironclad', 4: 'screenship', 5: 'kael' };
+/* ---- difficulty (step 7b): one curve and one dial. Enemies grow a little each passage; roles set how hard a fight is meant to be;
+   traits change how a fight plays, by progress, not by luck. DIFFICULTY.dial scales everything (1 = standard) ---- */
+const DIFFICULTY = { dial: 1, hpPerPassage: 0.008, dmgPerPassage: 0.012,
+  role: { contact: { hp: 1, dmg: 1 }, intercept: { hp: 1, dmg: 1 }, guardian: { hp: 1.2, dmg: 1.05 } },
+  traitsAt: [[0, 0], [8, 1], [22, 2]],   /* [passages travelled, traits] for contacts and intercepts */
+  guardianTraits: { 1: ['armoured'], 2: ['marksman'], 3: ['marksman'], 4: ['heavy', 'menders'], 5: [] },
+  traitPool: { cutter: ['fast', 'heavy', 'boarders'], picket: ['fast', 'ghost', 'marksman'], raider: ['armoured', 'heavy', 'boarders', 'fast'], lancer: ['marksman', 'ghost', 'fast'],
+    screenship: ['menders', 'marksman', 'ghost'], ironclad: ['heavy', 'menders', 'boarders'], kael: ['heavy'] } };
 const GUARDIAN_SCALE = { hp: 1.25, dmg: 1.1 };
 const FOLD_THREAT = 8, HUNT_DROP = 35, FOLD_FUEL = 1;
 /* ---- time (core loop step 1): ship time is the cost; threat follows it ----
@@ -64,7 +72,7 @@ const ROLE = {
   'sci.array.std': { reach: 1 }, 'sci.array.long': { reach: 1.2 }, 'sci.array.track': { reach: 1, idNear: 2 },
   'sci.proc.std': { scanTime: 1 }, 'sci.proc.tact': { scanTime: 0.85 }, 'sci.proc.analytic': { scanTime: 0.9 },
   'sci.comms.std': { faintId: 1 }, 'sci.comms.listen': { faintId: 1, idNear: 1 },
-  'sci.jam.std': { grace: 1 }, 'sci.jam.decoy': { grace: 1 },
+  'sci.jam.decoy': { grace: 1 },   /* the standard jammer earns this at officer level 2 (Deep jam) */
   'ops.thr.std': { turnTime: 1 }, 'ops.thr.vector': { turnTime: 0.6 }, 'ops.thr.evade': { turnTime: 0.8 },
   'ops.engine.std': { foldSpeed: 1 }, 'ops.engine.burst': { foldSpeed: 1.15 }, 'ops.engine.eff': { foldSpeed: 0.95 },
   'eng.cap.thr': { fastReroute: 1 }
@@ -136,6 +144,8 @@ function nextCards(R) {
   else if (R.passage === GUARDIAN) cards.push(mk('guardian', { foe: GUARDIANS[R.sector] }));
   else {
     const shop = R.passage === SHOP_AT, n = shop ? 2 : 2 + (rnd(R) < 0.45 ? 1 : 0), used = {};
+    if (R.breather || (R.fightStreak || 0) >= 2) used.contact = 1;   /* pacing (step 7b): never three fights running, and a breather after a guardian or intercept */
+    R.breather = 0;
     if (R.passage === TRACE) { cards.push(mk('trace', { threat: threatCost(R, FOLD_THREAT - 2), fuel: foldCost(R, 1) })); used.trace = 1; }
     let guard = 0;
     while (cards.length < n && guard++ < 50) {
@@ -183,9 +193,18 @@ function fold(R, ix, opts) {
   if (hunt !== null) { R.cur.then = c; return arriveHunt(R, hunt); }
   return arrive(R, c);
 }
-function scale(R, guardian) { const k = 1 + 0.18 * (R.sector - 1); return { hp: k * (guardian ? GUARDIAN_SCALE.hp : 1), dmg: (1 + 0.1 * (R.sector - 1)) * (guardian ? GUARDIAN_SCALE.dmg : 1) }; }
+function scale(R, guardian, hunt, foe) {
+  const pl = progress(R), d = (R.diff || DIFFICULTY.dial), rl = DIFFICULTY.role[guardian ? 'guardian' : hunt != null ? 'intercept' : 'contact'];
+  let traits = [];
+  if (guardian) traits = (DIFFICULTY.guardianTraits[R.sector] || []).slice();
+  else { let n = 0; DIFFICULTY.traitsAt.forEach(t => { if (pl >= t[0]) n = t[1]; }); const pool = (DIFFICULTY.traitPool[foe] || []).slice(); while (traits.length < n && pool.length) traits.push(pool.splice(Math.floor(rnd(R) * pool.length), 1)[0]); }
+  const hullMul = traits.reduce((a, t) => a * ((D.TRAITS[t] && D.TRAITS[t].mod.hullMul) || 1), 1);
+  const name = traits.length ? traits.map(t => D.TRAITS[t].name).join(' ') + ' ' + D.ENEMIES[foe].name : null;
+  return { hp: (1 + DIFFICULTY.hpPerPassage * pl) * rl.hp * d * hullMul, dmg: (1 + DIFFICULTY.dmgPerPassage * pl) * rl.dmg * d, traits, name };
+}
 function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routing (step 5); a queued reroute lands at the first round */
-  const sc = scale(R, guardian);
+  R.fightStreak = (R.fightStreak || 0) + 1;
+  const sc = scale(R, guardian, hunt, foe);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
   R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
@@ -197,7 +216,7 @@ function arriveHunt(R, idx) { R.stats.hunts++; return startFight(R, HUNT_FOE[idx
 function arrive(R, c) {
   if (c.type === 'contact') return startFight(R, c.foe, false);
   if (c.type === 'guardian') return startFight(R, c.foe, true);
-  emit(R, 'node.arrive', { card: c });
+  emit(R, 'node.arrive', { card: c }); R.fightStreak = 0;
   if (c.type === 'wreck') { R.offers = nodeOptions(R, 'wreck'); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
   if (c.type === 'outpost') { R.offers = traderOffers(R); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
   if (c.type === 'shop') { R.offers = shopStock(R); R.phase = 'offers'; return { ok: true, phase: 'offers' }; }
@@ -217,6 +236,7 @@ function resolveFight(R) {
   R.stats.won++;
   const bh = stat(R, 'betweenFightHull', 0); if (bh) R.ship.hull = Math.min(R.ship.hullMax, R.ship.hull + R.ship.hullMax * bh / 100);
   if (meta.hunt !== null && meta.hunt !== undefined) R.threat = Math.max(0, R.threat - HUNT_DROP);
+  if (meta.guardian || (meta.hunt !== null && meta.hunt !== undefined)) R.breather = 1;   /* pacing: the next passage offers no hostile contact */
   R.fight = null;
   if (meta.guardian && R.sector === 5) { endRun(R, 'won', 'KAEL IS BEATEN. THE TRAIL ENDS HERE.'); return { ok: true, result: 'won' }; }
   emit(R, 'fight.win', { guardian: !!meta.guardian, hunt: meta.hunt });
@@ -459,6 +479,8 @@ function passTime(R, minutes, idle) {
 }
 /* ---- intercepts (core loop step 5): a crossed threat mark sends the Rearguard. It shows as a fast blip aft,
    and reaches you on your next scan or fold. That action waits until the fight is over and is then offered again. ---- */
+/* the Rearguard sends what this sector's pickets and hunters fly; the third intercept sends the heaviest of them (step 7b) */
+function interceptFoe(R, idx) { const pool = CONTACTS[R.sector] || ['picket']; const byHull = pool.slice().sort((a, b) => D.ENEMIES[a].hull - D.ENEMIES[b].hull); return byHull[Math.min(byHull.length - 1, idx)]; }
 function checkMarks(R) {
   if (R.over || R.intercept) return null;
   let idx = -1; MARKS.forEach((m, i) => { if (i >= R.marks && R.threat >= m) idx = i; });
@@ -467,7 +489,7 @@ function checkMarks(R) {
   R.marks = Math.max(R.marks, Math.min(3, idx + 1));
   const n = unit(R.nose || [1, 0, 0]), p = [-n[0] * 6.5, -n[1] * 6.5, -n[2] * 6.5 + 0.8];
   const grace = Math.round(role(R, 'grace', 0)) + (perk(R, 'earlyWarn') ? 1 : 0);
-  R.intercept = { idx, foe: HUNT_FOE[idx], p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
+  R.intercept = { idx, foe: interceptFoe(R, idx), p, warned: false, at: R.shipMin || 0, grace, graceMax: grace };
   log(R, 'interceptWarn', { idx }); emit(R, 'intercept.warn', { idx });
   return R.intercept;
 }
@@ -479,7 +501,7 @@ function meetIntercept(R, resume) {
   R.intercept = null;
   if ((first && stat(R, 'noHuntFirstFold', 0) > 0) || silent) { log(R, 'interceptSlipped', { idx: I.idx }); R.slipNote = I.idx + 1; return { ok: true, slipped: true, idx: I.idx }; }
   R.stats.hunts++; R.cur = { type: 'intercept', hunt: I.idx, resume: resume || null };
-  const r = startFight(R, HUNT_FOE[I.idx], false, I.idx);
+  const r = startFight(R, I.foe, false, I.idx);
   return Object.assign(r, { intercept: true, idx: I.idx });
 }
 /* faster folds burn more lumite: fold 5 costs the card's base, fold 9 about 2.4 times, fold 2 about a quarter */
