@@ -6,6 +6,7 @@
 const RD=window.RunData,RC=window.RunCore,RM=window.RunMap;
 const R2={R:null,busy:false,sel:null,feed:[],feedN:0,pause:false,clock:null,feedT:null,pop:null,live:false,lastSave:0,inited:false,wrapped:false,openSlot:null,encHide:false,encKey:'',last:'SECTOR ENTRY',tmsg:''};
 window.__R2=R2;R2.render=function(){r2Render();};
+R2.t={S:()=>S,setCourse:id=>setCourse(id),engage:()=>engage(),go:v=>go(v),remount:()=>remountView()};   /* test hook */
 const R2_MK=['I','II','III'],R2_RANK=['ENSIGN','LIEUTENANT','LT COMMANDER','COMMANDER'];
 const R2_DEPT={engineering:'ENGINEERING',operations:'OPERATIONS',science:'SCIENCE',security:'SECURITY',medical:'MEDICAL'};
 const R2_CK={engineering:'eng',security:'sec',science:'sci',medical:'med',operations:'ops'};
@@ -488,14 +489,24 @@ function r2CommsPanel(){
   const o=el('button','mini','OPEN COMMS');o.addEventListener('click',()=>{SND.tap();go('comms');});b.appendChild(o);
 }
 function r2CrewPanel(){
+  /* UI pass: one line per officer: department, name, rank, progress to the next rank, perks unlocked */
   const R=R2.R,b=$('#cw-b');if(!b)return;
-  b.innerHTML='';
+  b.innerHTML='';b.classList.add('r2cw');
+  const XPL=[8,20,40];
   Object.keys(RD.DEPT).forEach(d=>{
-    const o=R.officers[d],lv=clamp(o.level,0,3),r=el('div','cl'+(o.alive?'':' lost'));
+    const o=R.officers[d],lv=clamp(o.level,0,3),of=r2Officer(d),r=el('div','r2cl'+(o.alive?'':' lost'));
+    r.style.setProperty('--dc','var(--'+(R2_DCOL[d]||'peri')+')');
     const used=R.fight&&R.fight.orders&&R.fight.orders[d]&&R.fight.orders[d].used;
     if(o.alive&&R.phase==='fight'&&!used)r.classList.add('rdy');
-    const of=r2Officer(d);r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+'\n'+r2PerkList(d).map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
-    r.querySelector('em').textContent=o.alive?R2_RANK[lv]:'LOST';b.appendChild(r);
+    const pk=r2PerkList(d),on=pk.filter(k=>k.on).length,lo=lv?XPL[lv-1]:0,hi=XPL[lv],pct=lv>=3?100:clamp((o.xp-lo)/(hi-lo)*100,0,100);
+    r.innerHTML='<b></b><span></span><em></em><i><u></u></i><small></small>';
+    r.querySelector('b').textContent=RD.DEPT[d];
+    r.querySelector('span').textContent=of?of.nm.toUpperCase()+(o.vet?' ★':''):'';
+    r.querySelector('em').textContent=o.alive?R2_RSHORT[lv].replace('.',''):'LOST';
+    r.querySelector('u').style.width=(o.alive?pct:0)+'%';
+    r.querySelector('small').textContent=pk.length?'◆'.repeat(on)+'◇'.repeat(pk.length-on):'';
+    r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+(o.alive&&lv<3?'\nNEXT RANK: '+Math.max(0,hi-o.xp)+' XP':'')+'\n'+pk.map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
+    b.appendChild(r);
   });
 }
 function r2IntelPanel(flick){
@@ -614,7 +625,7 @@ function r2FoldCard(ix){
   R2.msgs=[];const label=R2_TYPE[c.type];
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff,noIntercept:true});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
-  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;SP.aim=null;SP.anim=null;
+  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;R2.holdOpen=null;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
   {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}

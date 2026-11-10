@@ -141,7 +141,7 @@ VIEWS.helm=root=>{
     }
     $$('#w-dest .btn',root).forEach(b=>{
       const id=b.dataset.id,d=distTo(id),isNew=S.unlocked[id]&&!S.visited[id];
-      b.textContent=(isNew?'NEW ':'')+SYS[id].name+(d<.3?' (HERE)':' '+fmt(d)+' LY');
+      b.textContent=(isNew&&!R2.live?'NEW ':'')+SYS[id].name+(d<.3?' (HERE)':' '+fmt(d)+' LY');
       b.disabled=d<.3;b.classList.toggle('on',!!(S.dest&&S.dest.id===id));
     });
     $('#w-prog').style.width=(S.dest&&S.distTotal?(1-S.distLeft/S.distTotal)*100:0)+'%';
@@ -149,6 +149,7 @@ VIEWS.helm=root=>{
     $('#w-eta').textContent=S.dest?(S.engaged&&S.warpEff>=1?'ETA '+fmtEta(S.distLeft/v)+', '+fmt(S.distLeft)+' LY REMAINING.'+fuelLine():'COURSE SET. ENGAGE FOLD DRIVE TO BEGIN.'+fuelLine()):'CLICK A SYSTEM ON THE MAP OR PICK ONE BELOW, SET A FOLD FACTOR, THEN ENGAGE.';
     $('#vov').textContent=map?'':viewerLabel();
     $('#vov').style.whiteSpace='pre';
+    if(R2.live)r2HelmCard(root);
   };
   $$('[data-hm]',root).forEach(b=>b.addEventListener('click',()=>{S.helmMode=b.dataset.hm;SND.tap();upd();}));
   $('#smap',root).addEventListener('click',e=>{

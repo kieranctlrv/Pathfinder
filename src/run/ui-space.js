@@ -17,10 +17,27 @@ function spShipPos(){
   const c=R.cards[+S.dest.id.slice(1)];if(!c||!c.p)return [0,0,0];
   const t=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);return c.p.map(x=>x*t);
 }
+/* zoom to fit (UI pass): the view frames what matters (ship, contacts, the cone's reach, the Rearguard); under way it frames ship and destination */
+function spFit(dt){
+  const R=R2.R;if(!R)return;
+  const ship=spShipPos(),dest=S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)?R.cards[+S.dest.id.slice(1)]:null;
+  let ctr=[0,0,0],rad=2;
+  if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
+  else{
+    const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
+    pts.push([0,0,0]);if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
+    const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
+    ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
+    if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
+  }
+  const tz=clamp(9/rad,.55,3),k=Math.min(1,(dt||.016)*2.4);
+  if(!SP.ctr||SP.zoom==null){SP.ctr=ctr;SP.zoom=tz;return;}
+  SP.zoom+=(tz-SP.zoom)*k;SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
+}
 function spProj(c,p){
-  const cy=Math.cos(SP.yaw),sy=Math.sin(SP.yaw),cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch);
-  const x=p[0]*cy-p[1]*sy,y=p[0]*sy+p[1]*cy,z=p[2],y2=y*cp-z*sp,z2=y*sp+z*cp;
-  const W=c.width,H=c.height,f=Math.min(W*1.15,H*2.7)/(24-y2);
+  const cy=Math.cos(SP.yaw),sy=Math.sin(SP.yaw),cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),C=SP.ctr||[0,0,0],px=p[0]-C[0],py=p[1]-C[1],pz=p[2]-C[2];
+  const x=px*cy-py*sy,y=px*sy+py*cy,z=pz,y2=y*cp-z*sp,z2=y*sp+z*cp;
+  const W=c.width,H=c.height,f=Math.min(W*1.15,H*2.7)/(24-y2)*(SP.zoom||1);
   return [W/2+x*f,H/2+H*0.04-z2*f,f];
 }
 function spCone(x,c,dir,mode,frac,rgb,alpha,dash){

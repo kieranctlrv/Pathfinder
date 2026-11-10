@@ -1088,6 +1088,31 @@ button.tb-r:hover{background:rgba(255,255,255,.07)}
 .tb-btn.on{box-shadow:inset 0 0 0 3px #fff}
 .tb-btn[disabled]{opacity:.4}
 @media (max-width:1400px){.tb-where{display:none}}
+/* Run Helm Control: one fold card */
+.r2helm #w-kv,.r2helm #w-fuel,.r2helm #w-eta,.r2helm .wbig small{display:none}
+.r2helm .wbig::after{content:'FOLD FACTOR';font-size:calc(16px*var(--ts,1));color:var(--blue);align-self:flex-end;margin-left:10px}
+.r2fold{padding:10px 12px;background:rgba(0,0,0,.22);display:flex;flex-direction:column;gap:6px}
+.r2fold-st{margin:0;color:var(--orange)}
+.r2fold dd.bad{color:var(--salmon)}
+/* prize screen: the hold as one quiet line */
+.r2-holdln{display:flex;align-items:center;gap:12px;margin-top:10px;padding:6px 10px;color:var(--lav);background:rgba(0,0,0,.2);font-size:calc(17px*var(--ts,1))}
+.r2-holdln span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r2-holdln.full{color:var(--yellow)}
+.r2-holdc{opacity:.85;font-size:.9em}
+/* Home crew panel (Run): one line per officer; the bottom row is a little taller in a Run to fit five */
+body.r2feed .ambient{height:calc(138px*var(--ts,1))}
+.r2cw{display:flex;flex-direction:column;gap:3px;justify-content:flex-start;overflow:hidden}
+.r2cl{display:grid;grid-template-columns:2.4em minmax(3.5em,1fr) auto 48px auto;gap:7px;align-items:center;font-size:calc(15px*var(--ts,1));line-height:1;padding-left:7px;box-shadow:inset 3px 0 0 var(--dc)}
+.r2cl b{font-weight:400;color:var(--dc)}
+.r2cl span{color:var(--chalk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r2cl em{font-style:normal;color:var(--lav);white-space:nowrap;font-size:.9em}
+.r2cl i{display:block;height:4px;background:rgba(255,255,255,.1)}
+.r2cl u{display:block;height:100%;background:var(--dc);text-decoration:none}
+.r2cl small{color:var(--orange);font-size:.75em;letter-spacing:.05em;min-width:2.4em}
+.r2cl.lost{opacity:.5}.r2cl.lost em{color:var(--salmon)}
+.r2cl.rdy{background:rgba(255,205,117,.1)}
+.p-crew{container-type:inline-size}
+@container (max-width:260px){.r2cl{grid-template-columns:2.4em minmax(3em,1fr) auto auto;gap:5px}.r2cl i{display:none}}
 /* 16x16 pixel sprites (Sweetie-16), drawn by scratchpad mkicons.py */
 .pxi{display:inline-block;width:32px;height:32px;flex:none;background:center/100% 100% no-repeat;image-rendering:pixelated;vertical-align:middle}
 .pxi.i-hull{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAuklEQVR4XmNkgAIpGZ3/MDYx4NmTK4wgdWACpPnWjRMMC/acI0YvGLTlZIENYYLpAGlOcDHCawBM/tCeI3B1cANAgJALsMmzYLMS2QZkYOdig6EcwwCQZmwKcRmK4gVyAIYLQLbjsg0bwBoG2LyAC4C9AIpPULwSA0CuO7JhGTwhYYQBobSADsApEQZAKbJqyjScDkG3HQRQDAABbIbAAhXZ6TCAYQCyIcixgU0zVhcgewfZL7DcR3UAABiOUlkdipXhAAAAAElFTkSuQmCC)}
@@ -3547,7 +3572,7 @@ VIEWS.helm=root=>{
     }
     $$('#w-dest .btn',root).forEach(b=>{
       const id=b.dataset.id,d=distTo(id),isNew=S.unlocked[id]&&!S.visited[id];
-      b.textContent=(isNew?'NEW ':'')+SYS[id].name+(d<.3?' (HERE)':' '+fmt(d)+' LY');
+      b.textContent=(isNew&&!R2.live?'NEW ':'')+SYS[id].name+(d<.3?' (HERE)':' '+fmt(d)+' LY');
       b.disabled=d<.3;b.classList.toggle('on',!!(S.dest&&S.dest.id===id));
     });
     $('#w-prog').style.width=(S.dest&&S.distTotal?(1-S.distLeft/S.distTotal)*100:0)+'%';
@@ -3555,6 +3580,7 @@ VIEWS.helm=root=>{
     $('#w-eta').textContent=S.dest?(S.engaged&&S.warpEff>=1?'ETA '+fmtEta(S.distLeft/v)+', '+fmt(S.distLeft)+' LY REMAINING.'+fuelLine():'COURSE SET. ENGAGE FOLD DRIVE TO BEGIN.'+fuelLine()):'CLICK A SYSTEM ON THE MAP OR PICK ONE BELOW, SET A FOLD FACTOR, THEN ENGAGE.';
     $('#vov').textContent=map?'':viewerLabel();
     $('#vov').style.whiteSpace='pre';
+    if(R2.live)r2HelmCard(root);
   };
   $$('[data-hm]',root).forEach(b=>b.addEventListener('click',()=>{S.helmMode=b.dataset.hm;SND.tap();upd();}));
   $('#smap',root).addEventListener('click',e=>{
@@ -7486,6 +7512,7 @@ function drawRunEdges(c,x,d){
 const RD=window.RunData,RC=window.RunCore,RM=window.RunMap;
 const R2={R:null,busy:false,sel:null,feed:[],feedN:0,pause:false,clock:null,feedT:null,pop:null,live:false,lastSave:0,inited:false,wrapped:false,openSlot:null,encHide:false,encKey:'',last:'SECTOR ENTRY',tmsg:''};
 window.__R2=R2;R2.render=function(){r2Render();};
+R2.t={S:()=>S,setCourse:id=>setCourse(id),engage:()=>engage(),go:v=>go(v),remount:()=>remountView()};   /* test hook */
 const R2_MK=['I','II','III'],R2_RANK=['ENSIGN','LIEUTENANT','LT COMMANDER','COMMANDER'];
 const R2_DEPT={engineering:'ENGINEERING',operations:'OPERATIONS',science:'SCIENCE',security:'SECURITY',medical:'MEDICAL'};
 const R2_CK={engineering:'eng',security:'sec',science:'sci',medical:'med',operations:'ops'};
@@ -7968,14 +7995,24 @@ function r2CommsPanel(){
   const o=el('button','mini','OPEN COMMS');o.addEventListener('click',()=>{SND.tap();go('comms');});b.appendChild(o);
 }
 function r2CrewPanel(){
+  /* UI pass: one line per officer: department, name, rank, progress to the next rank, perks unlocked */
   const R=R2.R,b=$('#cw-b');if(!b)return;
-  b.innerHTML='';
+  b.innerHTML='';b.classList.add('r2cw');
+  const XPL=[8,20,40];
   Object.keys(RD.DEPT).forEach(d=>{
-    const o=R.officers[d],lv=clamp(o.level,0,3),r=el('div','cl'+(o.alive?'':' lost'));
+    const o=R.officers[d],lv=clamp(o.level,0,3),of=r2Officer(d),r=el('div','r2cl'+(o.alive?'':' lost'));
+    r.style.setProperty('--dc','var(--'+(R2_DCOL[d]||'peri')+')');
     const used=R.fight&&R.fight.orders&&R.fight.orders[d]&&R.fight.orders[d].used;
     if(o.alive&&R.phase==='fight'&&!used)r.classList.add('rdy');
-    const of=r2Officer(d);r.innerHTML='<i></i><b></b><em></em>';r.querySelector('b').textContent=RD.DEPT[d];r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+'\n'+r2PerkList(d).map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
-    r.querySelector('em').textContent=o.alive?R2_RANK[lv]:'LOST';b.appendChild(r);
+    const pk=r2PerkList(d),on=pk.filter(k=>k.on).length,lo=lv?XPL[lv-1]:0,hi=XPL[lv],pct=lv>=3?100:clamp((o.xp-lo)/(hi-lo)*100,0,100);
+    r.innerHTML='<b></b><span></span><em></em><i><u></u></i><small></small>';
+    r.querySelector('b').textContent=RD.DEPT[d];
+    r.querySelector('span').textContent=of?of.nm.toUpperCase()+(o.vet?' ★':''):'';
+    r.querySelector('em').textContent=o.alive?R2_RSHORT[lv].replace('.',''):'LOST';
+    r.querySelector('u').style.width=(o.alive?pct:0)+'%';
+    r.querySelector('small').textContent=pk.length?'◆'.repeat(on)+'◇'.repeat(pk.length-on):'';
+    r.title=R2_DEPT[d]+(of&&o.alive?': '+of.tag:'')+(o.alive&&lv<3?'\nNEXT RANK: '+Math.max(0,hi-o.xp)+' XP':'')+'\n'+pk.map(k=>(k.on?'◆ ':'◇ ')+k.t).join('\n');
+    b.appendChild(r);
   });
 }
 function r2IntelPanel(flick){
@@ -8094,7 +8131,7 @@ function r2FoldCard(ix){
   R2.msgs=[];const label=R2_TYPE[c.type];
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff,noIntercept:true});
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
-  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;SP.aim=null;SP.anim=null;
+  R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;R2.holdOpen=null;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
   {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}
@@ -8205,10 +8242,27 @@ function spShipPos(){
   const c=R.cards[+S.dest.id.slice(1)];if(!c||!c.p)return [0,0,0];
   const t=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);return c.p.map(x=>x*t);
 }
+/* zoom to fit (UI pass): the view frames what matters (ship, contacts, the cone's reach, the Rearguard); under way it frames ship and destination */
+function spFit(dt){
+  const R=R2.R;if(!R)return;
+  const ship=spShipPos(),dest=S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)?R.cards[+S.dest.id.slice(1)]:null;
+  let ctr=[0,0,0],rad=2;
+  if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
+  else{
+    const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
+    pts.push([0,0,0]);if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
+    const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
+    ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
+    if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
+  }
+  const tz=clamp(9/rad,.55,3),k=Math.min(1,(dt||.016)*2.4);
+  if(!SP.ctr||SP.zoom==null){SP.ctr=ctr;SP.zoom=tz;return;}
+  SP.zoom+=(tz-SP.zoom)*k;SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
+}
 function spProj(c,p){
-  const cy=Math.cos(SP.yaw),sy=Math.sin(SP.yaw),cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch);
-  const x=p[0]*cy-p[1]*sy,y=p[0]*sy+p[1]*cy,z=p[2],y2=y*cp-z*sp,z2=y*sp+z*cp;
-  const W=c.width,H=c.height,f=Math.min(W*1.15,H*2.7)/(24-y2);
+  const cy=Math.cos(SP.yaw),sy=Math.sin(SP.yaw),cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),C=SP.ctr||[0,0,0],px=p[0]-C[0],py=p[1]-C[1],pz=p[2]-C[2];
+  const x=px*cy-py*sy,y=px*sy+py*cy,z=pz,y2=y*cp-z*sp,z2=y*sp+z*cp;
+  const W=c.width,H=c.height,f=Math.min(W*1.15,H*2.7)/(24-y2)*(SP.zoom||1);
   return [W/2+x*f,H/2+H*0.04-z2*f,f];
 }
 function spCone(x,c,dir,mode,frac,rgb,alpha,dash){
@@ -8361,7 +8415,7 @@ function r2Space(c){
   if(!SCA.buf){SCA.buf=document.createElement('canvas');}
   if(SCA.buf.width!==LW||SCA.buf.height!==LH){SCA.buf.width=LW;SCA.buf.height=LH;}
   const x=SCA.buf.getContext('2d'),L={width:LW,height:LH,dpr:1},P=p=>spProj(L,p),k=W/LW;
-  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;
+  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;spFit(dt);
   /* the sky: base, nebula, stars (they turn with the camera, so dragging feels like looking around) */
   x.fillStyle='rgb('+mood.bg.join(',')+')';x.fillRect(0,0,LW,LH);
   const F=LH*1.25,sky=v=>{const q=saRot(v);if(q[1]>-0.05)return null;return [LW/2+q[0]/-q[1]*F,LH/2-q[2]/-q[1]*F];};
@@ -8384,7 +8438,7 @@ function r2Space(c){
     x.fillStyle=saPat(x,rgb,a);x.beginPath();x.moveTo(O[0],O[1]);ring.forEach(q=>x.lineTo(q[0],q[1]));x.closePath();x.fill();
     for(let i=0;i<ring.length;i++)saLine(x,ring[i],ring[(i+1)%ring.length],'rgba('+rgb+','+Math.min(1,.25+a*4)+')',2);
     [0,7,14,21].forEach(i=>saLine(x,O,ring[i],'rgba('+rgb+','+Math.min(1,.15+a*3)+')',3));return ring;};
-  if(choose){
+  if(choose&&!S.engaged){
     if(SP.anim){const t=clamp((now-SP.anim.t0)/800,0,1);cone(SP.anim.dir,SP.anim.mode,1,blue,.12);const ring=cone(SP.anim.dir,SP.anim.mode,Math.max(.05,t),blue,.0);ring.forEach(q=>{x.fillStyle='rgba(220,255,250,'+(1-t*.6).toFixed(2)+')';x.fillRect(Math.round(q[0]),Math.round(q[1]),2,2);});}
     else{if(turning)cone(aim,SP.mode,1,sal,.08);cone(nose,SP.mode,1,blue,turning?.05:.09);}
   }
@@ -8397,7 +8451,7 @@ function r2Space(c){
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
-  const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)):[],labels=[];
+  const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)&&(!S.engaged||o.ix===dest)):[],labels=[];
   list.sort((a,b)=>P(a.cc.p)[2]-P(b.cc.p)[2]).forEach(({cc,ix})=>{
     const q=P(cc.p),B=P([cc.p[0],cc.p[1],0]),col='rgb('+saRGB(cc.id?(SP_TCOL[cc.type]||'orange'):'lav').join(',')+')';
     saLine(x,q,B,'rgba('+peri+',.5)',2);x.fillStyle='rgba('+peri+',.6)';x.fillRect(Math.round(B[0])-1,Math.round(B[1]),3,1);
@@ -8409,7 +8463,7 @@ function r2Space(c){
     else saIcon(x,SCA_ICON[cc.type]||SCA_ICON.wreck,cx,cy,col,'#ffffff');
     if(shown.has(ix)){x.strokeStyle='rgba(220,255,250,.8)';x.strokeRect(cx-7.5,cy-7.5,15,15);}
     if(sel===ix||dest===ix){const b=Math.floor(now/300)%2?9:10;x.fillStyle='#ffd27a';[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{x.fillRect(cx+sx*b-(sx>0?2:0),cy+sy*b,3,1);x.fillRect(cx+sx*b,cy+sy*b-(sy>0?2:0),1,3);});}
-    labels.push({x:cx,y:cy,t:(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(cc.d)+' LY',col});
+    labels.push({x:cx,y:cy,t:(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(S.engaged&&ix===dest?Math.max(0,S.distLeft):cc.d)+' LY',col});
   });
   /* the Rearguard: a red arrow with a comet tail, closing from aft */
   if(R.intercept&&R.intercept.p&&!R.over){const q=P(R.intercept.p),pu=.5+.5*Math.sin(now/200),dx=O[0]-q[0],dy=O[1]-q[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l;
@@ -8433,7 +8487,7 @@ function r2Space(c){
   X.imageSmoothingEnabled=false;X.drawImage(SCA.buf,0,0,W,H);
   X.font=cfont(13*d,1);X.textBaseline='middle';
   const boxes=[];
-  const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=py*k;for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
+  const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=clamp(py*k,14*d,H-30*d);if(lx+w>W-10*d)lx=px*k-14*d-w;lx=clamp(lx,10*d,W-10*d-w);for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
   lab(O[0]-14,O[1]+16,'PATHFINDER','rgb('+spHex('peach')+')');
@@ -8699,7 +8753,7 @@ function r2Enc(){
     h3.textContent=O.auto?(O.source==='guardian'?'GUARDIAN DROP':'SALVAGE DROP'):O.shop?'THE SHOP':O.trader?'THE TRADER':t==='trace'?'THE KAEL TRACE':'THE WRECK';
     if(O.auto){const d=O.free[0];line(r2U(d.grade)+' DROP: '+r2OfferText(d)+(d.kind==='part'?(d.converted?'. HOLD FULL, SOLD FOR '+d.converted+' SALVAGE.':'. ADDED TO THE HOLD.'):'. ADDED.'));}
     else if(O.shop||O.trader)line('SPEND SALVAGE: YOU HAVE '+R.ship.salvage+'. THE HOLD HAS '+R.ship.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS USED.');
-    else line((O.taken?'YOU TOOK ONE. ':'TAKE ONE. ORANGE IS SAFE, RED HAS A COST. ')+'THE HOLD HAS '+R.ship.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS USED.');
+    else line(O.taken?'YOU TOOK ONE.':'TAKE ONE. ORANGE IS SAFE, RED HAS A COST.');
     ch.appendChild(r2Choice(O.auto?'CONTINUE':'LEAVE',[],()=>{const r=RM.leave(R);r2Do(r);},false,'orange'));
     if(O.shop)ch.appendChild(r2Choice('NEW STOCK',[[RM.rerollCost(O)+' SALVAGE','info']],()=>{const r=RM.reroll(R);r2Do(r);},R.ship.salvage<RM.rerollCost(O),'lav'));
     if(!O.auto)r2OfferChoices(ch);
@@ -8764,6 +8818,29 @@ R2V.helm=root=>{
   }
   root.appendChild(p);
 };
+/* UI pass: the Run's Helm Control is one fold card (course, distance, ETA, lumite, threat) under the fold factor and Engage */
+function r2HelmCard(root){
+  const R=R2.R,kv=$('#w-kv',root);if(!R||!kv)return;
+  const p=kv.closest('.panel');
+  if(!p.classList.contains('r2helm')){
+    p.classList.add('r2helm');$('#w-dis',root).textContent='STOP';
+    const card=el('div','r2fold');card.id='w-r2';$('#w-eng',root).parentElement.after(card);
+    const h=$('h4',p);if(h)h.textContent='COURSE';
+  }
+  const card=$('#w-r2',root),id=S.dest&&/^c\d$/.test(S.dest.id)?S.dest.id:(S.homeSel&&/^c\d$/.test(S.homeSel)?S.homeSel:null);
+  const c=id?R.cards[+id.slice(1)]:null,ix=id?+id.slice(1):-1;
+  const w=S.engaged&&S.warpEff>=1?S.warpEff:(S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()));
+  let rows,status;
+  if(!c||R.phase!=='choose'){status=R.phase==='choose'?'NO COURSE. PICK A CONTACT BELOW OR ON THE MAP.':r2PhaseText();rows=[['LUMITE',(Math.round(R.ship.lumite*10)/10)+' OF '+r2Stat('lumiteCap',10)],['THREAT',Math.round(R.threat)+'%']];}
+  else{
+    const d=S.engaged&&S.dest&&S.dest.id===id?Math.max(0,S.distLeft):distTo(id),eta=d/Math.max(.001,r2V(w)),cost=r2FoldCost(c,w),after=Math.round((R.ship.lumite-cost)*10)/10;
+    status=S.engaged&&S.dest&&S.dest.id===id?'UNDER WAY AT FOLD '+fmt(S.warpEff):'READY. SET A FOLD FACTOR, THEN ENGAGE.';
+    rows=[['DESTINATION',r2NodeName(c,ix,R.cards)],['DISTANCE',fmt(d)+' LY'],['ETA',fmtEta(eta)+' · '+(isFinite(eta)?Math.max(1,Math.round(eta*R2_TRANSIT)):'--')+' MIN SHIP TIME'],['LUMITE COST',cost+(after<0?' · NOT ENOUGH':'')],['LUMITE AFTER',Math.max(0,after)+' OF '+r2Stat('lumiteCap',10)],['THREAT',c.type==='gate'?'NONE':Math.round(R.threat)+'% → '+Math.round(Math.min(100,R.threat+(c.threat||0)))+'%']];
+  }
+  const key=status+'|'+rows.map(r=>r.join(':')).join('|');if(card._k===key)return;card._k=key;
+  card.innerHTML='';card.appendChild(Object.assign(el('p','r2fold-st'),{textContent:status}));
+  const d=el('dl','kv');rows.forEach(r=>{d.appendChild(Object.assign(el('dt'),{textContent:r[0]}));const dd=el('dd');dd.textContent=r[1];if(/NOT ENOUGH/.test(r[1]))dd.className='bad';d.appendChild(dd);});card.appendChild(d);
+}
 R2V.science=root=>{
   const R=R2.R,pf=r2Pseudo();
   root.innerHTML='<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SENSOR ARRAY</h3></div><div class="pb"><canvas id="radar" class="fill"></canvas></div></section>';
@@ -8852,13 +8929,17 @@ R2V.engineering=root=>{
 };
 function r2HoldCards(hb,full){
   const R=R2.R,sh=R.ship;
-  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='STORED IN THE HOLD ('+sh.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS). IT STAYS THERE WHEN YOU LEAVE.';h4.style.margin='8px 0 0';hb.appendChild(h4);}
+  if(!full){if(!sh.hold.length)return;
+    /* UI pass: on a prize screen the hold is one quiet line; open it only to make room */
+    const hs=r2Stat('holdSlots',0),isFull=sh.hold.length>=hs,open=R2.holdOpen!=null?R2.holdOpen:isFull,ln=el('div','r2-holdln'+(isFull?' full':''));
+    const t=el('span');t.textContent='HOLD '+sh.hold.length+'/'+hs+(isFull?' · FULL: SELL OR FIT A PART TO MAKE ROOM':' · '+sh.hold.map(h=>r2PName(h)).join(', '));ln.appendChild(t);
+    ln.appendChild(r2Btn(open?'HIDE':'MANAGE','lav',()=>{R2.holdOpen=!open;r2Render();},false,'sm'));
+    hb.appendChild(ln);if(!open)return;}
   sh.hold.forEach((h,ix)=>{
-    const c=el('div','mcard on'),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
+    const c=el('div','mcard on'+(full?'':' r2-holdc')),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
     const pt=r2Part(h.part),m=el('p');m.textContent=r2U(R2_DEPT[r2PartDept(pt)]||'')+(pt&&pt.slot==='weapon'?' WEAPON':'');c.appendChild(m);
     r2PerkLines(h).forEach(t=>{const q=el('p');q.textContent=t[0];c.appendChild(q);});
     const row=r2Row();
-    if(!full)row.appendChild(r2Btn('KEEP IN HOLD','lav',()=>r2Say('KEPT IN THE HOLD: '+r2PName(h)),false,'sm'));
     const slots=pt?(pt.slot==='weapon'?RC.slotsAvailable(sh).filter(s=>/^sec\.w[1-4]$/.test(s.id)).map(s=>s.id):(RC.slotsAvailable(sh).some(s=>s.id===pt.slot)?[pt.slot]:[])):[];
     slots.forEach(sl=>{const old=sh.fitted[sl],s=RC.slotById(sl);row.appendChild(r2Btn('FIT TO '+r2U(s.name)+(old?' (REPLACES '+r2U(r2Part(old.part).name)+' MK '+R2_MK[old.tier-1]+')':''),'blue',()=>r2Do(RM.fitFromHold(R,ix,sl),'FITTED'),false,'sm'));});
     const val=Math.round((3+2*h.tier)*(r2Stat('fullResale',0)?1:0.5));

@@ -52,7 +52,7 @@ function r2Space(c){
   if(!SCA.buf){SCA.buf=document.createElement('canvas');}
   if(SCA.buf.width!==LW||SCA.buf.height!==LH){SCA.buf.width=LW;SCA.buf.height=LH;}
   const x=SCA.buf.getContext('2d'),L={width:LW,height:LH,dpr:1},P=p=>spProj(L,p),k=W/LW;
-  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;
+  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;spFit(dt);
   /* the sky: base, nebula, stars (they turn with the camera, so dragging feels like looking around) */
   x.fillStyle='rgb('+mood.bg.join(',')+')';x.fillRect(0,0,LW,LH);
   const F=LH*1.25,sky=v=>{const q=saRot(v);if(q[1]>-0.05)return null;return [LW/2+q[0]/-q[1]*F,LH/2-q[2]/-q[1]*F];};
@@ -75,7 +75,7 @@ function r2Space(c){
     x.fillStyle=saPat(x,rgb,a);x.beginPath();x.moveTo(O[0],O[1]);ring.forEach(q=>x.lineTo(q[0],q[1]));x.closePath();x.fill();
     for(let i=0;i<ring.length;i++)saLine(x,ring[i],ring[(i+1)%ring.length],'rgba('+rgb+','+Math.min(1,.25+a*4)+')',2);
     [0,7,14,21].forEach(i=>saLine(x,O,ring[i],'rgba('+rgb+','+Math.min(1,.15+a*3)+')',3));return ring;};
-  if(choose){
+  if(choose&&!S.engaged){
     if(SP.anim){const t=clamp((now-SP.anim.t0)/800,0,1);cone(SP.anim.dir,SP.anim.mode,1,blue,.12);const ring=cone(SP.anim.dir,SP.anim.mode,Math.max(.05,t),blue,.0);ring.forEach(q=>{x.fillStyle='rgba(220,255,250,'+(1-t*.6).toFixed(2)+')';x.fillRect(Math.round(q[0]),Math.round(q[1]),2,2);});}
     else{if(turning)cone(aim,SP.mode,1,sal,.08);cone(nose,SP.mode,1,blue,turning?.05:.09);}
   }
@@ -88,7 +88,7 @@ function r2Space(c){
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
-  const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)):[],labels=[];
+  const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)&&(!S.engaged||o.ix===dest)):[],labels=[];
   list.sort((a,b)=>P(a.cc.p)[2]-P(b.cc.p)[2]).forEach(({cc,ix})=>{
     const q=P(cc.p),B=P([cc.p[0],cc.p[1],0]),col='rgb('+saRGB(cc.id?(SP_TCOL[cc.type]||'orange'):'lav').join(',')+')';
     saLine(x,q,B,'rgba('+peri+',.5)',2);x.fillStyle='rgba('+peri+',.6)';x.fillRect(Math.round(B[0])-1,Math.round(B[1]),3,1);
@@ -100,7 +100,7 @@ function r2Space(c){
     else saIcon(x,SCA_ICON[cc.type]||SCA_ICON.wreck,cx,cy,col,'#ffffff');
     if(shown.has(ix)){x.strokeStyle='rgba(220,255,250,.8)';x.strokeRect(cx-7.5,cy-7.5,15,15);}
     if(sel===ix||dest===ix){const b=Math.floor(now/300)%2?9:10;x.fillStyle='#ffd27a';[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{x.fillRect(cx+sx*b-(sx>0?2:0),cy+sy*b,3,1);x.fillRect(cx+sx*b,cy+sy*b-(sy>0?2:0),1,3);});}
-    labels.push({x:cx,y:cy,t:(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(cc.d)+' LY',col});
+    labels.push({x:cx,y:cy,t:(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(S.engaged&&ix===dest?Math.max(0,S.distLeft):cc.d)+' LY',col});
   });
   /* the Rearguard: a red arrow with a comet tail, closing from aft */
   if(R.intercept&&R.intercept.p&&!R.over){const q=P(R.intercept.p),pu=.5+.5*Math.sin(now/200),dx=O[0]-q[0],dy=O[1]-q[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l;
@@ -124,7 +124,7 @@ function r2Space(c){
   X.imageSmoothingEnabled=false;X.drawImage(SCA.buf,0,0,W,H);
   X.font=cfont(13*d,1);X.textBaseline='middle';
   const boxes=[];
-  const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=py*k;for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
+  const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=clamp(py*k,14*d,H-30*d);if(lx+w>W-10*d)lx=px*k-14*d-w;lx=clamp(lx,10*d,W-10*d-w);for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
   lab(O[0]-14,O[1]+16,'PATHFINDER','rgb('+spHex('peach')+')');

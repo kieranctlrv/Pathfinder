@@ -79,7 +79,7 @@ function r2Enc(){
     h3.textContent=O.auto?(O.source==='guardian'?'GUARDIAN DROP':'SALVAGE DROP'):O.shop?'THE SHOP':O.trader?'THE TRADER':t==='trace'?'THE KAEL TRACE':'THE WRECK';
     if(O.auto){const d=O.free[0];line(r2U(d.grade)+' DROP: '+r2OfferText(d)+(d.kind==='part'?(d.converted?'. HOLD FULL, SOLD FOR '+d.converted+' SALVAGE.':'. ADDED TO THE HOLD.'):'. ADDED.'));}
     else if(O.shop||O.trader)line('SPEND SALVAGE: YOU HAVE '+R.ship.salvage+'. THE HOLD HAS '+R.ship.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS USED.');
-    else line((O.taken?'YOU TOOK ONE. ':'TAKE ONE. ORANGE IS SAFE, RED HAS A COST. ')+'THE HOLD HAS '+R.ship.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS USED.');
+    else line(O.taken?'YOU TOOK ONE.':'TAKE ONE. ORANGE IS SAFE, RED HAS A COST.');
     ch.appendChild(r2Choice(O.auto?'CONTINUE':'LEAVE',[],()=>{const r=RM.leave(R);r2Do(r);},false,'orange'));
     if(O.shop)ch.appendChild(r2Choice('NEW STOCK',[[RM.rerollCost(O)+' SALVAGE','info']],()=>{const r=RM.reroll(R);r2Do(r);},R.ship.salvage<RM.rerollCost(O),'lav'));
     if(!O.auto)r2OfferChoices(ch);
@@ -144,6 +144,29 @@ R2V.helm=root=>{
   }
   root.appendChild(p);
 };
+/* UI pass: the Run's Helm Control is one fold card (course, distance, ETA, lumite, threat) under the fold factor and Engage */
+function r2HelmCard(root){
+  const R=R2.R,kv=$('#w-kv',root);if(!R||!kv)return;
+  const p=kv.closest('.panel');
+  if(!p.classList.contains('r2helm')){
+    p.classList.add('r2helm');$('#w-dis',root).textContent='STOP';
+    const card=el('div','r2fold');card.id='w-r2';$('#w-eng',root).parentElement.after(card);
+    const h=$('h4',p);if(h)h.textContent='COURSE';
+  }
+  const card=$('#w-r2',root),id=S.dest&&/^c\d$/.test(S.dest.id)?S.dest.id:(S.homeSel&&/^c\d$/.test(S.homeSel)?S.homeSel:null);
+  const c=id?R.cards[+id.slice(1)]:null,ix=id?+id.slice(1):-1;
+  const w=S.engaged&&S.warpEff>=1?S.warpEff:(S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()));
+  let rows,status;
+  if(!c||R.phase!=='choose'){status=R.phase==='choose'?'NO COURSE. PICK A CONTACT BELOW OR ON THE MAP.':r2PhaseText();rows=[['LUMITE',(Math.round(R.ship.lumite*10)/10)+' OF '+r2Stat('lumiteCap',10)],['THREAT',Math.round(R.threat)+'%']];}
+  else{
+    const d=S.engaged&&S.dest&&S.dest.id===id?Math.max(0,S.distLeft):distTo(id),eta=d/Math.max(.001,r2V(w)),cost=r2FoldCost(c,w),after=Math.round((R.ship.lumite-cost)*10)/10;
+    status=S.engaged&&S.dest&&S.dest.id===id?'UNDER WAY AT FOLD '+fmt(S.warpEff):'READY. SET A FOLD FACTOR, THEN ENGAGE.';
+    rows=[['DESTINATION',r2NodeName(c,ix,R.cards)],['DISTANCE',fmt(d)+' LY'],['ETA',fmtEta(eta)+' · '+(isFinite(eta)?Math.max(1,Math.round(eta*R2_TRANSIT)):'--')+' MIN SHIP TIME'],['LUMITE COST',cost+(after<0?' · NOT ENOUGH':'')],['LUMITE AFTER',Math.max(0,after)+' OF '+r2Stat('lumiteCap',10)],['THREAT',c.type==='gate'?'NONE':Math.round(R.threat)+'% → '+Math.round(Math.min(100,R.threat+(c.threat||0)))+'%']];
+  }
+  const key=status+'|'+rows.map(r=>r.join(':')).join('|');if(card._k===key)return;card._k=key;
+  card.innerHTML='';card.appendChild(Object.assign(el('p','r2fold-st'),{textContent:status}));
+  const d=el('dl','kv');rows.forEach(r=>{d.appendChild(Object.assign(el('dt'),{textContent:r[0]}));const dd=el('dd');dd.textContent=r[1];if(/NOT ENOUGH/.test(r[1]))dd.className='bad';d.appendChild(dd);});card.appendChild(d);
+}
 R2V.science=root=>{
   const R=R2.R,pf=r2Pseudo();
   root.innerHTML='<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SENSOR ARRAY</h3></div><div class="pb"><canvas id="radar" class="fill"></canvas></div></section>';
@@ -232,13 +255,17 @@ R2V.engineering=root=>{
 };
 function r2HoldCards(hb,full){
   const R=R2.R,sh=R.ship;
-  if(!full){if(!sh.hold.length)return;const h4=el('h4');h4.textContent='STORED IN THE HOLD ('+sh.hold.length+' OF '+r2Stat('holdSlots',0)+' SLOTS). IT STAYS THERE WHEN YOU LEAVE.';h4.style.margin='8px 0 0';hb.appendChild(h4);}
+  if(!full){if(!sh.hold.length)return;
+    /* UI pass: on a prize screen the hold is one quiet line; open it only to make room */
+    const hs=r2Stat('holdSlots',0),isFull=sh.hold.length>=hs,open=R2.holdOpen!=null?R2.holdOpen:isFull,ln=el('div','r2-holdln'+(isFull?' full':''));
+    const t=el('span');t.textContent='HOLD '+sh.hold.length+'/'+hs+(isFull?' · FULL: SELL OR FIT A PART TO MAKE ROOM':' · '+sh.hold.map(h=>r2PName(h)).join(', '));ln.appendChild(t);
+    ln.appendChild(r2Btn(open?'HIDE':'MANAGE','lav',()=>{R2.holdOpen=!open;r2Render();},false,'sm'));
+    hb.appendChild(ln);if(!open)return;}
   sh.hold.forEach((h,ix)=>{
-    const c=el('div','mcard on'),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
+    const c=el('div','mcard on'+(full?'':' r2-holdc')),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
     const pt=r2Part(h.part),m=el('p');m.textContent=r2U(R2_DEPT[r2PartDept(pt)]||'')+(pt&&pt.slot==='weapon'?' WEAPON':'');c.appendChild(m);
     r2PerkLines(h).forEach(t=>{const q=el('p');q.textContent=t[0];c.appendChild(q);});
     const row=r2Row();
-    if(!full)row.appendChild(r2Btn('KEEP IN HOLD','lav',()=>r2Say('KEPT IN THE HOLD: '+r2PName(h)),false,'sm'));
     const slots=pt?(pt.slot==='weapon'?RC.slotsAvailable(sh).filter(s=>/^sec\.w[1-4]$/.test(s.id)).map(s=>s.id):(RC.slotsAvailable(sh).some(s=>s.id===pt.slot)?[pt.slot]:[])):[];
     slots.forEach(sl=>{const old=sh.fitted[sl],s=RC.slotById(sl);row.appendChild(r2Btn('FIT TO '+r2U(s.name)+(old?' (REPLACES '+r2U(r2Part(old.part).name)+' MK '+R2_MK[old.tier-1]+')':''),'blue',()=>r2Do(RM.fitFromHold(R,ix,sl),'FITTED'),false,'sm'));});
     const val=Math.round((3+2*h.tier)*(r2Stat('fullResale',0)?1:0.5));
