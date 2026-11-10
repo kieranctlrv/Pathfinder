@@ -9032,7 +9032,7 @@ function r2Foe(svg,v,arcq){
 }
 function r2CombatInfo(host,f,v,noFeed){
   const E=v.enemy,def=RD.ENEMIES[f.enemyId];
-  const sc=E.screenPipsMax?'◆'.repeat(E.screenPips)+'◇'.repeat(E.screenPipsMax-E.screenPips):'NONE',ar=def.armourPips?'◆'.repeat(E.armour)+'◇'.repeat(def.armourPips-E.armour):'NONE';
+  const sc=E.screenPipsMax?'◆'.repeat(E.screenPips)+'◇'.repeat(E.screenPipsMax-E.screenPips):'NONE',am=Math.max(def.armourPips||0,E.armourMax||0,E.armour||0),ar=am?'◆'.repeat(Math.max(0,E.armour||0))+'◇'.repeat(Math.max(0,am-(E.armour||0))):'NONE';
   const hr=el('div','r2-hr');
   hr.appendChild(r2Qrow('ENEMY',E.hull/E.hullMax*100,E.hull+'/'+E.hullMax,'salmon'));
   hr.appendChild(r2Qrow('YOU',v.hull/v.hullMax*100,Math.round(v.hull)+'/'+v.hullMax,'blue'));host.appendChild(hr);
@@ -9241,7 +9241,7 @@ function r2Stage(host,f,v,opt){
   // enemy readout
   const es=D.es==null?E.screenPips:Math.ceil(D.es/RC.PIP);
   const info=el('div','r2-ei');
-  const sc=E.screenPipsMax?'◆'.repeat(Math.min(es,E.screenPipsMax))+'◇'.repeat(Math.max(0,E.screenPipsMax-es)):'NONE',ar=def.armourPips?'◆'.repeat(E.armour)+'◇'.repeat(def.armourPips-E.armour):'NONE';
+  const sc=E.screenPipsMax?'◆'.repeat(Math.min(es,E.screenPipsMax))+'◇'.repeat(Math.max(0,E.screenPipsMax-es)):'NONE',am=Math.max(def.armourPips||0,E.armourMax||0,E.armour||0),ar=am?'◆'.repeat(Math.max(0,E.armour||0))+'◇'.repeat(Math.max(0,am-(E.armour||0))):'NONE';
   const intent=E.intent?r2U(E.intent.atk||E.intent.id)+(E.intent.arc?' → '+r2U(E.intent.arc):'')+' · '+E.scanned+' TURN'+(E.scanned===1?'':'S'):'HIDDEN · SCAN TO READ';
   info.innerHTML='<h3></h3><small></small><div class="r2-bar"><span>HULL</span><div class="qb"><i></i></div><b></b></div><div class="r2-pp"><span>SCREEN</span><b class="sc"></b></div><div class="r2-pp"><span>ARMOUR</span><b class="ar"></b></div><div class="r2-it"></div>';
   info.querySelector('h3').textContent=r2U(E.name||def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+v.speed.enemy;
