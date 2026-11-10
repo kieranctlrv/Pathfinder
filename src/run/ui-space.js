@@ -3,7 +3,7 @@
    A passage is a small 3D volume around the ship. The sensors face the ship's nose; the player turns the ship to aim.
    Camera drag looks around; Helm drag plans a new facing (a ghost ship and cone). Scans run through RunMap.scan.
    Drawn straight onto the map canvas each frame: grid on the ship's plane, drop lines, blips, cones. No 3D library. */
-const SP={yaw:-0.6,pitch:0.42,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
+const SP={cone:(()=>{try{return localStorage.getItem('pf-cone')!=='0';}catch(_){return true;}})(),yaw:-0.6,pitch:0.72,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
 const SP_TCOL={contact:'salmon',guardian:'salmon',wreck:'orange',outpost:'blue',shop:'blue',anomaly:'lav',trace:'peri',gate:'yellow'};
 const SP_CLS={contact:'ENERGY SIGNATURE',guardian:'ENERGY SIGNATURE',outpost:'ENERGY SIGNATURE',shop:'ENERGY SIGNATURE',gate:'ENERGY SIGNATURE',wreck:'MASS READING',anomaly:'FAINT SIGNAL',trace:'FAINT SIGNAL'};
 const spUnit=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
@@ -30,7 +30,7 @@ function spFit(dt){
     ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
     if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
   }
-  const tz=clamp(9/rad,.55,3),k=Math.min(1,(dt||.016)*2.4);
+  const tz=clamp(6.5/rad,.45,2.2),k=Math.min(1,(dt||.016)*2.4);
   if(!SP.ctr||SP.zoom==null){SP.ctr=ctr;SP.zoom=tz;return;}
   SP.zoom+=(tz-SP.zoom)*k;SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
 }
@@ -74,9 +74,11 @@ function spInstall(c){
   c.addEventListener('click',e=>{if(R2.live){e.stopImmediatePropagation();}},true);   /* the Campaign's map click must not run in a Run */
 }
 /* camera presets */
+/* the cone can be hidden; it still flashes while a scan runs */
+function spConeToggle(){SP.cone=!SP.cone;try{localStorage.setItem('pf-cone',SP.cone?'1':'0');}catch(_){}}
 function spView(k){
   if(k==='behind'){const n=spNose();SP.yaw=Math.atan2(-n[0],-n[1]);SP.pitch=clamp(Math.asin(clamp(n[2],-1,1))+0.3,-1.45,1.45);}
-  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.42;}
+  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.72;}
 }
 function spAlign(){const cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),sy=Math.sin(SP.yaw),cy=Math.cos(SP.yaw);SP.aim=spUnit([-cp*sy,-cp*cy,sp]);spCtlKey='';r2HomeMap();}
 function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p);spCtlKey='';r2HomeMap();}
@@ -119,7 +121,7 @@ function r2DoScan(){
 let spCtlKey='';
 function spControls(host){
   const R=R2.R,pv=RM.scanPreview(R,spAim(),SP.mode),turning=pv.turnDeg>1,busy=!!SP.anim;
-  const key=[SP.drag,SP.mode,pv.turnDeg,pv.turnMin,pv.scanMin,pv.reach,busy,R.power.sensors,S.engaged].join('|');
+  const key=[SP.cone,SP.drag,SP.mode,pv.turnDeg,pv.turnMin,pv.scanMin,pv.reach,busy,R.power.sensors,S.engaged].join('|');
   if(host.dataset.sp===key)return;host.dataset.sp=key;host.innerHTML='';
   const row=(cls)=>{const d=el('div','sp-row'+(cls?' '+cls:''));host.appendChild(d);return d;};
   const btn=(r,t,on,fn,c)=>{const b=el('button','btn sm'+(on?' on':''));b.textContent=t;b.style.setProperty('--bc','var(--'+(c||'peri')+')');b.addEventListener('click',()=>{SND.tap();fn();spCtlKey='';host.dataset.sp='';r2HomeMap();});r.appendChild(b);return b;};
@@ -129,6 +131,7 @@ function spControls(host){
   [['BEHIND','behind'],['3/4','iso'],['TOP','top'],['SIDE','side']].forEach(([t,k])=>btn(r1,t,false,()=>spView(k),'peri'));
   const r3=row();r3.appendChild(Object.assign(el('span','sp-l'),{textContent:'SCAN'}));
   btn(r3,'SWEEP',SP.mode==='sweep',()=>{SP.mode='sweep';});btn(r3,'FOCUS',SP.mode==='focus',()=>{SP.mode='focus';});
+  btn(r3,SP.cone?'CONE: ON':'CONE: OFF',SP.cone,spConeToggle,'lav');
   r3.appendChild(Object.assign(el('span','sp-v'),{textContent:'SENSORS '+Math.round(R.power.sensors)+'%  ·  REACH '+fmt(pv.reach)+' LY'}));
   const r4=row('sp-go');
   const go=el('button','btn sp-scan');go.style.setProperty('--bc','var(--blue)');

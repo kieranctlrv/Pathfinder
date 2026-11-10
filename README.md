@@ -143,6 +143,7 @@ In a Run the campaign header, colour strips, sidebar plate and bottom resource b
 - **Home crew panel:** one line per officer: department, name, rank, progress to the next rank, officer perks unlocked.
 - **Power:** rerouting lands at once. Free outside combat; in a fight you set it on your turn before you act. The Engineering order is now **Overcharge** (a surge on one channel for a couple of turns; reactor perks build on it). Quick Reroute perks now grant one more Overcharge per fight.
 - **Parts level themselves:** MK is the part's build (better base stats); LV 0 to 3 is what it has learned, and each LV unlocks one of its perks. Every fitted, working part gains 1 XP per passage and 1 per won fight (+2 per guardian); weapons also learn from their hits (up to 2 a fight). An officer's rank teaches their department's parts 25% faster per rank. A part keeps its XP in the hold; a new part starts at LV 0. Thresholds `PART_XP` in run-core (12, 38, 76). Bot: fresh crew wins about 6%, fully trained about 36%.
+- **Map, round 2:** the Pathfinder on the map is the combat sprite (centred on its hull, turned to its heading, flipped to stay upright); it faces the destination while folding with a short engine streak; range rings at 2, 4 and 6 LY; the view sits further out and the default camera is a little more top-down; CONE ON/OFF under the map (remembered; the cone still flashes while a scan runs); the Home fold panel's stop button says STOP.
 - **Guardian fight crash** fixed (a trait raising armour above the base design broke the armour readout).
 
 ## History

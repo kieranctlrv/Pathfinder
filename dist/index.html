@@ -1254,7 +1254,7 @@ body.skin-pixel .lc-nav{clip-path:none;border-radius:0;box-shadow:inset -4px -4p
               </div>
               <div id="mc-trip" hidden>
                 <div class="stats" id="ht-kv"></div>
-                <div class="mc-trip-row"><input type="range" id="hm-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor"><button class="btn sm" id="hm-dis" style="--bc:var(--salmon)">DROP TO CRUISE</button></div>
+                <div class="mc-trip-row"><input type="range" id="hm-sl" min="0" max="9.9" step="0.1" style="--rc:var(--orange)" aria-label="Fold factor"><button class="btn sm" id="hm-dis" style="--bc:var(--salmon)">STOP</button></div>
               </div>
             </div>
           </div>
@@ -8252,7 +8252,7 @@ function r2LandNow(){const R=R2.R,r=RM.landNow(R);if(!r.ok){r2Snd('err');return;
    A passage is a small 3D volume around the ship. The sensors face the ship's nose; the player turns the ship to aim.
    Camera drag looks around; Helm drag plans a new facing (a ghost ship and cone). Scans run through RunMap.scan.
    Drawn straight onto the map canvas each frame: grid on the ship's plane, drop lines, blips, cones. No 3D library. */
-const SP={yaw:-0.6,pitch:0.42,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
+const SP={cone:(()=>{try{return localStorage.getItem('pf-cone')!=='0';}catch(_){return true;}})(),yaw:-0.6,pitch:0.72,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
 const SP_TCOL={contact:'salmon',guardian:'salmon',wreck:'orange',outpost:'blue',shop:'blue',anomaly:'lav',trace:'peri',gate:'yellow'};
 const SP_CLS={contact:'ENERGY SIGNATURE',guardian:'ENERGY SIGNATURE',outpost:'ENERGY SIGNATURE',shop:'ENERGY SIGNATURE',gate:'ENERGY SIGNATURE',wreck:'MASS READING',anomaly:'FAINT SIGNAL',trace:'FAINT SIGNAL'};
 const spUnit=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
@@ -8279,7 +8279,7 @@ function spFit(dt){
     ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
     if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
   }
-  const tz=clamp(9/rad,.55,3),k=Math.min(1,(dt||.016)*2.4);
+  const tz=clamp(6.5/rad,.45,2.2),k=Math.min(1,(dt||.016)*2.4);
   if(!SP.ctr||SP.zoom==null){SP.ctr=ctr;SP.zoom=tz;return;}
   SP.zoom+=(tz-SP.zoom)*k;SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
 }
@@ -8323,9 +8323,11 @@ function spInstall(c){
   c.addEventListener('click',e=>{if(R2.live){e.stopImmediatePropagation();}},true);   /* the Campaign's map click must not run in a Run */
 }
 /* camera presets */
+/* the cone can be hidden; it still flashes while a scan runs */
+function spConeToggle(){SP.cone=!SP.cone;try{localStorage.setItem('pf-cone',SP.cone?'1':'0');}catch(_){}}
 function spView(k){
   if(k==='behind'){const n=spNose();SP.yaw=Math.atan2(-n[0],-n[1]);SP.pitch=clamp(Math.asin(clamp(n[2],-1,1))+0.3,-1.45,1.45);}
-  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.42;}
+  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.72;}
 }
 function spAlign(){const cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),sy=Math.sin(SP.yaw),cy=Math.cos(SP.yaw);SP.aim=spUnit([-cp*sy,-cp*cy,sp]);spCtlKey='';r2HomeMap();}
 function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p);spCtlKey='';r2HomeMap();}
@@ -8368,7 +8370,7 @@ function r2DoScan(){
 let spCtlKey='';
 function spControls(host){
   const R=R2.R,pv=RM.scanPreview(R,spAim(),SP.mode),turning=pv.turnDeg>1,busy=!!SP.anim;
-  const key=[SP.drag,SP.mode,pv.turnDeg,pv.turnMin,pv.scanMin,pv.reach,busy,R.power.sensors,S.engaged].join('|');
+  const key=[SP.cone,SP.drag,SP.mode,pv.turnDeg,pv.turnMin,pv.scanMin,pv.reach,busy,R.power.sensors,S.engaged].join('|');
   if(host.dataset.sp===key)return;host.dataset.sp=key;host.innerHTML='';
   const row=(cls)=>{const d=el('div','sp-row'+(cls?' '+cls:''));host.appendChild(d);return d;};
   const btn=(r,t,on,fn,c)=>{const b=el('button','btn sm'+(on?' on':''));b.textContent=t;b.style.setProperty('--bc','var(--'+(c||'peri')+')');b.addEventListener('click',()=>{SND.tap();fn();spCtlKey='';host.dataset.sp='';r2HomeMap();});r.appendChild(b);return b;};
@@ -8378,6 +8380,7 @@ function spControls(host){
   [['BEHIND','behind'],['3/4','iso'],['TOP','top'],['SIDE','side']].forEach(([t,k])=>btn(r1,t,false,()=>spView(k),'peri'));
   const r3=row();r3.appendChild(Object.assign(el('span','sp-l'),{textContent:'SCAN'}));
   btn(r3,'SWEEP',SP.mode==='sweep',()=>{SP.mode='sweep';});btn(r3,'FOCUS',SP.mode==='focus',()=>{SP.mode='focus';});
+  btn(r3,SP.cone?'CONE: ON':'CONE: OFF',SP.cone,spConeToggle,'lav');
   r3.appendChild(Object.assign(el('span','sp-v'),{textContent:'SENSORS '+Math.round(R.power.sensors)+'%  ·  REACH '+fmt(pv.reach)+' LY'}));
   const r4=row('sp-go');
   const go=el('button','btn sp-scan');go.style.setProperty('--bc','var(--blue)');
@@ -8449,10 +8452,14 @@ function r2Space(c){
   /* the floor: a dotted grid on the ship's plane, fading out with distance */
   const blue=spHex('blue'),sal=spHex('salmon'),peri=spHex('peri');
   for(let gx=-9;gx<=9;gx++)for(let gy=-9;gy<=9;gy++){const r=Math.hypot(gx,gy);if(r>9.5)continue;const p=P([gx,gy,0]),major=gx%3===0&&gy%3===0;x.fillStyle='rgba('+peri+','+((major?.8:.42)*(1-r/10.5)).toFixed(2)+')';x.fillRect(Math.round(p[0]),Math.round(p[1]),major?2:1,1);}
+  /* range rings on the ship's plane at 2, 4 and 6 LY, so distance reads at a glance */
+  const rings=[];{const c0=spShipPos();[2,4,6].forEach(r=>{for(let i=0;i<60*r;i+=2){const t=i/(60*r)*Math.PI*2,q=P([c0[0]+Math.cos(t)*r,c0[1]+Math.sin(t)*r,0]);x.fillStyle='rgba('+peri+',.45)';x.fillRect(Math.round(q[0]),Math.round(q[1]),1,1);}
+    const lp=P([c0[0]+r*Math.cos(-SP.yaw-.3),c0[1]+r*Math.sin(-SP.yaw-.3),0]);rings.push({x:lp[0],y:lp[1],t:r+' LY'});});}
   /* dust drifting through the volume */
   SCA.dust.forEach(q=>{q[0]-=dt*.25;if(q[0]<-10)q[0]+=20;const p=P(q);x.fillStyle='rgba(200,210,240,'+(.12+.2*q[3]).toFixed(2)+')';x.fillRect(Math.round(p[0]),Math.round(p[1]),1,1);});
   /* the facing the ship shows: it turns smoothly toward where the nose really is, with thruster puffs while it swings */
-  const nose=spNose();if(!SCA.disp)SCA.disp=nose.slice();
+  const dcard=S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)?R.cards[+S.dest.id.slice(1)]:null,shipNow=spShipPos();
+  const nose=dcard&&dcard.p?spUnit(dcard.p.map((v,i)=>v-shipNow[i])):spNose();if(!SCA.disp)SCA.disp=nose.slice();
   {const a=spAng(SCA.disp,nose);if(a>0.5){const t=Math.min(1,dt*3.2);SCA.disp=spUnit(SCA.disp.map((v,i)=>v+(nose[i]-v)*t));if(Math.random()<0.6)SCA.puffs.push({p:spShipPos().map((v,i)=>v+(Math.random()-.5)*.5),t:0});}else SCA.disp=nose.slice();}
   const aim=spAim(),turning=choose&&!SP.anim&&spAng(nose,aim)>1,ship=spShipPos(),O=P(ship);
   /* cones: dithered; the planned facing in salmon; a pulse rides out through the cone while scanning */
@@ -8464,7 +8471,8 @@ function r2Space(c){
     [0,7,14,21].forEach(i=>saLine(x,O,ring[i],'rgba('+rgb+','+Math.min(1,.15+a*3)+')',3));return ring;};
   if(choose&&!S.engaged){
     if(SP.anim){const t=clamp((now-SP.anim.t0)/800,0,1);cone(SP.anim.dir,SP.anim.mode,1,blue,.12);const ring=cone(SP.anim.dir,SP.anim.mode,Math.max(.05,t),blue,.0);ring.forEach(q=>{x.fillStyle='rgba(220,255,250,'+(1-t*.6).toFixed(2)+')';x.fillRect(Math.round(q[0]),Math.round(q[1]),2,2);});}
-    else{if(turning)cone(aim,SP.mode,1,sal,.08);cone(nose,SP.mode,1,blue,turning?.05:.09);}
+    else if(SP.cone){if(turning)cone(aim,SP.mode,1,sal,.08);cone(nose,SP.mode,1,blue,turning?.05:.09);}
+    else if(turning)cone(aim,SP.mode,1,sal,.05);
   }
   /* empty scans leave a small X */
   (R.scanMarks||[]).forEach(p=>{const q=P(p);const cx=Math.round(q[0]),cy=Math.round(q[1]);x.fillStyle='rgba('+peri+',.7)';for(let i=-2;i<=2;i++){x.fillRect(cx+i,cy+i,1,1);x.fillRect(cx+i,cy-i,1,1);}});
@@ -8496,25 +8504,36 @@ function r2Space(c){
     x.globalAlpha=pu*.5;x.strokeStyle='rgb('+sal+')';x.strokeRect(Math.round(q[0])-8.5,Math.round(q[1])-8.5,17,17);x.globalAlpha=1;
     labels.push({x:q[0],y:q[1],t:'REARGUARD · INBOUND',col:'rgb('+sal+')',bold:1});}
   /* fold trail while under way */
-  if(S.engaged&&dest!=null){const o0=P([0,0,0]);saLine(x,o0,O,'rgba('+spHex('orange')+',.45)',1);}
   /* thruster puffs */
   SCA.puffs=SCA.puffs.filter(f=>(f.t+=dt)<0.6);SCA.puffs.forEach(f=>{const q=P(f.p);x.fillStyle='rgba(220,230,255,'+(0.6-f.t).toFixed(2)+')';x.fillRect(Math.round(q[0]+(f.t*14)*(Math.random()-.5)),Math.round(q[1]+(f.t*14)*(Math.random()-.5)),1,1);});
   /* the ghost of a planned turn, then the ship itself, then its engine glow */
-  const drawShip=(dir,alpha)=>{const cv=saShipFrame(dir);if(!cv){x.fillStyle='rgb('+spHex('peach')+')';x.fillRect(Math.round(O[0])-2,Math.round(O[1])-2,5,5);return;}
-    const w=cv.width,h=cv.height;x.globalAlpha=alpha;x.imageSmoothingEnabled=false;
-    if(S.engaged&&S.warpEff>=1){for(let i=3;i>=1;i--){const t=P(ship.map((v,j)=>v-dir[j]*i*.35));x.globalAlpha=alpha*.18*(4-i);x.drawImage(cv,Math.round(t[0]-w/2),Math.round(t[1]-h/2));}x.globalAlpha=alpha;}
-    x.drawImage(cv,Math.round(O[0]-w/2),Math.round(O[1]-h/2));x.globalAlpha=1;};
-  if(turning)drawShip(aim,.35);
-  drawShip(SCA.disp,1);
-  {const t=P(ship.map((v,j)=>v-SCA.disp[j]*1.05)),fl=Math.random()<.5?2:3;x.fillStyle='rgba(255,170,90,.9)';x.fillRect(Math.round(t[0]-1),Math.round(t[1]-1),fl,fl);}
-  /* up-scale with hard edges, then labels and a faint scanline at full resolution */
+  /* playtest: the ship is the combat sprite (same design and scale feel), drawn at full resolution after the up-scale, turned to its heading */
+  const pfArt=(()=>{try{return mdCanvas(r2ArtDef('pf'),now);}catch(_){return null;}})();
+  const drawShip=(dir,alpha)=>{
+    const A=P(ship),B=P(ship.map((v,j)=>v+dir[j]*.8)),dx=(B[0]-A[0])*k,dy=(B[1]-A[1])*k,ang=Math.atan2(dy,dx),f0=Math.max(1e-6,A[2]*.8*k),fore=clamp(Math.hypot(dx,dy)/f0,.3,1);
+    const L=clamp(H*.13,60*d,170*d),cx=A[0]*k,cy=A[1]*k;
+    if(!pfArt){X.fillStyle='rgb('+spHex('peach')+')';X.fillRect(cx-3*d,cy-3*d,6*d,6*d);return;}
+    /* centre on the drawn hull, not the canvas (measured once per art size) */
+    let bb=SCA.pfBox;if(!bb||bb.k!==pfArt.width+'x'+pfArt.height){try{const g=pfArt.getContext('2d').getImageData(0,0,pfArt.width,pfArt.height).data;let x0=1e9,x1=-1,y0=1e9,y1=-1;for(let yy=0;yy<pfArt.height;yy++)for(let xx=0;xx<pfArt.width;xx++)if(g[(yy*pfArt.width+xx)*4+3]>40){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}
+      if(x1>=0)bb=SCA.pfBox={k:pfArt.width+'x'+pfArt.height,x0,x1,y0,y1};}catch(_){}}
+    const sw=bb?bb.x1-bb.x0+1:pfArt.width,sh=bb?bb.y1-bb.y0+1:pfArt.height,w=L,h=L*sh/sw;
+    X.save();X.globalAlpha=alpha;X.imageSmoothingEnabled=false;X.translate(cx,cy);X.rotate(ang);if(Math.cos(ang)<0)X.scale(1,-1);X.scale(fore,1);
+    X.drawImage(pfArt,bb?bb.x0:0,bb?bb.y0:0,sw,sh,-w/2,-h/2,w,h);X.restore();
+    return {ang,len:w*fore*.5,cx,cy};
+  };
   X.imageSmoothingEnabled=false;X.drawImage(SCA.buf,0,0,W,H);
+  if(turning)drawShip(aim,.35);
+  {const sp=drawShip(SCA.disp,1);
+   /* engine glow; a short streak while folding */
+   if(sp){const ux=Math.cos(sp.ang),uy=Math.sin(sp.ang),ex=sp.cx-ux*sp.len,ey=sp.cy-uy*sp.len,n=S.engaged&&S.warpEff>=1?9:2;
+     for(let i=0;i<n;i++){X.fillStyle='rgba(255,'+(170+i*8)+',90,'+(.9-i*.09).toFixed(2)+')';const s2=(i?2:3)*d;X.fillRect(Math.round(ex-ux*i*3*d-s2/2),Math.round(ey-uy*i*3*d-s2/2),s2,s2);}}}
   X.font=cfont(13*d,1);X.textBaseline='middle';
   const boxes=[];
   const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=clamp(py*k,14*d,H-30*d);if(lx+w>W-10*d)lx=px*k-14*d-w;lx=clamp(lx,10*d,W-10*d-w);for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
+  X.font=cfont(10*d);X.fillStyle='rgba('+peri+',.6)';rings.forEach(r=>{const rx=r.x*k,ry=r.y*k;if(rx>8*d&&rx<W-30*d&&ry>8*d&&ry<H-24*d)X.fillText(r.t,rx+3*d,ry);});X.font=cfont(13*d,1);
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
-  lab(O[0]-14,O[1]+16,'PATHFINDER','rgb('+spHex('peach')+')');
+  lab(O[0]-14,O[1]+Math.max(16,H*.06/k),'PATHFINDER','rgb('+spHex('peach')+')');
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const g=P(R.gateDir.map(q=>q*9));lab(g[0],g[1],'GATE BEARING','rgb('+spHex('yellow')+')');}
   X.fillStyle='rgba(0,0,0,.10)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);
   const vg=X.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.45)');X.fillStyle=vg;X.fillRect(0,0,W,H);
