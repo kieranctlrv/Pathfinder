@@ -479,7 +479,8 @@ function r2Finish(){
   const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}},names={};
   Object.keys(f.officers||R.officers).forEach(d=>{const o=(f.officers||R.officers)[d];names[d]=o&&o.nm;});
   const res=RM.resolveFight(R);
-  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm)R.lostNames=(R.lostNames||[]).concat([nm]);}
+  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm){R.lostNames=(R.lostNames||[]).concat([nm]);R.lostCrew=(R.lostCrew||[]).concat([{nm:nm,d:sm0.casualty.dept}]);}}
+  if((sm0.levelUps||[]).length)R.stats.promos=(R.stats.promos||0)+sm0.levelUps.length;
   R2.feed=[];R2.busy=false;R2.sel=null;R2.pop=null;
   r2Alert('green');
   const eName=(f.enemy&&f.enemy.name)||((RC.view(f).enemy||{}).name)||'THE CONTACT';

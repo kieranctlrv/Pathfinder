@@ -282,3 +282,10 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .r2-trt{display:flex;flex-direction:column;gap:1px;margin-top:3px}
 .r2-trt span{align-self:flex-start;padding:0 8px;border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);font-size:calc(11px*var(--ts,1));letter-spacing:.12em}
 .r2-trt small{color:var(--lav);font-size:calc(10px*var(--ts,1));letter-spacing:.06em;margin-bottom:2px}
+/* step 7c: the crew between Runs */
+.lc-crew{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.lc-cr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) auto;gap:10px;align-items:center;padding:5px 8px;border:1px solid #2a3350;border-radius:4px}
+.lc-cr b{font-weight:500;color:var(--peach);letter-spacing:.08em}
+.lc-cr span{color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.06em}
+.lc-cr.on{border-color:var(--blue);background:rgba(79,209,197,.08)}
+@media (max-width:700px){.lc-cr{grid-template-columns:1fr}}

@@ -118,6 +118,7 @@ function newRun(opts) {
     ship: C.newShip(), officers: C.newOfficers(), power: { propulsion: 25, shields: 25, sensors: 25, weapons: 25 },
     phase: 'choose', cards: [], cur: null, fight: null, offers: null, event: null, over: null, why: '', score: 0, traces: 0,
     stats: { fights: 0, won: 0, folds: 0, hunts: 0, partsFound: 0, fled: 0, dataEarned: 0 }, data: 0, flags: {}, log: [] };
+  if (opts.crew) applyCrew(R, opts.crew);
   if (opts.start) opts.start(R);
   nextCards(R);
   log(R, 'start', { seed });
@@ -134,6 +135,13 @@ function foldCost(R, base) {
   return Math.max(0, Math.round(c * 100) / 100);
 }
 function threatCost(R, base) { return Math.round(base * stat(R, 'foldThreat', 1) * 10) / 10; }
+/* ---- crew carried between Runs (step 7c): drills are small permanent stats, the academy sets starting ranks, veterans keep their names ---- */
+function applyCrew(R, crew) {
+  R.ship.drill = Object.assign({}, crew.drill || {});
+  Object.keys(R.officers).forEach(d => { const lv = Math.max(0, Math.min(2, (crew.academy || {})[d] || 0)); if (lv) { R.officers[d].level = lv; R.officers[d].xp = C.XP_LEVELS[lv - 1]; } });
+  (crew.vets || []).forEach(v => { const o = R.officers[v.d]; if (!o) return; const lv = Math.max(o.level, Math.min(2, v.level || 1)); R.officers[v.d] = { level: lv, xp: lv ? C.XP_LEVELS[lv - 1] : 0, alive: true, nm: v.nm, vet: true }; });
+  log(R, 'crew', { vets: (crew.vets || []).map(v => v.nm) });
+}
 function nextCards(R) {
   R.resume = null;
   R.passage++;
@@ -233,7 +241,7 @@ function resolveFight(R) {
   R.ship = f.ship; R.officers = f.officers;
   if (f.over === 'lost' || R.ship.hull <= 0) { endRun(R, 'lost', 'THE PATHFINDER IS LOST'); return { ok: true, result: 'lost' }; }
   if (f.over === 'fled') { R.fight = null; R.stats.fled = (R.stats.fled || 0) + 1; log(R, 'fled', {}); const n = after(R); return Object.assign({ result: 'fled' }, n); }
-  R.stats.won++;
+  R.stats.won++; if (meta.guardian) R.stats.guardians = (R.stats.guardians || 0) + 1; if (meta.hunt !== null && meta.hunt !== undefined) R.stats.interceptsWon = (R.stats.interceptsWon || 0) + 1;
   const bh = stat(R, 'betweenFightHull', 0); if (bh) R.ship.hull = Math.min(R.ship.hullMax, R.ship.hull + R.ship.hullMax * bh / 100);
   if (meta.hunt !== null && meta.hunt !== undefined) R.threat = Math.max(0, R.threat - HUNT_DROP);
   if (meta.guardian || (meta.hunt !== null && meta.hunt !== undefined)) R.breather = 1;   /* pacing: the next passage offers no hostile contact */

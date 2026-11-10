@@ -1,5 +1,5 @@
 /* ---- launch screen ---- */
-const LC={view:'main',mode:'campaign',diff:'green',kit:'standard',seed:'',ex:null,im:null,msg:''};
+const LC={view:(()=>{try{const v=sessionStorage.getItem('pf-lc-view');sessionStorage.removeItem('pf-lc-view');return v||'main';}catch(e){return 'main';}})(),mode:'campaign',diff:'green',kit:'standard',seed:'',ex:null,im:null,msg:''};
 const LAUNCH_BUILD='V0.2 BUILD 1';
 const MODES={
   campaign:{n:'CAMPAIGN',d:'THE WRECKERS STORY. A HAND-WRITTEN MYSTERY ACROSS ONE SECTOR, IN THREE ACTS, WITH ELEVEN ENDINGS.',ok:true},
@@ -81,7 +81,7 @@ function renderLaunch(){
   top.innerHTML='<div><div class="lc-title">PATHFINDER WATCHSTATION</div><div class="lc-sub">CNS PATHFINDER CN-4417</div></div><div class="lc-ver">'+LAUNCH_BUILD+'</div>';
   L.appendChild(top);
   const body=el('div','lc-body'),side=el('div','lc-side'),main=el('div','lc-main');
-  const nav=[['main','CONTINUE'],['new','NEW GAME'],['slots','SAVE SLOTS'],['record','SERVICE RECORD'],['guide','HOW TO PLAY']];
+  const nav=[['main','CONTINUE'],['new','NEW GAME'],['crew','THE CREW'],['slots','SAVE SLOTS'],['record','SERVICE RECORD'],['guide','HOW TO PLAY']];
   nav.forEach(n=>{const b=el('button','lc-nav'+(LC.view===n[0]?' on':''));b.textContent=n[1];b.addEventListener('click',()=>lcSet(n[0]));side.appendChild(b);});
   const au=el('div','lc-aud');
   au.appendChild(plainBtn(S.mute?'SOUND: OFF':'SOUND: ON','var(--blue)',()=>{S.mute=!S.mute;if(S.mute)klaxon(false);applyAudio();saveSettings();renderLaunch();},'sm'));
@@ -91,7 +91,7 @@ function renderLaunch(){
   body.appendChild(side);body.appendChild(main);L.appendChild(body);
   const hero=el('div','lc-ship');hero.innerHTML=shipSVG('side',{},{labels:false,crop:true});L.appendChild(hero);
   if(LC.msg){const m=el('p','lc-msg');m.textContent=LC.msg;main.appendChild(m);}
-  if(LC.view==='main')lcMain(main);else if(LC.view==='new')lcNew(main);else if(LC.view==='slots')lcSlots(main);else if(LC.view==='guide')lcGuide(main);else lcRecord(main);
+  if(LC.view==='main')lcMain(main);else if(LC.view==='new')lcNew(main);else if(LC.view==='slots')lcSlots(main);else if(LC.view==='guide')lcGuide(main);else if(LC.view==='crew')lcCrew(main);else lcRecord(main);
   if(LC.view==='main'){const c=$('.lc-go',L);if(c)c.focus();}
 }
 function lcMain(main){

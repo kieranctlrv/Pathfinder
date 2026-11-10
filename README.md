@@ -35,12 +35,14 @@ src/run/                  Run Mode
   ui-screens.js             Run versions of the station screens and the offer/event overlay
   ui-combat.js              Battle Stations and the tactical stage
   ui-voices.js              officer names, voice banks, the Library ship's log
+  ui-crew.js                commendations, academy, drills, veterans (between Runs)
 src/campaign/             the Campaign: comms scripts, encounters, missions, real-time combat
 src/station/              the shared station shell: tabs, home, map, viewer, art, schematic,
                           engineering, cargo, launch screen, accessibility, main loop
 src/legacy/run-v01.js     the original Run Mode (v0.1)
 tests/balance.js          bot that plays seeded Runs and reports where they end
 tests/smoke.py            opens the built game in a browser and checks for errors
+tests/audit.js            systems audit: every stat produced and whether code reads it
 ```
 
 **Two kinds of script file.** The three Run engine files (`run-data`, `run-core`, `run-map`) are real modules: they load on their own in Node and in the browser, and the tests use them directly. Everything else (`src/station`, `src/campaign`, `src/legacy` and the Run `ui-*` files) is one big script cut into pieces at its section comments. Those pieces only work glued together in manifest order, and they share names freely. Turning them into real modules is part of the rework.
@@ -60,7 +62,7 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 
 ## Known issues
 
-- Balance is placeholder. With fights rerouted to Offence, the balance bot clears Sectors 1 and 2 easily and dies in Sectors 3 to 4, mostly to guardians. At balanced power (weapons 25%) the Sector 1 guardian can stall for hundreds of turns, because it repairs faster than weak weapons strip it.
+- Balance is a first pass (step 7). Kael wins most fights against a fresh crew; about 1 bot Run in 100 still hits a very long fight in Sector 3.
 - Three combat systems still share the file: Campaign real-time, Run v0.1 (legacy) and Run v0.2.
 - The playtest backlog lives in `playtest/`, and the redesign plan in the world bible's Core Loop Design tab.
 
@@ -114,6 +116,16 @@ The balance bot is simple: it fires the most accurate ready weapon, braces other
 - Every part now has a scan or time role, shown in Engineering when you open it: Sensor Array (scan reach; Long-Range further, Tracking identifies further out), Processor (scan time), Comms Suite (identifies wrecks, anomalies and traces on the first pass), Jammer (the Rearguard needs one more action to reach you), Thrusters (turn time), Engine Core (fold speed), Threshold Capacitor or any Mk III capacitor (land one queued reroute at once each sector). Each Mk above I improves the numbers a little.
 - Officer perks by level, listed under each department in Engineering (and on the crew panel): Science L1 identifies blips within 3 LY, L2 halves a repeat scan on the same heading; Operations L1 gives the heading hint after one empty scan, L2 shows the gate bearing from passage 3; Engineering L1 lands one queued reroute at once each sector; Security L1 spots the Rearguard one action earlier; Medical L1 lowers casualty chance. Perks stop while a station is unmanned.
 - Library > Ship's Log: the full history of the feed for the Run (up to 600 entries), filterable by passage and by officers, cards or computer lines, with the crew roster and the names of the lost.
+
+## Core loop, step 7 (balance, in three parts)
+
+**7a, audit and stat model.** `node tests/audit.js --write` lists every stat parts and perks produce and whether code reads it (report in `design/systems-audit.md`). The first pass found 40 dead stats and 11 unwired perks; all now do something that fits the loop (scan reach, scan time, turn time, fold speed, quick reroute, extra options). Power is an edge, not the decider: weapons recharge on a steady rhythm at any routing (only a starved channel under 10 slows them), weapons power scales damage 0.85 to 1.15, shield power scales regen 0.75 to 1.25. Hits, dodges and enemy hits use a streak-free running total: an 80% shot hits 4 in 5 over a fight, in an unpredictable order. Enemy screens only regenerate on turns they were not struck, stay down once broken until repaired, and enemies have three repairs per fight. Ship and enemy ratings (damage to destroy, damage per turn) in `RunCore.rating`.
+
+**7b, difficulty and pacing.** One table, `DIFFICULTY` in run-map: enemies grow a little each passage, roles set contact, intercept and guardian strength, and `dial` scales everything (1 = standard). Seven traits (Armoured, Fast, Heavy-gunned, Sharpshooting, Mending, Ghosted, Boarding) reshape enemies by progress, shown on the stage with what they do; each guardian has a signature. Armour scales per pip (blunts lances, feeds torpedoes). Intercepts send the sector's own ships. Pacing: never three fights running, a breather after a guardian or intercept. The standard Jammer delays the Rearguard only once its officer reaches level 2. Kael toned down.
+
+**7c, the crew between Runs.** Commendations are earned at the end of each Run (sectors cleared, guardians and intercepts beaten, promotions, officers brought home, a win, honours for the fallen with the Med Deck perk) and spent in Launch > The Crew: Academy (a department's officer starts as Lieutenant, then Lt Commander), Drills (five small permanent bonuses, three levels each), and Veterans (an officer who reaches Lt Commander and comes home joins the roster; pick who serves next Run, one berth free and more to buy; a veteran starts ranked, learns 50% faster, and is lost for good if killed, remembered in the memorial).
+
+**Bot numbers after step 7** (100 Runs, careful but simple play): fresh crew wins about 5% and usually reaches Sector 5; a fully trained crew wins about 40%. Normal fights run 3 to 10 turns, guardians 8 to 15. `BOT_POWER=balanced` and `BOT_CREW=max` switch the bot's routing and crew.
 
 ## History
 

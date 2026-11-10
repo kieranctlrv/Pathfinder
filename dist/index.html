@@ -1053,6 +1053,13 @@ body.r2feed .fd-dock .btn{font-size:calc(19px*var(--ts,1));min-height:46px}
 .r2-trt{display:flex;flex-direction:column;gap:1px;margin-top:3px}
 .r2-trt span{align-self:flex-start;padding:0 8px;border:1px solid var(--yellow);border-radius:10px;color:var(--yellow);font-size:calc(11px*var(--ts,1));letter-spacing:.12em}
 .r2-trt small{color:var(--lav);font-size:calc(10px*var(--ts,1));letter-spacing:.06em;margin-bottom:2px}
+/* step 7c: the crew between Runs */
+.lc-crew{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.lc-cr{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.3fr) auto;gap:10px;align-items:center;padding:5px 8px;border:1px solid #2a3350;border-radius:4px}
+.lc-cr b{font-weight:500;color:var(--peach);letter-spacing:.08em}
+.lc-cr span{color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.06em}
+.lc-cr.on{border-color:var(--blue);background:rgba(79,209,197,.08)}
+@media (max-width:700px){.lc-cr{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1651,6 +1658,7 @@ function ceiling(f, ch) {
 function thresholdAt(f, part) { return part.thr.at + stat(f, 'thr:' + part.id, 0, true); }
 function stat(f, key, base, noThr) {
   let add = 0, mul = 1;
+  if (f.ship.drill && f.ship.drill[key]) add += f.ship.drill[key];   /* crew drills bought between Runs (step 7c) */
   const apply = (e, fr) => { if (e.k !== 's' || e.key !== key) return; if (e.op === 'a') add += e.v * fr; else mul *= 1 + (e.v - 1) * fr; };
   Object.keys(f.ship.fitted).forEach(sl => {
     activeEffects(f, sl).forEach(([e, fr]) => apply(e, fr));
@@ -2077,7 +2085,7 @@ function finish(f) {            // apply xp, officer level-ups, replacement; ret
   if (f.over === 'won') { out.salvage = Math.round(E.hull / 12); f.ship.salvage += out.salvage; }
   Object.keys(f.officers).forEach(d => {
     const o = f.officers[d]; if (!o.alive) return;
-    o.xp += f.xp[d];
+    o.xp += Math.round(f.xp[d] * (o.vet ? 1.5 : 1));   /* veterans learn faster (step 7c) */
     if (f.over === 'won' && stat(f, 'survivorXp', 0) && f.casualty && f.casualty.dept !== d) { /* handled below */ }
     while (o.level < 3 && o.xp >= XP_LEVELS[o.level]) { o.level++; out.levelUps.push({ dept: d, level: o.level }); }
   });
@@ -2228,6 +2236,7 @@ function newRun(opts) {
     ship: C.newShip(), officers: C.newOfficers(), power: { propulsion: 25, shields: 25, sensors: 25, weapons: 25 },
     phase: 'choose', cards: [], cur: null, fight: null, offers: null, event: null, over: null, why: '', score: 0, traces: 0,
     stats: { fights: 0, won: 0, folds: 0, hunts: 0, partsFound: 0, fled: 0, dataEarned: 0 }, data: 0, flags: {}, log: [] };
+  if (opts.crew) applyCrew(R, opts.crew);
   if (opts.start) opts.start(R);
   nextCards(R);
   log(R, 'start', { seed });
@@ -2244,6 +2253,13 @@ function foldCost(R, base) {
   return Math.max(0, Math.round(c * 100) / 100);
 }
 function threatCost(R, base) { return Math.round(base * stat(R, 'foldThreat', 1) * 10) / 10; }
+/* ---- crew carried between Runs (step 7c): drills are small permanent stats, the academy sets starting ranks, veterans keep their names ---- */
+function applyCrew(R, crew) {
+  R.ship.drill = Object.assign({}, crew.drill || {});
+  Object.keys(R.officers).forEach(d => { const lv = Math.max(0, Math.min(2, (crew.academy || {})[d] || 0)); if (lv) { R.officers[d].level = lv; R.officers[d].xp = C.XP_LEVELS[lv - 1]; } });
+  (crew.vets || []).forEach(v => { const o = R.officers[v.d]; if (!o) return; const lv = Math.max(o.level, Math.min(2, v.level || 1)); R.officers[v.d] = { level: lv, xp: lv ? C.XP_LEVELS[lv - 1] : 0, alive: true, nm: v.nm, vet: true }; });
+  log(R, 'crew', { vets: (crew.vets || []).map(v => v.nm) });
+}
 function nextCards(R) {
   R.resume = null;
   R.passage++;
@@ -2343,7 +2359,7 @@ function resolveFight(R) {
   R.ship = f.ship; R.officers = f.officers;
   if (f.over === 'lost' || R.ship.hull <= 0) { endRun(R, 'lost', 'THE PATHFINDER IS LOST'); return { ok: true, result: 'lost' }; }
   if (f.over === 'fled') { R.fight = null; R.stats.fled = (R.stats.fled || 0) + 1; log(R, 'fled', {}); const n = after(R); return Object.assign({ result: 'fled' }, n); }
-  R.stats.won++;
+  R.stats.won++; if (meta.guardian) R.stats.guardians = (R.stats.guardians || 0) + 1; if (meta.hunt !== null && meta.hunt !== undefined) R.stats.interceptsWon = (R.stats.interceptsWon || 0) + 1;
   const bh = stat(R, 'betweenFightHull', 0); if (bh) R.ship.hull = Math.min(R.ship.hullMax, R.ship.hull + R.ship.hullMax * bh / 100);
   if (meta.hunt !== null && meta.hunt !== undefined) R.threat = Math.max(0, R.threat - HUNT_DROP);
   if (meta.guardian || (meta.hunt !== null && meta.hunt !== undefined)) R.breather = 1;   /* pacing: the next passage offers no hostile contact */
@@ -5221,7 +5237,7 @@ function loadProfile(){
     const j=JSON.parse(localStorage.getItem(PROFILE_KEY)||'null');
     if(j&&j.v===1){
       PROFILE.runs=+j.runs||0;PROFILE.wins=+j.wins||0;PROFILE.best=+j.best||0;PROFILE.pts=+j.pts||0;PROFILE.diffWins=j.diffWins&&typeof j.diffWins==='object'?j.diffWins:{};PROFILE.history=Array.isArray(j.history)?j.history.slice(0,8):[];
-      PROFILE.endings=j.endings&&typeof j.endings==='object'?j.endings:{};PROFILE.unlocks=j.unlocks&&typeof j.unlocks==='object'?j.unlocks:{};PROFILE.guide=j.guide&&typeof j.guide==='object'?j.guide:{};
+      PROFILE.crew=j.crew&&typeof j.crew==='object'?j.crew:{};PROFILE.endings=j.endings&&typeof j.endings==='object'?j.endings:{};PROFILE.unlocks=j.unlocks&&typeof j.unlocks==='object'?j.unlocks:{};PROFILE.guide=j.guide&&typeof j.guide==='object'?j.guide:{};
     }
   }catch(e){}
 }
@@ -7389,6 +7405,7 @@ function r2Record(){
   const R=R2.R;if(!R||!R.over||R.flags.recorded)return;R.flags.recorded=1;
   PROFILE.runs++;if(R.over==='won')PROFILE.wins++;PROFILE.best=Math.max(PROFILE.best||0,R.score||0);
   PROFILE.history.unshift({v2:1,won:R.over==='won',sector:R.sector,score:R.score,seed:R.seed,secs:R.secs});PROFILE.history=PROFILE.history.slice(0,8);saveProfile();
+  crewRecord(R);
 }
 
 /* ---- the state bridge: Run state to the original station's fields and map ---- */
@@ -7504,7 +7521,7 @@ function r2Start(o){
   else{
     if(d)backupSlot('run');
     const seed=(o.run&&o.run.seed)||Math.random().toString(36).slice(2,8).toUpperCase();
-    R=RM.newRun({seed:seed});R2.last='SECTOR ENTRY';
+    R=RM.newRun({seed:seed,crew:crewForRun()});R2.last='SECTOR ENTRY';
   }
   R2.R=R;R2.busy=false;R2.sel=null;R2.pop=null;R2.pause=false;R2.live=true;R2.course=null;R2.encHide=false;R2.encKey='';
   S.alert='green';S.mode='run';
@@ -7533,12 +7550,12 @@ function r2Start(o){
   r2Save();go(R.phase==='fight'&&!R.over?'tactical':'home');r2Render();
 }
 function r2NewRun(seed){
-  const R=RM.newRun({seed:seed||Math.random().toString(36).slice(2,8).toUpperCase()});
+  const R=RM.newRun({seed:seed||Math.random().toString(36).slice(2,8).toUpperCase(),crew:crewForRun()});
   R2.R=R;R2.busy=false;R2.sel=null;R2.pop=null;R2.pause=false;R2.course=null;R2.encHide=false;R2.encKey='';R2.last='SECTOR ENTRY';
   S.homeSel=null;S.logs=[];S.clog=[];r2Alert('green');r2Save();go('home');r2Render();
   r2Say('RUN STARTED. SEED '+R.seed+'.');
 }
-function r2Exit(){r2Save();location.reload();}
+function r2Exit(view){r2Save();try{if(view)sessionStorage.setItem('pf-lc-view',view);}catch(e){}location.reload();}
 
 /* ---- skin: relabel the original panels for the Run ---- */
 function r2Skin(){
@@ -8444,7 +8461,9 @@ function r2Enc(){
     line(R.why||(won?'THE HUNT IS OVER.':'THE HUNT IS OVER.'));
     const dl=el('dl','kv');dl.innerHTML=[['SCORE',R.score],['SECTOR REACHED',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['INTERCEPTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound],['DATA EARNED',R.stats.dataEarned],['RUN TIME',r2Time(R.secs)],['SEED',R.seed]].map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('');
     tr.appendChild(dl);
+    crewResultLines(R).forEach((t,i)=>line(t,i?'in':'in good'));
     ch.appendChild(r2Choice('NEW RUN',[],()=>r2NewRun(),false,'orange'));
+    ch.appendChild(r2Choice('THE CREW: SPEND COMMENDATIONS',[],()=>r2Exit('crew'),false,'blue'));
     ch.appendChild(r2Choice('SAME SEED: '+R.seed,[],()=>r2NewRun(R.seed),false,'peri'));
     ch.appendChild(r2Choice('RETURN TO THE LAUNCH SCREEN',[],()=>r2Exit(),false,'lav'));
     return;
@@ -9177,7 +9196,8 @@ function r2Finish(){
   const before={ul:R.ship.unlocked.length,thr:R.threat,m:f.meta||{}},names={};
   Object.keys(f.officers||R.officers).forEach(d=>{const o=(f.officers||R.officers)[d];names[d]=o&&o.nm;});
   const res=RM.resolveFight(R);
-  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm)R.lostNames=(R.lostNames||[]).concat([nm]);}
+  const sm0=res.summary||{};if(sm0.casualty){const nm=names[sm0.casualty.dept];if(nm){R.lostNames=(R.lostNames||[]).concat([nm]);R.lostCrew=(R.lostCrew||[]).concat([{nm:nm,d:sm0.casualty.dept}]);}}
+  if((sm0.levelUps||[]).length)R.stats.promos=(R.stats.promos||0)+sm0.levelUps.length;
   R2.feed=[];R2.busy=false;R2.sel=null;R2.pop=null;
   r2Alert('green');
   const eName=(f.enemy&&f.enemy.name)||((RC.view(f).enemy||{}).name)||'THE CONTACT';
@@ -9337,8 +9357,91 @@ function r2WrapLibrary(){
     ph.insertBefore(w,ph.firstChild);
   };
 }
+/* ---- Run: the crew between Runs (step 7c). Commendations earned each Run buy crew training; officers who serve well become veterans ---- */
+const CREW_DRILLS={
+  gunnery:{n:'GUNNERY DRILLS',d:'security',t:'+3 ACCURACY PER LEVEL',key:'accuracy',per:3,cost:[6,12,20]},
+  helm:{n:'HELM DRILLS',d:'operations',t:'+3 DODGE PER LEVEL',key:'dodge',per:3,cost:[6,12,20]},
+  damage:{n:'DAMAGE CONTROL DRILLS',d:'medical',t:'-2 CASUALTY CHANCE PER LEVEL',key:'casualty',per:-2,cost:[6,12,20]},
+  sensor:{n:'SENSOR DRILLS',d:'science',t:'+0.5 LY SCAN REACH PER LEVEL',key:'scanRange',per:0.5,cost:[6,12,20]},
+  power:{n:'POWER DRILLS',d:'engineering',t:'+5 REROUTE SURGE PER LEVEL',key:'reroute.boost',per:5,cost:[6,12,20]}
+};
+const CREW_ACADEMY_COST=[15,35];     /* starting rank Lieutenant, then Lieutenant Commander */
+const CREW_SLOT_COST=[0,25,60];      /* veteran berths: the first is free */
+function crewP(){
+  const c=PROFILE.crew=PROFILE.crew&&typeof PROFILE.crew==='object'?PROFILE.crew:{};
+  if(!(c.cm>=0))c.cm=0;if(!(c.cmTotal>=0))c.cmTotal=0;if(!c.drills)c.drills={};if(!c.academy)c.academy={};
+  if(!Array.isArray(c.roster))c.roster=[];if(!Array.isArray(c.memorial))c.memorial=[];if(!Array.isArray(c.pick))c.pick=[];if(!(c.slots>=1))c.slots=1;
+  return c;
+}
+/* what the next Run starts with */
+function crewForRun(){
+  const c=crewP(),drill={};
+  Object.keys(CREW_DRILLS).forEach(k=>{const lv=c.drills[k]||0,D0=CREW_DRILLS[k];if(lv)drill[D0.key]=(drill[D0.key]||0)+D0.per*lv;});
+  const used={},vets=[];
+  c.pick.forEach(nm=>{const v=c.roster.find(x=>x.nm===nm);if(v&&!used[v.d]&&vets.length<c.slots){used[v.d]=1;vets.push({nm:v.nm,d:v.d,level:Math.max(1,Math.min(2,(v.best||1)-1))});}});
+  return {drill,academy:Object.assign({},c.academy),vets};
+}
+/* at the end of a Run: commendations, new veterans, the fallen */
+function crewRecord(R){
+  if(!R||!R.over||R.flags.crewRecorded)return null;R.flags.crewRecorded=1;
+  const c=crewP(),st=R.stats||{},rows=[];let cm=0;
+  const add=(n,t)=>{if(n>0){cm+=n;rows.push(t+': +'+n);}};
+  add((R.over==='won'?5:R.sector-1)*4,'SECTORS CLEARED');
+  add((st.guardians||0)*3,'GUARDIANS BEATEN');
+  add(st.interceptsWon||0,'INTERCEPTS BEATEN');
+  add(st.promos||0,'PROMOTIONS');
+  const alive=Object.keys(R.officers).filter(d=>R.officers[d].alive);
+  add(alive.filter(d=>R.officers[d].level>=1).length,'OFFICERS HOME');
+  if(R.over==='won')add(15,'KAEL BEATEN');
+  const lost=R.lostCrew||[];
+  if(lost.length&&r2Stat('honour',0)>0)add(lost.length*2,'HONOURS FOR THE FALLEN');
+  c.cm+=cm;c.cmTotal+=cm;
+  const news=[];
+  alive.forEach(d=>{const o=R.officers[d];if(!o.nm)return;let v=c.roster.find(x=>x.nm===o.nm);
+    if(v){v.runs=(v.runs||0)+1;v.best=Math.max(v.best||0,o.level);}
+    else if(o.level>=2){c.roster.push({nm:o.nm,d:d,runs:1,best:o.level});news.push(o.nm);}});
+  lost.forEach(x=>{const i=c.roster.findIndex(v=>v.nm===x.nm);if(i>=0){c.memorial.unshift({nm:x.nm,d:x.d,runs:c.roster[i].runs||1,sector:R.sector});c.roster.splice(i,1);c.pick=c.pick.filter(n=>n!==x.nm);}});
+  c.memorial=c.memorial.slice(0,20);
+  saveProfile();
+  R.crewOut={cm,rows,news};
+  return R.crewOut;
+}
+/* the result panel adds this */
+function crewResultLines(R){
+  const o=R.crewOut||crewRecord(R);if(!o)return [];
+  const L=['COMMENDATIONS EARNED: '+o.cm+'. YOU HAVE '+crewP().cm+'.'].concat(o.rows);
+  if(o.news.length)L.push('NEW VETERANS: '+o.news.map(n=>n.toUpperCase()).join(', ')+'. THEY CAN SERVE AGAIN.');
+  return L;
+}
+/* ---- the launch screen's CREW view ---- */
+function lcCrew(main){
+  const c=crewP();
+  main.appendChild(Object.assign(el('h2'),{textContent:'THE CREW'}));
+  main.appendChild(el('p','lc-p','COMMENDATIONS: '+c.cm+' (EARNED IN ALL: '+c.cmTotal+'). EARN THEM BY HOW FAR A RUN GETS, GUARDIANS AND INTERCEPTS BEATEN, PROMOTIONS, AND OFFICERS BROUGHT HOME.'));
+  const buy=(cost,fn)=>{if(c.cm<cost){SND.err();return;}c.cm-=cost;fn();saveProfile();SND.ok();renderLaunch();};
+  const sec=(t)=>{main.appendChild(Object.assign(el('h4'),{textContent:t}));const d=el('div','lc-crew');main.appendChild(d);return d;};
+  /* academy */
+  let d=sec('ACADEMY: STARTING RANK FOR EACH DEPARTMENT');
+  Object.keys(RD.DEPT).forEach(dp=>{const lv=c.academy[dp]||0,row=el('div','lc-cr');row.innerHTML='<b></b><span></span>';row.children[0].textContent=R2_DEPT[dp];row.children[1].textContent='STARTS AS '+R2_RANK[lv];
+    if(lv<2)row.appendChild(plainBtn('TRAIN TO '+R2_RANK[lv+1]+': '+CREW_ACADEMY_COST[lv],c.cm>=CREW_ACADEMY_COST[lv]?'var(--orange)':'var(--lav)',()=>buy(CREW_ACADEMY_COST[lv],()=>{c.academy[dp]=lv+1;}),'sm'));
+    d.appendChild(row);});
+  /* drills */
+  d=sec('DRILLS: SMALL, PERMANENT, UP TO LEVEL 3');
+  Object.keys(CREW_DRILLS).forEach(k=>{const D0=CREW_DRILLS[k],lv=c.drills[k]||0,row=el('div','lc-cr');row.innerHTML='<b></b><span></span>';row.children[0].textContent=D0.n+' '+'◆'.repeat(lv)+'◇'.repeat(3-lv);row.children[1].textContent=D0.t;
+    if(lv<3)row.appendChild(plainBtn('LEVEL '+(lv+1)+': '+D0.cost[lv],c.cm>=D0.cost[lv]?'var(--orange)':'var(--lav)',()=>buy(D0.cost[lv],()=>{c.drills[k]=lv+1;}),'sm'));
+    d.appendChild(row);});
+  /* veterans */
+  d=sec('VETERANS: OFFICERS WHO REACHED LT COMMANDER AND CAME HOME');
+  d.appendChild(el('p','lc-p','PICK WHO SERVES ON THE NEXT RUN: '+c.pick.length+' OF '+c.slots+' BERTHS, ONE PER DEPARTMENT. A VETERAN STARTS RANKED, LEARNS 50% FASTER, AND IS GONE FOR GOOD IF LOST.'));
+  if(!c.roster.length)d.appendChild(el('p','lc-p','NO VETERANS YET.'));
+  c.roster.forEach(v=>{const on=c.pick.indexOf(v.nm)>=0,row=el('div','lc-cr'+(on?' on':''));row.innerHTML='<b></b><span></span>';row.children[0].textContent=v.nm.toUpperCase()+' · '+R2_DEPT[v.d];row.children[1].textContent='RUNS '+v.runs+'. BEST RANK '+R2_RANK[clamp(v.best||0,0,3)]+'. STARTS AS '+R2_RANK[Math.max(1,Math.min(2,(v.best||1)-1))];
+    row.appendChild(plainBtn(on?'STAND DOWN':'SERVE NEXT RUN',on?'var(--salmon)':'var(--blue)',()=>{if(on)c.pick=c.pick.filter(n=>n!==v.nm);else{c.pick=c.pick.filter(n=>{const o=c.roster.find(x=>x.nm===n);return o&&o.d!==v.d;});if(c.pick.length>=c.slots){SND.err();LC.msg='ALL BERTHS ARE TAKEN. STAND SOMEONE DOWN OR BUY A BERTH.';renderLaunch();return;}c.pick.push(v.nm);}saveProfile();SND.tap();renderLaunch();},'sm'));
+    d.appendChild(row);});
+  if(c.slots<CREW_SLOT_COST.length){const cost=CREW_SLOT_COST[c.slots];d.appendChild(plainBtn('BUY ANOTHER BERTH: '+cost,c.cm>=cost?'var(--orange)':'var(--lav)',()=>buy(cost,()=>{c.slots++;}),'sm'));}
+  if(c.memorial.length){d=sec('IN MEMORY');c.memorial.forEach(m=>d.appendChild(el('p','lc-p',m.nm.toUpperCase()+', '+R2_DEPT[m.d]+'. '+m.runs+' RUN'+(m.runs===1?'':'S')+'. LOST IN SECTOR '+m.sector+'.')));}
+}
 /* ---- launch screen ---- */
-const LC={view:'main',mode:'campaign',diff:'green',kit:'standard',seed:'',ex:null,im:null,msg:''};
+const LC={view:(()=>{try{const v=sessionStorage.getItem('pf-lc-view');sessionStorage.removeItem('pf-lc-view');return v||'main';}catch(e){return 'main';}})(),mode:'campaign',diff:'green',kit:'standard',seed:'',ex:null,im:null,msg:''};
 const LAUNCH_BUILD='V0.2 BUILD 1';
 const MODES={
   campaign:{n:'CAMPAIGN',d:'THE WRECKERS STORY. A HAND-WRITTEN MYSTERY ACROSS ONE SECTOR, IN THREE ACTS, WITH ELEVEN ENDINGS.',ok:true},
@@ -9420,7 +9523,7 @@ function renderLaunch(){
   top.innerHTML='<div><div class="lc-title">PATHFINDER WATCHSTATION</div><div class="lc-sub">CNS PATHFINDER CN-4417</div></div><div class="lc-ver">'+LAUNCH_BUILD+'</div>';
   L.appendChild(top);
   const body=el('div','lc-body'),side=el('div','lc-side'),main=el('div','lc-main');
-  const nav=[['main','CONTINUE'],['new','NEW GAME'],['slots','SAVE SLOTS'],['record','SERVICE RECORD'],['guide','HOW TO PLAY']];
+  const nav=[['main','CONTINUE'],['new','NEW GAME'],['crew','THE CREW'],['slots','SAVE SLOTS'],['record','SERVICE RECORD'],['guide','HOW TO PLAY']];
   nav.forEach(n=>{const b=el('button','lc-nav'+(LC.view===n[0]?' on':''));b.textContent=n[1];b.addEventListener('click',()=>lcSet(n[0]));side.appendChild(b);});
   const au=el('div','lc-aud');
   au.appendChild(plainBtn(S.mute?'SOUND: OFF':'SOUND: ON','var(--blue)',()=>{S.mute=!S.mute;if(S.mute)klaxon(false);applyAudio();saveSettings();renderLaunch();},'sm'));
@@ -9430,7 +9533,7 @@ function renderLaunch(){
   body.appendChild(side);body.appendChild(main);L.appendChild(body);
   const hero=el('div','lc-ship');hero.innerHTML=shipSVG('side',{},{labels:false,crop:true});L.appendChild(hero);
   if(LC.msg){const m=el('p','lc-msg');m.textContent=LC.msg;main.appendChild(m);}
-  if(LC.view==='main')lcMain(main);else if(LC.view==='new')lcNew(main);else if(LC.view==='slots')lcSlots(main);else if(LC.view==='guide')lcGuide(main);else lcRecord(main);
+  if(LC.view==='main')lcMain(main);else if(LC.view==='new')lcNew(main);else if(LC.view==='slots')lcSlots(main);else if(LC.view==='guide')lcGuide(main);else if(LC.view==='crew')lcCrew(main);else lcRecord(main);
   if(LC.view==='main'){const c=$('.lc-go',L);if(c)c.focus();}
 }
 function lcMain(main){

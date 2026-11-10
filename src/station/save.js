@@ -9,7 +9,7 @@ function loadProfile(){
     const j=JSON.parse(localStorage.getItem(PROFILE_KEY)||'null');
     if(j&&j.v===1){
       PROFILE.runs=+j.runs||0;PROFILE.wins=+j.wins||0;PROFILE.best=+j.best||0;PROFILE.pts=+j.pts||0;PROFILE.diffWins=j.diffWins&&typeof j.diffWins==='object'?j.diffWins:{};PROFILE.history=Array.isArray(j.history)?j.history.slice(0,8):[];
-      PROFILE.endings=j.endings&&typeof j.endings==='object'?j.endings:{};PROFILE.unlocks=j.unlocks&&typeof j.unlocks==='object'?j.unlocks:{};PROFILE.guide=j.guide&&typeof j.guide==='object'?j.guide:{};
+      PROFILE.crew=j.crew&&typeof j.crew==='object'?j.crew:{};PROFILE.endings=j.endings&&typeof j.endings==='object'?j.endings:{};PROFILE.unlocks=j.unlocks&&typeof j.unlocks==='object'?j.unlocks:{};PROFILE.guide=j.guide&&typeof j.guide==='object'?j.guide:{};
     }
   }catch(e){}
 }

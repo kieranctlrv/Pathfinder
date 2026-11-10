@@ -35,6 +35,7 @@ function r2Record(){
   const R=R2.R;if(!R||!R.over||R.flags.recorded)return;R.flags.recorded=1;
   PROFILE.runs++;if(R.over==='won')PROFILE.wins++;PROFILE.best=Math.max(PROFILE.best||0,R.score||0);
   PROFILE.history.unshift({v2:1,won:R.over==='won',sector:R.sector,score:R.score,seed:R.seed,secs:R.secs});PROFILE.history=PROFILE.history.slice(0,8);saveProfile();
+  crewRecord(R);
 }
 
 /* ---- the state bridge: Run state to the original station's fields and map ---- */
@@ -150,7 +151,7 @@ function r2Start(o){
   else{
     if(d)backupSlot('run');
     const seed=(o.run&&o.run.seed)||Math.random().toString(36).slice(2,8).toUpperCase();
-    R=RM.newRun({seed:seed});R2.last='SECTOR ENTRY';
+    R=RM.newRun({seed:seed,crew:crewForRun()});R2.last='SECTOR ENTRY';
   }
   R2.R=R;R2.busy=false;R2.sel=null;R2.pop=null;R2.pause=false;R2.live=true;R2.course=null;R2.encHide=false;R2.encKey='';
   S.alert='green';S.mode='run';
@@ -179,12 +180,12 @@ function r2Start(o){
   r2Save();go(R.phase==='fight'&&!R.over?'tactical':'home');r2Render();
 }
 function r2NewRun(seed){
-  const R=RM.newRun({seed:seed||Math.random().toString(36).slice(2,8).toUpperCase()});
+  const R=RM.newRun({seed:seed||Math.random().toString(36).slice(2,8).toUpperCase(),crew:crewForRun()});
   R2.R=R;R2.busy=false;R2.sel=null;R2.pop=null;R2.pause=false;R2.course=null;R2.encHide=false;R2.encKey='';R2.last='SECTOR ENTRY';
   S.homeSel=null;S.logs=[];S.clog=[];r2Alert('green');r2Save();go('home');r2Render();
   r2Say('RUN STARTED. SEED '+R.seed+'.');
 }
-function r2Exit(){r2Save();location.reload();}
+function r2Exit(view){r2Save();try{if(view)sessionStorage.setItem('pf-lc-view',view);}catch(e){}location.reload();}
 
 /* ---- skin: relabel the original panels for the Run ---- */
 function r2Skin(){

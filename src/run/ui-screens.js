@@ -67,7 +67,9 @@ function r2Enc(){
     line(R.why||(won?'THE HUNT IS OVER.':'THE HUNT IS OVER.'));
     const dl=el('dl','kv');dl.innerHTML=[['SCORE',R.score],['SECTOR REACHED',R.sector+' OF 5'],['FOLDS',R.stats.folds],['FIGHTS WON',R.stats.won+' OF '+R.stats.fights],['INTERCEPTS',R.stats.hunts],['PARTS FOUND',R.stats.partsFound],['DATA EARNED',R.stats.dataEarned],['RUN TIME',r2Time(R.secs)],['SEED',R.seed]].map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('');
     tr.appendChild(dl);
+    crewResultLines(R).forEach((t,i)=>line(t,i?'in':'in good'));
     ch.appendChild(r2Choice('NEW RUN',[],()=>r2NewRun(),false,'orange'));
+    ch.appendChild(r2Choice('THE CREW: SPEND COMMENDATIONS',[],()=>r2Exit('crew'),false,'blue'));
     ch.appendChild(r2Choice('SAME SEED: '+R.seed,[],()=>r2NewRun(R.seed),false,'peri'));
     ch.appendChild(r2Choice('RETURN TO THE LAUNCH SCREEN',[],()=>r2Exit(),false,'lav'));
     return;

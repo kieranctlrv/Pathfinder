@@ -111,6 +111,7 @@ function ceiling(f, ch) {
 function thresholdAt(f, part) { return part.thr.at + stat(f, 'thr:' + part.id, 0, true); }
 function stat(f, key, base, noThr) {
   let add = 0, mul = 1;
+  if (f.ship.drill && f.ship.drill[key]) add += f.ship.drill[key];   /* crew drills bought between Runs (step 7c) */
   const apply = (e, fr) => { if (e.k !== 's' || e.key !== key) return; if (e.op === 'a') add += e.v * fr; else mul *= 1 + (e.v - 1) * fr; };
   Object.keys(f.ship.fitted).forEach(sl => {
     activeEffects(f, sl).forEach(([e, fr]) => apply(e, fr));
@@ -537,7 +538,7 @@ function finish(f) {            // apply xp, officer level-ups, replacement; ret
   if (f.over === 'won') { out.salvage = Math.round(E.hull / 12); f.ship.salvage += out.salvage; }
   Object.keys(f.officers).forEach(d => {
     const o = f.officers[d]; if (!o.alive) return;
-    o.xp += f.xp[d];
+    o.xp += Math.round(f.xp[d] * (o.vet ? 1.5 : 1));   /* veterans learn faster (step 7c) */
     if (f.over === 'won' && stat(f, 'survivorXp', 0) && f.casualty && f.casualty.dept !== d) { /* handled below */ }
     while (o.level < 3 && o.xp >= XP_LEVELS[o.level]) { o.level++; out.levelUps.push({ dept: d, level: o.level }); }
   });

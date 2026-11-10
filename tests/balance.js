@@ -13,7 +13,8 @@ function fightTurn(R){const f=R.fight;const L=C.legal(f),E=f.enemy;
  if(E.intent&&E.intent.arc){const b=L.find(a=>a.type==='brace'&&a.arc===E.intent.arc);if(b)return b;}
  const rep=L.find(a=>a.type==='repair'); if(rep) return rep;
  const br=L.find(a=>a.type==='brace'); return br||L.find(a=>a.type==='pass');}
-function play(seed){const R=M.newRun({seed});let g=0,turns=0,fights=0;
+const CREW=process.env.BOT_CREW==='max'?{drill:{accuracy:9,dodge:9,casualty:-6,scanRange:1.5,'reroute.boost':15},academy:{engineering:2,operations:2,science:2,security:2,medical:2}}:null;
+function play(seed){const R=M.newRun({seed,crew:CREW});let g=0,turns=0,fights=0;
  while(!R.over&&g++<3000){
   if(R.phase==='choose'&&!R.cards.some(c=>c.found)){ /* scan like a player: sweep round the axes, follow Science's hint */
    const dirs=[[1,0,0],[0,1,0],[-1,0,0],[0,-1,0],[0,0,1],[0,0,-1]];R.botScan=(R.botScan||0);
