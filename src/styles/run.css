@@ -359,6 +359,12 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .hero-map{position:relative}
 /* destination cards under the map */
 .dc-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-bottom:6px}
+/* motion pass: the bar under the map keeps one height in every state, so the map never resizes (no jumps on pick, engage or arrival) */
+@media (min-width:900px){
+  #home .p-map .mapcard{height:184px;overflow:hidden}
+  #home .p-map .dc-row{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(140px,1fr);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+  #home .p-map .dc span{overflow:hidden;text-overflow:ellipsis}
+}
 .dc{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;column-gap:8px;row-gap:2px;align-items:center;text-align:left;padding:6px 8px;border:0;background:var(--panel2,#333c57);color:var(--chalk);cursor:pointer;box-shadow:inset 4px 0 0 var(--orange);font-family:inherit}
 .dc.hostile{box-shadow:inset 4px 0 0 var(--salmon)}.dc.gate{box-shadow:inset 4px 0 0 var(--yellow)}
 .dc:hover,.dc:focus-visible{background:#3d4766;outline:2px solid var(--orange);outline-offset:-2px}

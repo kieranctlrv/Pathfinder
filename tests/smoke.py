@@ -64,10 +64,12 @@ def main():
             visit_tabs(page, "run_" + name)
             page.evaluate(
                 "()=>{const R=__R2.R;const i=R.cards.findIndex(c=>c.type==='contact');"
-                "if(i>=0){RunMap.fold(R,i);__R2.encHide=false;__R2.render();}}"
+                "if(i>=0){R.cards[i].found=true;R.cards[i].id=true;RunMap.fold(R,i);__R2.encHide=false;__R2.render();}}"
             )
             page.wait_for_timeout(1200)
             page.screenshot(path=os.path.join(SHOTS, "run_%s_fight.png" % name))
+            if page.evaluate("()=>__R2.R.phase") != "fight":
+                errors.append("run: the test fight did not start")
             page.close()
         browser.close()
     if errors:
