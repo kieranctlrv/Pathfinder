@@ -467,10 +467,10 @@ document.addEventListener('keydown',e=>{if(!R2.live||(curView!=='home'&&curView!
   if(e.key==='+'||e.key==='='){spZoom(1.2);e.preventDefault();}else if(e.key==='-'||e.key==='_'){spZoom(1/1.2);e.preventDefault();}else if(e.key==='0'&&!(R2.R&&R2.R.phase==='fight')){spReset();e.preventDefault();}});
 /* keys for the map bar: 1-9 pick a destination, Enter engages, Esc goes back to the list */
 document.addEventListener('keydown',e=>{
-  const R=R2.R;if(!R||!R2.live||R.over||R.phase!=='choose'||curView!=='home'||S.engaged)return;
+  const R=R2.R;if(!R||!R2.live||R.over||R.phase!=='choose'||(curView!=='home'&&curView!=='helm')||S.engaged)return;const hl=curView==='helm';
   const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||e.ctrlKey||e.metaKey||e.altKey)return;
-  if(/^[1-9]$/.test(e.key)){const b=$$('#mc-hint .dc')[+e.key-1];if(b){e.preventDefault();b.click();}return;}
-  if(e.key==='Enter'&&S.homeSel){const g=$('#mc-go');if(g&&!g.disabled&&!$('#mc-plan').hidden){e.preventDefault();g.click();}return;}
+  if(/^[1-9]$/.test(e.key)){const b=$$(hl?'#hl-dest .dc':'#mc-hint .dc')[+e.key-1];if(b){e.preventDefault();b.click();}return;}
+  if(e.key==='Enter'&&S.homeSel){const g=hl?$('#hl-go'):$('#mc-go');if(g&&!g.disabled&&!g.hidden&&(hl||!$('#mc-plan').hidden)){e.preventDefault();g.click();}return;}
   if(e.key==='Escape'&&S.homeSel){e.preventDefault();S.homeSel=null;r2Render();}
 });
 /* passive sweep: under way, the sensors pick up anything that passes close to the route */

@@ -114,6 +114,7 @@ function r2DoScan(){
     const title=(r.mode==='focus'?'FOCUS':'SWEEP')+' SCAN, '+r.scanMin+' MINUTES';
     if(r.empty){R.scanMarks=(R.scanMarks||[]).concat([R.nose.map(q=>q*r.reach)]);r2VoxCard(title,['NOTHING FOUND AHEAD.'],'');}
     else r2VoxCard(title,rows,'');
+    if(r.gateReading&&R2.R){R2.R.flags['gateRead'+R2.R.sector]=1;}
     if(r.gateReading)r2Say('FAINT DISTANT ENERGY READING DEAD AHEAD. TOO FAR TO FOLD');
     if(r.hint){SP.aim=r.hint.slice(0,3);if(r.hint.focus)SP.mode='focus';r2Say('NEW BEARING SET BY SCIENCE'+(r.hint.focus?'. FOCUS SCAN SET':''));}
     { /* one officer speaks for the scan: a hint first, then a hostile, the gate, then what was found */

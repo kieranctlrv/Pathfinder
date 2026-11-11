@@ -18,9 +18,10 @@ with sync_playwright() as p:
   def tag(t):tagbox['tag']=t
   def wait(ms):pg.wait_for_timeout(ms)
   cdp.send('Page.startScreencast',{'format':'png','everyNthFrame':1,'maxWidth':1600,'maxHeight':900})
-  if MODE=='map':
+  if MODE in('map','helm'):
     pg.evaluate("()=>{const R=__R2.R;R.cards.forEach((c,i)=>{c.found=true;if(i)c.id=true;});__R2.render();}")
     sel='#hmap'
+    if MODE=='helm':pg.evaluate("()=>__R2.t.go('helm')");sel='#hl-cv';wait(600)
     tag('map idle');wait(800)
     bx=pg.locator(sel).first.bounding_box()
     cx,cy=bx['x']+bx['width']/2,bx['y']+bx['height']/2

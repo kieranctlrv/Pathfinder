@@ -191,3 +191,11 @@ The home viewer is a camera feed from the Pathfinder's bow, shown on the bridge 
 
 `python3 tests/motion.py [outdir]` plays a passage in the browser and samples the home viewer and map every frame through each transition (tab switches, pick, engage, spin-up, fold, drop-out, arrival). It scores each frame's change from the previous one and saves thumbnails around transitions and spikes, to catch snaps and one-frame flashes. Viewer fixes from the first run: the camera cuts to its heading with a short reconnect stutter when you come back from the map, the target is held through the Helm handoff with the lock frame on from engage to drop-out, and viewer models turn in 24 steps instead of 12.
 `python3 tests/motion_screen.py map|combat [outdir]` records the composited screen (canvas, SVG and DOM together) through a map passage or a long fight. Fixes from its first run: the enemy readout holds until our shot lands, and the bar under the Home map keeps one height (184px on desktop) in every state so the map never resizes; destination cards sit in one row that scrolls sideways. The smoke test now checks that its test fight really starts.
+
+## Helm in a Run: the route screen
+
+`src/run/ui-helm.js`. Helm belongs to the operations post (`r2Post` draws any station's officer header from the role, so it works for whoever holds the post this Run, and shows UNMANNED when the post is empty).
+- Corridor strip: the sector side-on from the entry to the gate. Across is distance toward the gate, up and down is drift. It shows the trail with passage numbers, places passed, places you can still double back to, this passage's contacts, the Rearguard behind (distance from threat), and the gate: a wide fuzzy band until known, a narrow band once its bearing is known (operations perk from passage 3, or a Focus scan reading, now remembered per sector), and a marker once the gate itself is found. Click a place to pick it. Bottom row: passages and the threat bar with intercept marks.
+- Fold plan: fold factor slider with lumite, ship time and threat-at-arrival bars, a fold 3 vs max comparison, Engage/Stop, and the destination cards. 1-9 and Enter work on Helm as on the Bridge.
+- No rule changes; RunMap now exports SECTOR_THREAT so the threat estimate uses the engine's numbers.
+- `python3 tests/motion_screen.py helm` audits it.

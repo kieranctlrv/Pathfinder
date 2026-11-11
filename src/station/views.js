@@ -10,7 +10,7 @@ function go(name){
   $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.go===name));
   const home=$('#home'),view=$('#view');
   if(name==='home'){home.hidden=false;view.hidden=true;view.innerHTML='';}
-  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c');
+  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c','hl');
     if(name==='comms'){S.unread=0;updateBadge();}
     VIEWS[name](view);}
   refreshHome();
@@ -107,6 +107,7 @@ function mapXY(c,x,y){
   return [ox+x*sc,oy+y*sc,sc];
 }
 VIEWS.helm=root=>{
+  if(R2.live)return r2HelmView(root);   /* a Run has its own route screen (ui-helm.js) */
   initStars();
   root.innerHTML='<section class="panel" style="--pc:var(--peri)"><div class="ph"><div class="rowbtn" style="gap:4px"><button class="mini" data-hm="map">MAP</button><button class="mini" data-hm="view">VIEWER</button></div><h3>HELM</h3></div><div class="pb"><canvas id="smap" class="fill"></canvas><canvas id="stars" class="fill" hidden></canvas><div class="vov" id="vov"></div></div></section>'+
     '<section class="panel" style="--pc:var(--orange)"><div class="ph"><h3>HELM CONTROL</h3></div><div class="pb vcol">'+
