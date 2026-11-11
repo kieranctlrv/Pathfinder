@@ -279,6 +279,7 @@ function r2Render(){
   if(R.over)r2Record();
   if(R.phase==='fight'&&!R.over&&R2.lastPh!=='fight'){R2.lastPh='fight';R2.sel=null;R2.feed=[];R2.feedN=0;R2.busy=false;R2.pop=null;r2Alert('red');if(curView!=='tactical')go('tactical');}
   R2.lastPh=R.phase;
+  r2HailCheck();   /* a hail when you arrive somewhere worth a voice (ui-comms.js) */
   r2Watch(true);
   r2Bridge();r2Hdr();r2Res();
   {const pf=$('.p-feed');if(pf){pf.hidden=false;$$('.p-actions,.p-contacts').forEach(x=>x.hidden=true);}const hm=$('#hdr-mid');if(hm)hm.hidden=true;document.body.classList.add('r2feed');}
@@ -287,7 +288,7 @@ function r2Render(){
   if(curView==='home')refreshHome();
   else if(curView!=='settings'&&curView!=='library'){const sc=r2KeepScroll(curView);remountView(curView);sc();refreshHome();}
   else refreshHome();
-  r2Enc();
+  r2Enc();r2HailPrompt($('#enc'));if(curView==='tactical'&&R.fight)r2HailPrompt($('#view'));   /* fight hails can be answered on the combat screen */
   const po=$('#r2-pause');if(po)po.remove();
   if(R2.pause)document.body.appendChild(r2PauseEl());
 }
@@ -339,6 +340,7 @@ function r2ShipFeed(){
     let n;
     if(e.k==='div'){n=el('div','fd-div');n.textContent=e.t;}
     else if(e.k==='off')n=r2VoxOff(e);
+    else if(e.k==='hail')n=r2HailCard(e);
     else if(e.k==='card'){
       n=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;n.appendChild(h);
       (e.rows||[]).forEach(r=>{const p=el('p');p.textContent=r;n.appendChild(p);});

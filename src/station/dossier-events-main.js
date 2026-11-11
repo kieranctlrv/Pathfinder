@@ -408,7 +408,9 @@ function frame(ts){
   else if(curView==='science'){if(R2.live)r2SciDraw(dt);else drawRadar(dt);}
   else if(curView==='cargo'&&R2.live)r2HoldDraw(dt);
   else if(curView==='tactical'&&R2.live)r2TacDraw(dt);
+  else if(curView==='comms'&&R2.live)r2CommsDraw(dt);
   else if(curView==='home'&&curLayout!=='combat'){if(S.homeView==='view')drawStars(dt,$('#hstars'));else drawMap($('#hmap'));}
+  if(R2.live)try{r2HailTick(dt);}catch(e){}
   try{drawCombatFx(dt);}catch(e){}
   try{drawHeaderShip(dt);}catch(e){}
   requestAnimationFrame(frame);

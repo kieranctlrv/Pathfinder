@@ -300,6 +300,7 @@ function r2RearPanel(root){
   root.appendChild(p);
 }
 R2V.comms=root=>{
+  r2CommsView(root);   /* channel and hails (ui-comms.js) */
   const R=R2.R;
   const q=r2P('PRICES','peach'),qb=r2Body(q);
   qb.appendChild(r2KV([['REPAIR A PART',RM.repairCost(R)+' SALVAGE'],['SELL A PART','+'+(r2Stat('fullResale',0)?'5, 7 OR 9':'2, 3 OR 4')+' SALVAGE'],['GATE: HULL +50',(r2Stat('gateHullFree',0)?0:RM.repairCost(R))+' SALVAGE'],['GATE: +2 TORPEDOES','3 SALVAGE'],['GATE: +4 LUMITE','3 SALVAGE'],['GATE: RAISE A TIER','5 X CURRENT TIER'],['FOLD COST NOW',(Math.round(RM.foldCost(R)*100)/100)+' LUMITE']]));

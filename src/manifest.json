@@ -45,6 +45,7 @@
       "src/run/ui-science.js",
       "src/run/ui-hold.js",
       "src/run/ui-tactical.js",
+      "src/run/ui-comms.js",
       "src/run/ui-ship3d.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",

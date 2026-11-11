@@ -463,3 +463,29 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 #view.sc,#view.hl{height:calc(100vh - 110px)}
 #view.sc .sc-side,#view.hl .hl-plan{max-height:none;min-height:0}
 @media (max-width:1000px){#view.cg,#view.tr,#view.sc,#view.hl{height:auto;grid-template-rows:none}}
+
+/* ---- Comms in a Run: hails and the channel ---- */
+.hail-ov{position:absolute;inset:0;z-index:6;background:#07080f;cursor:pointer;display:flex;flex-direction:column}
+.hail-ov .hail-cv{flex:1 1 auto;width:100%;min-height:0;image-rendering:pixelated;display:block}
+.hail-ov .hail-sub{flex:none;padding:8px 12px;background:rgba(4,7,14,.92);border-top:2px solid var(--yellow)}
+.hail-ov .hail-sub b{display:block;color:var(--yellow);font-weight:400;font-size:calc(12px*var(--ts,1))}
+.hail-ov .hail-sub p{margin:4px 0;color:var(--chalk);min-height:2.4em;font-size:calc(16px*var(--ts,1))}
+.hail-ov .hail-sub small{color:var(--lav);opacity:.7;font-size:calc(11px*var(--ts,1))}
+.hail-strip{position:relative;flex:0 0 auto;height:clamp(200px,32vh,300px)}
+.hail-card button{margin-top:4px}
+.hail-card.live{box-shadow:inset 4px 0 0 var(--yellow)}.hail-card.live h5{color:var(--yellow)}
+.hail-card.live button{animation:hailBlink 1s steps(2) infinite}
+.hail-ask{animation:hailBlink 1s steps(2) infinite;margin-right:auto}
+@keyframes hailBlink{50%{filter:brightness(1.6)}}
+@media (prefers-reduced-motion:reduce){.hail-card.live button,.hail-ask{animation:none}}
+.r2-box{position:relative}
+#view.cm{grid-template-columns:minmax(0,1fr) minmax(300px,380px)!important;grid-template-rows:minmax(0,1fr) auto auto;height:calc(100vh - 110px)}
+#view.cm .cm-ch{grid-column:1;grid-row:1/4;height:auto;min-height:0}
+#view.cm .cm-ch .pb{padding:0}
+#view.cm .cm-host{position:absolute;inset:0}
+#view.cm .cm-host canvas{position:absolute;inset:0;width:100%;height:100%}
+#view.cm>section:not(.cm-ch){grid-column:2;min-height:0}
+#view.cm>section:not(.cm-ch) .pb{overflow-y:auto;min-height:0;scrollbar-width:thin}
+.cm-row{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(148,176,194,.15)}
+.cm-row b{font-weight:400;color:var(--yellow);font-size:calc(12px*var(--ts,1))}.cm-row p{margin:2px 0 0;color:var(--lav);font-size:calc(13px*var(--ts,1))}
+@media (max-width:1000px){#view.cm{grid-template-columns:1fr!important;grid-template-rows:none;height:auto}#view.cm .cm-ch{grid-row:auto;height:45vh}#view.cm>section:not(.cm-ch){grid-column:1}}

@@ -86,6 +86,7 @@ function r2LibLog(root){
     if(e.k==='div'){x=el('div','fd-div');x.textContent=e.t;}
     else if(e.k==='card'){x=el('div','fd-card'+(e.tone?' tone-'+e.tone:''));const h=el('h5');h.textContent=e.t;x.appendChild(h);(e.rows||[]).forEach(r=>{const q=el('p');q.textContent=r;x.appendChild(q);});}
     else if(e.k==='off')x=r2VoxOff(e);
+    else if(e.k==='hail')x=r2HailCard(e);
     else{x=el('p','fd-sys'+(e.bad?' bad':''));const t=el('time');t.textContent=tm(e.m);const sp=el('span');sp.textContent=e.t;x.appendChild(t);x.appendChild(sp);}
     st.appendChild(x);n++;
   });
