@@ -25,7 +25,7 @@ function spFit(dt){
   if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
   else{
     const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
-    pts.push(spShipPos());if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
+    pts.push(spShipPos());{const tr=R.trail||[],o=R.origin||[0,0,0];if(tr.length>1){const t=tr[tr.length-2];pts.push([t[0]-o[0],t[1]-o[1],t[2]-o[2]]);}}if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
     const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
     ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
     if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}

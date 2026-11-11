@@ -488,8 +488,8 @@ function r2DestCards(host){
   const row=el('div','dc-row');
   list.forEach(({c,i},n)=>{
     const d=distTo('c'+i),eta=d/Math.max(.001,r2V(w)),cost=r2FoldCost(c,w),short=R.ship.lumite+1e-9<cost,hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');
-    const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':''));b.type='button';
-    const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=(r2CardTags(c)[0]||'').split('.')[0];
+    const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':'')+(c.old?' old':''));b.type='button';
+    const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=c.old?'BEHIND YOU · DOUBLING BACK COSTS MORE':(r2CardTags(c)[0]||'').split('.')[0];
     b.innerHTML='<i></i><b></b><span></span><small></small>';
     b.querySelector('i').textContent=n+1;b.querySelector('b').textContent=nm;
     b.querySelector('span').textContent=fmt(d)+' LY · '+fmtEta(eta)+' · '+cost+' LUM';

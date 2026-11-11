@@ -100,6 +100,17 @@ function r2Space(c){
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
+  /* the sector so far (navigation pass): the route flown, places visited and places passed by, and the Rearguard behind you */
+  {const o=R.origin||[0,0,0],toL=w=>[w[0]-o[0],w[1]-o[1],w[2]-o[2]],tr=(R.trail||[]).map(toL);
+   for(let i=1;i<tr.length;i++){const a=P(tr[i-1]),b=P(tr[i]);const n=Math.max(2,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/3));for(let j=0;j<=n;j+=1){if(j%2)continue;const u=j/n;x.fillStyle='rgba(255,205,117,.6)';x.fillRect(Math.round(a[0]+(b[0]-a[0])*u),Math.round(a[1]+(b[1]-a[1])*u),1,1);}}
+   tr.forEach((t,i)=>{if(!i)return;const q=P(t);x.fillStyle='rgba(255,205,117,.55)';x.fillRect(Math.round(q[0])-1,Math.round(q[1])-1,3,3);});
+   (R.world||[]).forEach(nd=>{const l=toL(nd.w),q=P(l);if(q[0]<-20||q[1]<-20||q[0]>LW+20||q[1]>LH+20)return;const vis=nd.state==='visited';
+     x.globalAlpha=vis?.45:.6;saIcon(x,SCA_ICON[nd.type]||SCA_ICON.wreck,Math.round(q[0]),Math.round(q[1]),vis?'rgb(120,130,150)':'rgb('+saRGB(nd.id?(SP_TCOL[nd.type]||'orange'):'lav').join(',')+')',vis?'#c0c8d8':'#ffffff');x.globalAlpha=1;
+     if(vis){x.fillStyle='rgba(255,205,117,.7)';x.fillRect(Math.round(q[0])+5,Math.round(q[1])-6,2,2);}});
+   /* the Rearguard, drawn behind you: the closer threat gets to the next intercept mark, the closer it sits */
+   if(!R.intercept&&R.phase!=='fight'&&!R.over){const mk=RM.MARKS?RM.MARKS:[25,50,75],nx=mk.find((m,i)=>i>=(R.marks||0)&&m>R.threat),gap=nx!=null?nx-R.threat:Math.max(0,100-R.threat),dd=clamp(gap/25*8,.8,9),sp=spShipPos(),pv=tr.length>1?tr[tr.length-2]:null,bk=pv?spUnit([sp[0]-pv[0],sp[1]-pv[1],sp[2]-pv[2]]):null,gd=bk&&isFinite(bk[0])&&Math.hypot(sp[0]-pv[0],sp[1]-pv[1])>.3?bk:(R.gateDir||[1,0,0]),rp=[sp[0]-gd[0]*dd,sp[1]-gd[1]*dd,sp[2]-gd[2]*dd+.6],q=P(rp);
+     const blink=Math.floor(now/500)%2;x.fillStyle=blink?'#f0506e':'#b13e53';x.fillRect(Math.round(q[0])-2,Math.round(q[1])-1,5,3);x.fillRect(Math.round(q[0])-1,Math.round(q[1])-2,3,5);
+     SCA.rg={x:q[0],y:q[1],t:'REARGUARD · '+fmt(dd)+' LY'+(nx!=null?' · INTERCEPT AT '+nx+'%':'')};}else SCA.rg=null;}
   const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)&&(!S.engaged||o.ix===dest)):[],labels=[];
   list.sort((a,b)=>P(a.cc.p)[2]-P(b.cc.p)[2]).forEach(({cc,ix})=>{
     const q=P(cc.p),B=P([cc.p[0],cc.p[1],0]),col='rgb('+saRGB(cc.id?(SP_TCOL[cc.type]||'orange'):'lav').join(',')+')';
@@ -150,6 +161,7 @@ function r2Space(c){
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
   X.font=cfont(10*d);X.fillStyle='rgba('+peri+',.6)';rings.forEach(r=>{const rx=r.x*k,ry=r.y*k;if(rx>8*d&&rx<W-30*d&&ry>8*d&&ry<H-24*d)X.fillText(r.t,rx+3*d,ry);});X.font=cfont(13*d,1);
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
+  if(SCA.rg)lab(SCA.rg.x,SCA.rg.y,SCA.rg.t,'rgb('+spHex('salmon')+')');
   lab(O[0]-14,O[1]+Math.max(16,H*.06/k),'PATHFINDER','rgb('+spHex('peach')+')');
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const g=P(R.gateDir.map(q=>q*9));lab(g[0],g[1],'GATE BEARING','rgb('+spHex('yellow')+')');}
   X.fillStyle='rgba(0,0,0,.10)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);

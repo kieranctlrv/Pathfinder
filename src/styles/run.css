@@ -392,3 +392,4 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .hm-route i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,205,117,.25),var(--orange))}
 .hm-route b{position:absolute;top:-4px;width:6px;height:18px;margin-left:-3px;background:var(--chalk);box-shadow:0 0 0 2px var(--bg)}
 #hm-ff.on{box-shadow:inset 0 0 0 3px #fff}
+.dc.old{box-shadow:inset 4px 0 0 var(--lav);opacity:.85}

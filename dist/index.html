@@ -1166,6 +1166,7 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .hm-route i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,205,117,.25),var(--orange))}
 .hm-route b{position:absolute;top:-4px;width:6px;height:18px;margin-left:-3px;background:var(--chalk);box-shadow:0 0 0 2px var(--bg)}
 #hm-ff.on{box-shadow:inset 0 0 0 3px #fff}
+.dc.old{box-shadow:inset 4px 0 0 var(--lav);opacity:.85}
 /* 16x16 pixel sprites (Sweetie-16), drawn by scratchpad mkicons.py */
 .pxi{display:inline-block;width:32px;height:32px;flex:none;background:center/100% 100% no-repeat;image-rendering:pixelated;vertical-align:middle}
 .pxi.i-hull{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAuklEQVR4XmNkgAIpGZ3/MDYx4NmTK4wgdWACpPnWjRMMC/acI0YvGLTlZIENYYLpAGlOcDHCawBM/tCeI3B1cANAgJALsMmzYLMS2QZkYOdig6EcwwCQZmwKcRmK4gVyAIYLQLbjsg0bwBoG2LyAC4C9AIpPULwSA0CuO7JhGTwhYYQBobSADsApEQZAKbJqyjScDkG3HQRQDAABbIbAAhXZ6TCAYQCyIcixgU0zVhcgewfZL7DcR3UAABiOUlkdipXhAAAAAElFTkSuQmCC)}
@@ -2338,7 +2339,7 @@ const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
 const GUARDIANS = { 1: 'raider', 2: 'lancer', 3: 'ironclad', 4: 'screenship', 5: 'kael' };
 /* ---- difficulty (step 7b): one curve and one dial. Enemies grow a little each passage; roles set how hard a fight is meant to be;
    traits change how a fight plays, by progress, not by luck. DIFFICULTY.dial scales everything (1 = standard) ---- */
-const DIFFICULTY = { dial: 1.05, hpPerPassage: 0.008, dmgPerPassage: 0.012,
+const DIFFICULTY = { dial: 1.1, hpPerPassage: 0.008, dmgPerPassage: 0.012,
   role: { contact: { hp: 1, dmg: 1 }, intercept: { hp: 1, dmg: 1 }, guardian: { hp: 1.2, dmg: 1.05 } },
   traitsAt: [[0, 0], [8, 1], [22, 2]],   /* [passages travelled, traits] for contacts and intercepts */
   guardianTraits: { 1: ['armoured'], 2: ['marksman'], 3: ['marksman'], 4: ['heavy', 'menders'], 5: [] },
@@ -2435,6 +2436,7 @@ function newRun(opts) {
   const seed = String(opts.seed || 'PATHFINDER').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'PATHFINDER';
   const R = { v: VERSION, charter: 'hunt', seed, rng: hashStr(seed + ':run2') || 1, secs: 0, shipMin: 0, pendPower: null, sector: 1, passage: 0, threat: 0, marks: 0,
     ship: C.newShip(), officers: C.newOfficers(), power: { propulsion: 25, shields: 25, sensors: 25, weapons: 25 },
+    origin: [0, 0, 0], pos: [0, 0, 0], trail: [[0, 0, 0]], world: [],
     phase: 'choose', cards: [], cur: null, fight: null, offers: null, event: null, over: null, why: '', score: 0, traces: 0,
     stats: { fights: 0, won: 0, folds: 0, hunts: 0, partsFound: 0, fled: 0, dataEarned: 0 }, data: 0, flags: {}, log: [] };
   if (opts.crew) applyCrew(R, opts.crew);
@@ -2461,8 +2463,27 @@ function applyCrew(R, crew) {
   (crew.vets || []).forEach(v => { const o = R.officers[v.d]; if (!o) return; const lv = Math.max(o.level, Math.min(2, v.level || 1)); R.officers[v.d] = { level: lv, xp: lv ? C.XP_LEVELS[lv - 1] : 0, alive: true, nm: v.nm, vet: true }; });
   log(R, 'crew', { vets: (crew.vets || []).map(v => v.nm) });
 }
+/* the sector is one persistent space (navigation pass): places you visited or passed stay on the map, and the ones you skipped
+   stay reachable as long as they are within CARRY_RANGE, so you can double back (it costs lumite and time) */
+const CARRY_RANGE = 11, CARRY_MAX = 2, BACK_COST = 1.25, BACK_THREAT = 3;   /* doubling back costs a little more lumite and time */
+function archive(R) {
+  const o = R.origin || [0, 0, 0], pos = R.pos || o, keep = [];
+  R.world = R.world || [];
+  (R.cards || []).forEach(c => {
+    if (!c.p || !c.found) return;
+    const w = [o[0] + c.p[0], o[1] + c.p[1], o[2] + c.p[2]].map(x => Math.round(x * 100) / 100);
+    const dd = Math.hypot(w[0] - pos[0], w[1] - pos[1], w[2] - pos[2]);
+    if (!c.visited && c.type !== 'gate' && c.type !== 'guardian' && dd <= CARRY_RANGE) keep.push({ c, w, dd });
+    else R.world.push({ type: c.type, w, id: !!c.id, foe: c.foe, state: c.visited ? 'visited' : 'passed' });
+  });
+  keep.sort((a, b) => a.dd - b.dd);
+  keep.slice(CARRY_MAX).forEach(k => R.world.push({ type: k.c.type, w: k.w, id: !!k.c.id, foe: k.c.foe, state: 'passed' }));
+  R.origin = pos.slice();
+  return keep.slice(0, CARRY_MAX).map(k => { const c = Object.assign({}, k.c); c.p = [k.w[0] - pos[0], k.w[1] - pos[1], k.w[2] - pos[2]].map(x => Math.round(x * 100) / 100); c.d = Math.round(Math.hypot(c.p[0], c.p[1], c.p[2]) * 100) / 100; c.old = true; c.fuel = Math.round(foldCost(R, 1) * Math.max(0.5, Math.min(1.8, c.d / 5)) * BACK_COST * 100) / 100; c.threat = threatCost(R, (c.threat || FOLD_THREAT) + BACK_THREAT); c.crossesMark = wouldCross(R, c.threat); return c; });
+}
 function nextCards(R) {
   R.resume = null;
+  const carried = R.passage > 0 ? archive(R) : [];
   R.passage++;
   if (R.passage > 1) R.partUps = (R.partUps || []).concat(C.partGain(R.ship, null, 1, R.officers));   /* each passage served teaches every fitted part a little */
   if (R.passage > PASSAGES || (R.sector === 5 && R.passage > GUARDIAN)) return;
@@ -2489,6 +2510,7 @@ function nextCards(R) {
   if (R.passage === SHOP_AT) cards.push(mk('shop', { threat: threatCost(R, FOLD_THREAT - 5), fuel: foldCost(R, 1) }));
   cards.forEach(c => { c.crossesMark = c.type !== 'gate' && wouldCross(R, c.threat); });
   placeCards(R, cards); R.emptyScans = 0; R.scanMarks = []; R.hintIx = null;
+  carried.forEach(c => cards.push(c));
   R.cards = cards; R.phase = 'choose'; R.cur = null;
 }
 function wouldCross(R, add) { const t = R.threat + add; return MARKS.some((m, i) => i >= R.marks && t >= m) || t >= 100; }
@@ -2513,6 +2535,7 @@ function fold(R, ix, opts) {
   if (R.ship.lumite + 1e-9 < cost) { if (stat(R, 'hullFold', 0) && !R.flags.hullFold) { R.flags.hullFold = 1; R.ship.hull = Math.max(1, R.ship.hull - 15); log(R, 'hullFold', {}); } else return { ok: false, why: 'not enough lumite' }; }
   else R.ship.lumite = Math.max(0, R.ship.lumite - cost);
   R.flags['fold' + R.sector] = 1; R.stats.folds++;
+  { const o = R.origin || [0, 0, 0]; if (c.p) { R.pos = [o[0] + c.p[0], o[1] + c.p[1], o[2] + c.p[2]].map(x => Math.round(x * 100) / 100); (R.trail || (R.trail = [[0, 0, 0]])).push(R.pos.slice()); } c.visited = true; }
   const hunt = null;
   if (c.type !== 'gate') R.flags['threatFold' + R.sector] = 1;
   R.resume = null;
@@ -2769,6 +2792,7 @@ function leaveGate(R) {
   if (stat(R, 'gateRefill', 0)) R.ship.lumite = stat(R, 'lumiteCap', 10);
   const frac = stat(R, 'gateHullHalf', 0) ? 0.5 : 0; if (frac && R.ship.hull < R.ship.hullMax * frac) R.ship.hull = Math.round(R.ship.hullMax * frac);
   R.sector++; R.passage = 0; R.cur = null; R.gateDir = null; R.flags['threatFold' + R.sector] = 0;
+  R.origin = [0, 0, 0]; R.pos = [0, 0, 0]; R.trail = [[0, 0, 0]]; R.world = [];
   R.threat = Math.max(SECTOR_START * (R.sector - 1), R.threat * SECTOR_CARRY); R.marks = 0; R.intercept = null; R.resume = null;   /* playtest: the gate is a clean break; the Rearguard re-forms behind you and closes faster each sector */
   log(R, 'sector', { sector: R.sector }); emit(R, 'sector.gate', { sector: R.sector }); nextCards(R); return { ok: true, phase: 'choose' };
 }
@@ -2844,6 +2868,7 @@ function meetIntercept(R, resume) {
    Contacts have real positions; a scan reveals what lies inside the cone around the ship's nose, out to reach.
    The ship turns to aim (turning is cheap). Blips first, identified when close or scanned again. */
 const SCAN_HALF = { sweep: 45, focus: 18 }, SCAN_REACH = { sweep: 1, focus: 1.5 }, SCAN_MAX_NEW = 3;
+const LEAN = 0.85;   /* how hard places lean toward the gate (0: anywhere, 2: nearly straight ahead) */
 const BAND = { contact: [3, 9], outpost: [3, 9], shop: [3, 7], wreck: [2, 7], anomaly: [2, 7], trace: [2, 6], guardian: [4, 6], gate: [5, 7] };
 const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
@@ -2856,7 +2881,7 @@ function placeCards(R, cards) {
     let p = null;
     for (let t = 0; t < 60 && !p; t++) {
       const along = c.type === 'gate' || c.type === 'guardian';
-      const dir = along ? unit([gd[0] + (rnd(R) - 0.5) * 0.3, gd[1] + (rnd(R) - 0.5) * 0.3, gd[2]]) : randDir(R, false);
+      const rd = randDir(R, false), dir = along ? unit([gd[0] + (rnd(R) - 0.5) * 0.3, gd[1] + (rnd(R) - 0.5) * 0.3, gd[2]]) : unit([gd[0] * LEAN + rd[0], gd[1] * LEAN + rd[1], gd[2] * LEAN + rd[2]]);   /* a general direction, not a tube */
       const d = i === 0 && !along ? 2.2 + rnd(R) * 2 : b[0] + rnd(R) * (b[1] - b[0]);
       const q = [dir[0] * d, dir[1] * d, dir[2] * d];
       if (placed.some(o => Math.hypot(o[0] - q[0], o[1] - q[1], o[2] - q[2]) < 1.5)) continue;
@@ -8069,8 +8094,8 @@ function r2DestCards(host){
   const row=el('div','dc-row');
   list.forEach(({c,i},n)=>{
     const d=distTo('c'+i),eta=d/Math.max(.001,r2V(w)),cost=r2FoldCost(c,w),short=R.ship.lumite+1e-9<cost,hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');
-    const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':''));b.type='button';
-    const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=(r2CardTags(c)[0]||'').split('.')[0];
+    const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':'')+(c.old?' old':''));b.type='button';
+    const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=c.old?'BEHIND YOU · DOUBLING BACK COSTS MORE':(r2CardTags(c)[0]||'').split('.')[0];
     b.innerHTML='<i></i><b></b><span></span><small></small>';
     b.querySelector('i').textContent=n+1;b.querySelector('b').textContent=nm;
     b.querySelector('span').textContent=fmt(d)+' LY · '+fmtEta(eta)+' · '+cost+' LUM';
@@ -8406,7 +8431,7 @@ function spFit(dt){
   if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
   else{
     const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
-    pts.push(spShipPos());if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
+    pts.push(spShipPos());{const tr=R.trail||[],o=R.origin||[0,0,0];if(tr.length>1){const t=tr[tr.length-2];pts.push([t[0]-o[0],t[1]-o[1],t[2]-o[2]]);}}if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
     const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
     ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
     if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
@@ -8630,6 +8655,17 @@ function r2Space(c){
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
+  /* the sector so far (navigation pass): the route flown, places visited and places passed by, and the Rearguard behind you */
+  {const o=R.origin||[0,0,0],toL=w=>[w[0]-o[0],w[1]-o[1],w[2]-o[2]],tr=(R.trail||[]).map(toL);
+   for(let i=1;i<tr.length;i++){const a=P(tr[i-1]),b=P(tr[i]);const n=Math.max(2,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/3));for(let j=0;j<=n;j+=1){if(j%2)continue;const u=j/n;x.fillStyle='rgba(255,205,117,.6)';x.fillRect(Math.round(a[0]+(b[0]-a[0])*u),Math.round(a[1]+(b[1]-a[1])*u),1,1);}}
+   tr.forEach((t,i)=>{if(!i)return;const q=P(t);x.fillStyle='rgba(255,205,117,.55)';x.fillRect(Math.round(q[0])-1,Math.round(q[1])-1,3,3);});
+   (R.world||[]).forEach(nd=>{const l=toL(nd.w),q=P(l);if(q[0]<-20||q[1]<-20||q[0]>LW+20||q[1]>LH+20)return;const vis=nd.state==='visited';
+     x.globalAlpha=vis?.45:.6;saIcon(x,SCA_ICON[nd.type]||SCA_ICON.wreck,Math.round(q[0]),Math.round(q[1]),vis?'rgb(120,130,150)':'rgb('+saRGB(nd.id?(SP_TCOL[nd.type]||'orange'):'lav').join(',')+')',vis?'#c0c8d8':'#ffffff');x.globalAlpha=1;
+     if(vis){x.fillStyle='rgba(255,205,117,.7)';x.fillRect(Math.round(q[0])+5,Math.round(q[1])-6,2,2);}});
+   /* the Rearguard, drawn behind you: the closer threat gets to the next intercept mark, the closer it sits */
+   if(!R.intercept&&R.phase!=='fight'&&!R.over){const mk=RM.MARKS?RM.MARKS:[25,50,75],nx=mk.find((m,i)=>i>=(R.marks||0)&&m>R.threat),gap=nx!=null?nx-R.threat:Math.max(0,100-R.threat),dd=clamp(gap/25*8,.8,9),sp=spShipPos(),pv=tr.length>1?tr[tr.length-2]:null,bk=pv?spUnit([sp[0]-pv[0],sp[1]-pv[1],sp[2]-pv[2]]):null,gd=bk&&isFinite(bk[0])&&Math.hypot(sp[0]-pv[0],sp[1]-pv[1])>.3?bk:(R.gateDir||[1,0,0]),rp=[sp[0]-gd[0]*dd,sp[1]-gd[1]*dd,sp[2]-gd[2]*dd+.6],q=P(rp);
+     const blink=Math.floor(now/500)%2;x.fillStyle=blink?'#f0506e':'#b13e53';x.fillRect(Math.round(q[0])-2,Math.round(q[1])-1,5,3);x.fillRect(Math.round(q[0])-1,Math.round(q[1])-2,3,5);
+     SCA.rg={x:q[0],y:q[1],t:'REARGUARD · '+fmt(dd)+' LY'+(nx!=null?' · INTERCEPT AT '+nx+'%':'')};}else SCA.rg=null;}
   const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)&&(!S.engaged||o.ix===dest)):[],labels=[];
   list.sort((a,b)=>P(a.cc.p)[2]-P(b.cc.p)[2]).forEach(({cc,ix})=>{
     const q=P(cc.p),B=P([cc.p[0],cc.p[1],0]),col='rgb('+saRGB(cc.id?(SP_TCOL[cc.type]||'orange'):'lav').join(',')+')';
@@ -8680,6 +8716,7 @@ function r2Space(c){
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
   X.font=cfont(10*d);X.fillStyle='rgba('+peri+',.6)';rings.forEach(r=>{const rx=r.x*k,ry=r.y*k;if(rx>8*d&&rx<W-30*d&&ry>8*d&&ry<H-24*d)X.fillText(r.t,rx+3*d,ry);});X.font=cfont(13*d,1);
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
+  if(SCA.rg)lab(SCA.rg.x,SCA.rg.y,SCA.rg.t,'rgb('+spHex('salmon')+')');
   lab(O[0]-14,O[1]+Math.max(16,H*.06/k),'PATHFINDER','rgb('+spHex('peach')+')');
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const g=P(R.gateDir.map(q=>q*9));lab(g[0],g[1],'GATE BEARING','rgb('+spHex('yellow')+')');}
   X.fillStyle='rgba(0,0,0,.10)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);

@@ -19,7 +19,7 @@ const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
 const GUARDIANS = { 1: 'raider', 2: 'lancer', 3: 'ironclad', 4: 'screenship', 5: 'kael' };
 /* ---- difficulty (step 7b): one curve and one dial. Enemies grow a little each passage; roles set how hard a fight is meant to be;
    traits change how a fight plays, by progress, not by luck. DIFFICULTY.dial scales everything (1 = standard) ---- */
-const DIFFICULTY = { dial: 1.05, hpPerPassage: 0.008, dmgPerPassage: 0.012,
+const DIFFICULTY = { dial: 1.1, hpPerPassage: 0.008, dmgPerPassage: 0.012,
   role: { contact: { hp: 1, dmg: 1 }, intercept: { hp: 1, dmg: 1 }, guardian: { hp: 1.2, dmg: 1.05 } },
   traitsAt: [[0, 0], [8, 1], [22, 2]],   /* [passages travelled, traits] for contacts and intercepts */
   guardianTraits: { 1: ['armoured'], 2: ['marksman'], 3: ['marksman'], 4: ['heavy', 'menders'], 5: [] },
@@ -116,6 +116,7 @@ function newRun(opts) {
   const seed = String(opts.seed || 'PATHFINDER').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'PATHFINDER';
   const R = { v: VERSION, charter: 'hunt', seed, rng: hashStr(seed + ':run2') || 1, secs: 0, shipMin: 0, pendPower: null, sector: 1, passage: 0, threat: 0, marks: 0,
     ship: C.newShip(), officers: C.newOfficers(), power: { propulsion: 25, shields: 25, sensors: 25, weapons: 25 },
+    origin: [0, 0, 0], pos: [0, 0, 0], trail: [[0, 0, 0]], world: [],
     phase: 'choose', cards: [], cur: null, fight: null, offers: null, event: null, over: null, why: '', score: 0, traces: 0,
     stats: { fights: 0, won: 0, folds: 0, hunts: 0, partsFound: 0, fled: 0, dataEarned: 0 }, data: 0, flags: {}, log: [] };
   if (opts.crew) applyCrew(R, opts.crew);
@@ -142,8 +143,27 @@ function applyCrew(R, crew) {
   (crew.vets || []).forEach(v => { const o = R.officers[v.d]; if (!o) return; const lv = Math.max(o.level, Math.min(2, v.level || 1)); R.officers[v.d] = { level: lv, xp: lv ? C.XP_LEVELS[lv - 1] : 0, alive: true, nm: v.nm, vet: true }; });
   log(R, 'crew', { vets: (crew.vets || []).map(v => v.nm) });
 }
+/* the sector is one persistent space (navigation pass): places you visited or passed stay on the map, and the ones you skipped
+   stay reachable as long as they are within CARRY_RANGE, so you can double back (it costs lumite and time) */
+const CARRY_RANGE = 11, CARRY_MAX = 2, BACK_COST = 1.25, BACK_THREAT = 3;   /* doubling back costs a little more lumite and time */
+function archive(R) {
+  const o = R.origin || [0, 0, 0], pos = R.pos || o, keep = [];
+  R.world = R.world || [];
+  (R.cards || []).forEach(c => {
+    if (!c.p || !c.found) return;
+    const w = [o[0] + c.p[0], o[1] + c.p[1], o[2] + c.p[2]].map(x => Math.round(x * 100) / 100);
+    const dd = Math.hypot(w[0] - pos[0], w[1] - pos[1], w[2] - pos[2]);
+    if (!c.visited && c.type !== 'gate' && c.type !== 'guardian' && dd <= CARRY_RANGE) keep.push({ c, w, dd });
+    else R.world.push({ type: c.type, w, id: !!c.id, foe: c.foe, state: c.visited ? 'visited' : 'passed' });
+  });
+  keep.sort((a, b) => a.dd - b.dd);
+  keep.slice(CARRY_MAX).forEach(k => R.world.push({ type: k.c.type, w: k.w, id: !!k.c.id, foe: k.c.foe, state: 'passed' }));
+  R.origin = pos.slice();
+  return keep.slice(0, CARRY_MAX).map(k => { const c = Object.assign({}, k.c); c.p = [k.w[0] - pos[0], k.w[1] - pos[1], k.w[2] - pos[2]].map(x => Math.round(x * 100) / 100); c.d = Math.round(Math.hypot(c.p[0], c.p[1], c.p[2]) * 100) / 100; c.old = true; c.fuel = Math.round(foldCost(R, 1) * Math.max(0.5, Math.min(1.8, c.d / 5)) * BACK_COST * 100) / 100; c.threat = threatCost(R, (c.threat || FOLD_THREAT) + BACK_THREAT); c.crossesMark = wouldCross(R, c.threat); return c; });
+}
 function nextCards(R) {
   R.resume = null;
+  const carried = R.passage > 0 ? archive(R) : [];
   R.passage++;
   if (R.passage > 1) R.partUps = (R.partUps || []).concat(C.partGain(R.ship, null, 1, R.officers));   /* each passage served teaches every fitted part a little */
   if (R.passage > PASSAGES || (R.sector === 5 && R.passage > GUARDIAN)) return;
@@ -170,6 +190,7 @@ function nextCards(R) {
   if (R.passage === SHOP_AT) cards.push(mk('shop', { threat: threatCost(R, FOLD_THREAT - 5), fuel: foldCost(R, 1) }));
   cards.forEach(c => { c.crossesMark = c.type !== 'gate' && wouldCross(R, c.threat); });
   placeCards(R, cards); R.emptyScans = 0; R.scanMarks = []; R.hintIx = null;
+  carried.forEach(c => cards.push(c));
   R.cards = cards; R.phase = 'choose'; R.cur = null;
 }
 function wouldCross(R, add) { const t = R.threat + add; return MARKS.some((m, i) => i >= R.marks && t >= m) || t >= 100; }
@@ -194,6 +215,7 @@ function fold(R, ix, opts) {
   if (R.ship.lumite + 1e-9 < cost) { if (stat(R, 'hullFold', 0) && !R.flags.hullFold) { R.flags.hullFold = 1; R.ship.hull = Math.max(1, R.ship.hull - 15); log(R, 'hullFold', {}); } else return { ok: false, why: 'not enough lumite' }; }
   else R.ship.lumite = Math.max(0, R.ship.lumite - cost);
   R.flags['fold' + R.sector] = 1; R.stats.folds++;
+  { const o = R.origin || [0, 0, 0]; if (c.p) { R.pos = [o[0] + c.p[0], o[1] + c.p[1], o[2] + c.p[2]].map(x => Math.round(x * 100) / 100); (R.trail || (R.trail = [[0, 0, 0]])).push(R.pos.slice()); } c.visited = true; }
   const hunt = null;
   if (c.type !== 'gate') R.flags['threatFold' + R.sector] = 1;
   R.resume = null;
@@ -450,6 +472,7 @@ function leaveGate(R) {
   if (stat(R, 'gateRefill', 0)) R.ship.lumite = stat(R, 'lumiteCap', 10);
   const frac = stat(R, 'gateHullHalf', 0) ? 0.5 : 0; if (frac && R.ship.hull < R.ship.hullMax * frac) R.ship.hull = Math.round(R.ship.hullMax * frac);
   R.sector++; R.passage = 0; R.cur = null; R.gateDir = null; R.flags['threatFold' + R.sector] = 0;
+  R.origin = [0, 0, 0]; R.pos = [0, 0, 0]; R.trail = [[0, 0, 0]]; R.world = [];
   R.threat = Math.max(SECTOR_START * (R.sector - 1), R.threat * SECTOR_CARRY); R.marks = 0; R.intercept = null; R.resume = null;   /* playtest: the gate is a clean break; the Rearguard re-forms behind you and closes faster each sector */
   log(R, 'sector', { sector: R.sector }); emit(R, 'sector.gate', { sector: R.sector }); nextCards(R); return { ok: true, phase: 'choose' };
 }
@@ -525,6 +548,7 @@ function meetIntercept(R, resume) {
    Contacts have real positions; a scan reveals what lies inside the cone around the ship's nose, out to reach.
    The ship turns to aim (turning is cheap). Blips first, identified when close or scanned again. */
 const SCAN_HALF = { sweep: 45, focus: 18 }, SCAN_REACH = { sweep: 1, focus: 1.5 }, SCAN_MAX_NEW = 3;
+const LEAN = 0.85;   /* how hard places lean toward the gate (0: anywhere, 2: nearly straight ahead) */
 const BAND = { contact: [3, 9], outpost: [3, 9], shop: [3, 7], wreck: [2, 7], anomaly: [2, 7], trace: [2, 6], guardian: [4, 6], gate: [5, 7] };
 const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 const angDeg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
@@ -537,7 +561,7 @@ function placeCards(R, cards) {
     let p = null;
     for (let t = 0; t < 60 && !p; t++) {
       const along = c.type === 'gate' || c.type === 'guardian';
-      const dir = along ? unit([gd[0] + (rnd(R) - 0.5) * 0.3, gd[1] + (rnd(R) - 0.5) * 0.3, gd[2]]) : randDir(R, false);
+      const rd = randDir(R, false), dir = along ? unit([gd[0] + (rnd(R) - 0.5) * 0.3, gd[1] + (rnd(R) - 0.5) * 0.3, gd[2]]) : unit([gd[0] * LEAN + rd[0], gd[1] * LEAN + rd[1], gd[2] * LEAN + rd[2]]);   /* a general direction, not a tube */
       const d = i === 0 && !along ? 2.2 + rnd(R) * 2 : b[0] + rnd(R) * (b[1] - b[0]);
       const q = [dir[0] * d, dir[1] * d, dir[2] * d];
       if (placed.some(o => Math.hypot(o[0] - q[0], o[1] - q[1], o[2] - q[2]) < 1.5)) continue;
