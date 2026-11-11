@@ -393,3 +393,6 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .hm-route b{position:absolute;top:-4px;width:6px;height:18px;margin-left:-3px;background:var(--chalk);box-shadow:0 0 0 2px var(--bg)}
 #hm-ff.on{box-shadow:inset 0 0 0 3px #fff}
 .dc.old{box-shadow:inset 4px 0 0 var(--lav);opacity:.85}
+/* the stage keeps its 16:9 drawing in proportion inside any stage shape */
+.r2-stage{container-type:size}
+.r2-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100cqw,calc(100cqh * 16 / 9));height:min(100cqh,calc(100cqw * 9 / 16))}

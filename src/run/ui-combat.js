@@ -314,6 +314,8 @@ function r2Stage(host,f,v,opt){
   // clicks: weapon nodes pick a weapon, arcs pick a brace, the stage skips a playing round
   if(!R2.busy&&!v.over)wrap.querySelectorAll('.r2-ah').forEach(a=>a.addEventListener('click',e=>{e.stopPropagation();r2Snd('tap');r2Pick({type:'brace',arc:a.dataset.arc});}));
   if(R2.busy)wrap.addEventListener('click',r2Skip);
+  /* the ships, rings and overlays live in a 16:9 box centred in the stage, so they stay in proportion however wide or short the stage is */
+  {const box=el('div','r2-box');[...wrap.childNodes].forEach(n=>{if(!(n.classList&&n.classList.contains('cf-bg')))box.appendChild(n);});wrap.appendChild(box);}
   host.appendChild(wrap);
   // shield arc fill from the display values
   const svg=wrap.querySelector('svg');

@@ -79,8 +79,8 @@ function spInstall(c){
 function spCam(){
   const box=$('.p-map .hero-map');if(!box)return;let c=$('#hm-cam',box);
   if(!c){c=el('div','hm-cam');c.id='hm-cam';box.appendChild(c);}
-  const key=[SP.drag,SP.cone,$('#hmap')&&!$('#hmap').hidden].join('|');if(c.dataset.k===key)return;c.dataset.k=key;c.innerHTML='';
-  c.hidden=!($('#hmap')&&!$('#hmap').hidden);
+  const show=$('#hmap')&&!$('#hmap').hidden&&!(R2.R&&R2.R.phase==='fight'),key=[SP.drag,SP.cone,show].join('|');if(c.dataset.k===key)return;c.dataset.k=key;c.innerHTML='';
+  c.hidden=!show;
   const b=(t,tip,on,fn)=>{const x=el('button','hc-b'+(on?' on':''));x.type='button';x.textContent=t;x.title=tip;x.setAttribute('aria-label',tip);x.addEventListener('click',e=>{e.stopPropagation();SND.tap();fn();c.dataset.k='';spCam();});c.appendChild(x);};
   b(SP.drag==='cam'?'DRAG: CAM':'DRAG: HELM','Dragging turns the camera, or steers the ship',SP.drag!=='cam',()=>{SP.drag=SP.drag==='cam'?'helm':'cam';});
   b('ALIGN','Point the ship where the camera looks',false,spAlign);
