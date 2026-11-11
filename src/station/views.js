@@ -10,7 +10,7 @@ function go(name){
   $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.go===name));
   const home=$('#home'),view=$('#view');
   if(name==='home'){home.hidden=false;view.hidden=true;view.innerHTML='';}
-  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c','hl');
+  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c','hl','sc');
     if(name==='comms'){S.unread=0;updateBadge();}
     VIEWS[name](view);}
   refreshHome();

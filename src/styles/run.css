@@ -422,3 +422,14 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 #hl-dest .dc-row{grid-template-columns:1fr}
 @media (max-width:1000px){#view.hl{grid-template-columns:1fr!important}#view.hl .hl-route .pb{height:60vh;min-height:280px}}
 #view.hl .hl-plan{max-height:calc(100vh - 110px);display:flex;flex-direction:column}#view.hl .hl-plan .pb{overflow-y:auto;min-height:0;scrollbar-width:thin}
+
+/* ---- Science in a Run: the scan bay ---- */
+#view.sc{grid-template-columns:minmax(0,1fr) minmax(300px,380px)!important}
+#view.sc .sc-rec .pb{position:relative;min-height:420px;height:calc(100vh - 150px)}
+#view.sc .sc-side{max-height:calc(100vh - 110px);display:flex;flex-direction:column}#view.sc .sc-side .pb{overflow-y:auto;min-height:0;scrollbar-width:thin;gap:10px}
+.sc-card{padding:6px 8px;background:var(--panel2,#333c57);box-shadow:inset 4px 0 0 var(--blue)}
+.sc-card.hostile{box-shadow:inset 4px 0 0 var(--salmon)}.sc-card.un{box-shadow:inset 4px 0 0 var(--lav)}
+.sc-card b{font-weight:400;color:var(--chalk);margin-right:8px}.sc-card span{color:var(--blue)}
+.sc-card p{margin:3px 0 0;color:var(--lav);font-size:calc(13px*var(--ts,1))}
+.sc-card .sc-dos{margin-top:4px;font-size:calc(13px*var(--ts,1))}
+@media (max-width:1000px){#view.sc{grid-template-columns:1fr!important}#view.sc .sc-rec .pb{height:50vh;min-height:260px}}

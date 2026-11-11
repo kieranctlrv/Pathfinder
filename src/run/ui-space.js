@@ -111,6 +111,7 @@ function r2DoScan(){
     while(a.shown<due){const h=a.hits[a.shown++],c=R.cards[h.ix];rows.push((h.identified?'IDENTIFIED: ':'')+(c.id?r2NodeName(c,h.ix,R.cards):spBlipName(c))+', '+fmt(c.d)+' LY');try{r2Snd('tap');}catch(_){}}
     if(el<800+a.hits.length*350+250){requestAnimationFrame(tick);return;}
     SP.anim=null;
+    r2ScanRec({dir:R.nose.slice(),mode:r.mode,hits:r.hits.map(h=>h.ix),empty:!!r.empty,gate:!!r.gateReading});   /* the science bay's scan record */
     const title=(r.mode==='focus'?'FOCUS':'SWEEP')+' SCAN, '+r.scanMin+' MINUTES';
     if(r.empty){R.scanMarks=(R.scanMarks||[]).concat([R.nose.map(q=>q*r.reach)]);r2VoxCard(title,['NOTHING FOUND AHEAD.'],'');}
     else r2VoxCard(title,rows,'');

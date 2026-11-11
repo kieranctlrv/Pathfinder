@@ -478,7 +478,7 @@ function r2Passive(dt){
   const R=R2.R;R2.pvT=(R2.pvT||0)+dt;if(R2.pvT<.8)return;R2.pvT=0;
   const sp=spShipPos(),reach=Math.max(1.5,RM.scanReach(R,'sweep')*.35);
   R.cards.forEach((c,i)=>{if(!c.p||c.found)return;const d=Math.hypot(c.p[0]-sp[0],c.p[1]-sp[1],c.p[2]-sp[2]);if(d>reach)return;
-    c.found=true;r2Vox({k:'sys',t:'PASSING: '+spBlipName(c)+', '+fmt(Math.hypot(c.p[0],c.p[1],c.p[2]))+' LY FROM THE START. PICKED UP ON THE WAY.'});r2Snd('scan');});
+    c.found=true;r2ScanRec({passive:1,hits:[i]});r2Vox({k:'sys',t:'PASSING: '+spBlipName(c)+', '+fmt(Math.hypot(c.p[0],c.p[1],c.p[2]))+' LY FROM THE START. PICKED UP ON THE WAY.'});r2Snd('scan');});
 }
 document.addEventListener('keydown',e=>{if((e.key==='f'||e.key==='F')&&!e.repeat&&R2.live&&S.engaged){const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;R2.ff=true;}});
 document.addEventListener('keyup',e=>{if(e.key==='f'||e.key==='F')R2.ff=false;});

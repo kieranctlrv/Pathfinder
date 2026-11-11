@@ -167,21 +167,7 @@ function r2HelmCard(root){
   card.innerHTML='';card.appendChild(Object.assign(el('p','r2fold-st'),{textContent:status}));
   const d=el('dl','kv');rows.forEach(r=>{d.appendChild(Object.assign(el('dt'),{textContent:r[0]}));const dd=el('dd');dd.textContent=r[1];if(/NOT ENOUGH/.test(r[1]))dd.className='bad';d.appendChild(dd);});card.appendChild(d);
 }
-R2V.science=root=>{
-  const R=R2.R,pf=r2Pseudo();
-  root.innerHTML='<section class="panel" style="--pc:var(--peach)"><div class="ph"><h3>SENSOR ARRAY</h3></div><div class="pb"><canvas id="radar" class="fill"></canvas></div></section>';
-  const p=r2P('SCIENCE: ROUTE INTEL','blue'),b=r2Body(p);
-  b.appendChild(r2KV([['SENSOR POWER',R.power.sensors+' / '+Math.floor(RC.ceiling(pf,'sensors'))],['FOE TYPE INTEL',r2Stat('huntIntelType',0)>0?'ON':'OFF (NEEDS A SENSOR PART)'],['WEAK SIDE INTEL',r2Stat('huntIntelSide',0)>0?'ON':'OFF (NEEDS A SENSOR PART)'],['SCAN DURATION',(r2Stat('scanTurns',2)+(R.power.sensors>=30?1:0))+' TURNS']]));
-  b.appendChild(Object.assign(el('h4'),{textContent:R.phase==='choose'?'PASSAGES AHEAD':'AT THIS SITE'}));
-  if(R.phase==='choose'&&!R.over){
-    R.cards.forEach((c,i)=>{
-      const d=el('div','mcard on'),h=el('h5');h.textContent=r2NodeName(c,i,R.cards)+': '+(Math.round(c.fuel*100)/100)+' LUMITE';d.appendChild(h);
-      r2CardTags(c).forEach(t=>{const q=el('p');q.textContent=t;d.appendChild(q);});b.appendChild(d);
-    });
-  }else b.appendChild(r2Note(r2PhaseText()));
-  b.appendChild(r2Note('RAISE SENSOR POWER IN ENGINEERING. SENSOR PARTS SHOW WHAT WAITS ON EACH PASSAGE BEFORE YOU FOLD.'));
-  root.appendChild(p);
-};
+R2V.science=root=>r2SciView(root);   /* the scan bay lives in ui-science.js */
 function r2PowerSet(ch,v){
   const R=R2.R,pf=r2Pseudo(),cap=c=>Math.floor(RC.ceiling(pf,c));
   v=clamp(Math.round(v),0,cap(ch));
