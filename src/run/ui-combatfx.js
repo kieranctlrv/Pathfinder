@@ -30,7 +30,7 @@ function cfStart(key,f,v,D,fx,ep,fsz,wn){
   if(fx.beam==='you'&&fx.slot){
     const wi=['sec.w1','sec.w2','sec.w3','sec.w4'].indexOf(fx.slot),a=wn[Math.max(0,wi)],shield=!!(fx.d&&fx.d.es),hull=!!(fx.d&&fx.d.eh);
     const aim=[E[0]-30*fsz+(Math.random()*24-12)*fsz,E[1]+(Math.random()*20-10)*fsz];
-    if(fx.kin)ev.items.push({k:'torp',from:a,to:aim,t:0,dur:.55,miss:!!fx.miss,shield,hull,kill:killing});
+    if(fx.kin)ev.items.push({k:'torp',from:a,to:aim,t:0,dur:.6,miss:!!fx.miss,shield,hull,kill:killing});
     else for(let i=0;i<3;i++)ev.items.push({k:'bolt',from:a,to:[aim[0]+(i-1)*9,aim[1]+(i-1)*7],t:i*.08,dur:.26,miss:!!fx.miss,shield,hull:hull&&i===2,kill:killing&&i===2});
   }
   if(fx.beam==='foe'&&fx.arc){
@@ -90,7 +90,10 @@ function cfDraw(now){
       }else if(it.k==='torp'){
         const tt=it.miss?Math.min(1.5,lt/it.dur):p,cx=(A[0]+Bt[0])/2,cy=Math.min(A[1],Bt[1])-22,
           q=u=>[(1-u)*(1-u)*A[0]+2*(1-u)*u*cx+u*u*Bt[0],(1-u)*(1-u)*A[1]+2*(1-u)*u*cy+u*u*Bt[1]],h=q(tt),h2=q(Math.max(0,tt-.04));
-        if(tt<1||it.miss&&tt<1.5){cfSmoke([h2[0]*CF_U,h2[1]*CF_U]);x.fillStyle='#ffcd75';x.fillRect(Math.round(h2[0])-1,Math.round(h2[1]),3,2);x.fillStyle='#f4f4f4';x.fillRect(Math.round(h[0])-2,Math.round(h[1])-1,5,3);x.fillStyle='#b13e53';x.fillRect(Math.round(h[0])+2,Math.round(h[1])-1,2,3);}
+        if(tt<1||it.miss&&tt<1.5){cfSmoke([h2[0]*CF_U,h2[1]*CF_U]);cfSmoke([h2[0]*CF_U-4,h2[1]*CF_U+2]);const ang=Math.atan2(h[1]-h2[1],h[0]-h2[0]),ux=Math.cos(ang),uy=Math.sin(ang),hx=Math.round(h[0]),hy=Math.round(h[1]),fl=Math.random()<.5;
+          for(let i=0;i<9;i++){const px=Math.round(hx-ux*(5+i)),py=Math.round(hy-uy*(5+i));x.fillStyle=i<2?'#fff1c2':i<5?(fl?'#ffcd75':'#ef7d57'):'#b13e53';const th=i<3?3:i<6?2:1;x.fillRect(px-(th>>1),py-(th>>1),th,th);}
+          for(let i=-5;i<=4;i++){const px=Math.round(hx+ux*i),py=Math.round(hy+uy*i);x.fillStyle=i>2?'#b13e53':'#f4f4f4';x.fillRect(px-1,py-1,3,3);x.fillStyle=i>2?'#ef7d57':'#94b0c2';x.fillRect(px,py+1,1,1);}
+          x.fillStyle='rgba(255,205,117,.3)';x.fillRect(hx-6,hy-1,13,3);x.fillRect(hx-1,hy-6,3,13);}
         if(p>=1&&!it.done){it.done=true;cfLand(it,it.to,ev.fsz);}
       }else if(it.k==='shell'){
         if(lt<.08){x.fillStyle='#ffcd75';x.fillRect(Math.round(A[0])-2,Math.round(A[1])-2,5,5);x.fillStyle='#fff1c2';x.fillRect(Math.round(A[0])-1,Math.round(A[1])-1,3,3);}

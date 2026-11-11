@@ -4,8 +4,8 @@ function r2Fx(e,f){
   const cap=RC.ARC_CAP*RC.stat(f,'screenCap',1);
   switch(e.t){
     case 'first':return {banner:e.who==='you'?'YOU MOVE FIRST':'THEY MOVE FIRST',who:e.who,ms:650};
-    case 'hit':return {beam:'you',slot:e.slot,kin:!!e.kin,hitFoe:1,at:'foe',n:[a(e.screen,'SCREEN'),a(e.hull,'HULL')].filter(Boolean).concat(e.screen||e.hull?[]:['NO EFFECT']),d:{eh:e.hull,es:e.screen},ms:850};
-    case 'miss':return {beam:'you',slot:e.slot,miss:1,at:'foe',n:['MISS'],ms:750};
+    case 'hit':return {beam:'you',slot:e.slot,kin:!!e.kin,hitFoe:1,flashAt:e.kin?.6:.26,at:'foe',n:[a(e.screen,'SCREEN'),a(e.hull,'HULL')].filter(Boolean).concat(e.screen||e.hull?[]:['NO EFFECT']),d:{eh:e.hull,es:e.screen},ms:e.kin?1150:850};
+    case 'miss':return {beam:'you',slot:e.slot,kin:!!e.kin,miss:1,at:'foe',n:['MISS'],ms:e.kin?1000:750};
     case 'enemy':return e.atk?{beam:'foe',arc:e.arc,kin:/broadside/.test(e.atk),ms:700}:null;
     case 'hitTaken':return {arc:e.arc,glow:1,hitYou:1,at:'arc',n:[a(e.screen,r2U(e.arc)),a(e.hull,'HULL')].filter(Boolean),d:{ph:e.hull,arc:e.arc,ap:e.screen/cap*100},ms:850};
     case 'dodge':return {at:'you',n:['EVADED'],ms:600};
@@ -14,7 +14,7 @@ function r2Fx(e,f){
     case 'brace':return {arc:e.arc,call:'BRACING '+r2U(e.arc)+' · -'+Math.round(RC.view(f).braceCut)+'% ON THAT ARC',ms:650};
     case 'braced':return {arc:e.arc,at:'arc',n:['BRACED'],ms:500};
     case 'weakPoint':return {call:'SCI · WEAK POINT: '+r2U(e.part)};
-    case 'screenBreak':return {call:'ENEMY SCREEN DOWN',hitFoe:1};
+    case 'screenBreak':return {call:'ENEMY SCREEN DOWN'};
     case 'negated':return {call:'BREAK NEGATED'};
     case 'volleyCancelled':return {call:'ENEMY VOLLEY CANCELLED'};
     case 'partSurvived':return {call:'A PART SURVIVED THE HIT'};
@@ -273,7 +273,7 @@ function r2Stage(host,f,v,opt){
   // effects for the step being shown
   if(fx){let g='';
     /* shots, beams and impacts are drawn by the pixel effects layer (ui-combatfx.js); numbers land with the shot */
-    const nd=fx.beam==='you'?(fx.kin?.5:.22):0;
+    const nd=fx.beam==='you'?(fx.kin?.6:.26):0;
     const base=fx.at==='foe'?[ep[0],ep[1]-86*fsz]:fx.at==='arc'&&fx.arc?(()=>{const t=r2Pt(R2_ARCANG[fx.arc],rx+30,ry+30);return [t[0],t[1]-10];})():[cx,cy-ry-40];
     (fx.n||[]).forEach((t,i)=>{g+='<text class="r2-fl'+(/HULL/.test(t)?' hull':/MISS|EVADED|NO EFFECT/.test(t)?' miss':/BRACE/.test(t)?' br':'')+'" x="'+P(base[0])+'" y="'+P(base[1]-i*40)+'" text-anchor="middle" style="animation-delay:'+nd+'s">'+t+'</text>';});
     fxg=g+fxg;
@@ -286,7 +286,8 @@ function r2Stage(host,f,v,opt){
   const pfW=380;
   const pf=el('canvas','r2-art r2-pf'+(fx&&fx.hitYou?' r2-flash':'')+(R2.busy&&fx&&fx.beam==='you'?' r2-act':''));pf.dataset.art='pf';
   pf.style.left=pct(cx-pfW/2,S0.W);pf.style.top=pct(cy-pfW*80/128/2,S0.H);pf.style.width=pct(pfW,S0.W);wrap.appendChild(pf);
-  if(alive){const fw=270*fsz,fe=el('canvas','r2-art r2-foe'+(fx&&fx.hitFoe?' r2-flash':'')+(R2.busy&&fx&&fx.beam==='foe'?' r2-act':''));fe.dataset.art=f.enemyId;
+  if(alive){const fw=270*fsz,fe=el('canvas','r2-art r2-foe'+(fx&&fx.hitFoe&&!fx.miss?' r2-flash':'')+(R2.busy&&fx&&fx.beam==='foe'?' r2-act':''));fe.dataset.art=f.enemyId;
+    if(fx&&fx.flashAt)fe.style.animationDelay=fx.flashAt+'s';
     fe.style.left=pct(ep[0]-fw/2,S0.W);fe.style.top=pct(ep[1]-fw*80/128/2,S0.H);fe.style.width=pct(fw,S0.W);wrap.appendChild(fe);
     const was=R2.foeAt&&R2.foeAt.f===f.seed?R2.foeAt.r:null;
     if(was&&was!==D.range&&!REDUCED&&fe.animate){const o=r2FoePos(was);try{fe.animate([{left:pct(o[0]-fw/2,S0.W),top:pct(o[1]-fw*80/128/2,S0.H)},{left:fe.style.left,top:fe.style.top}],{duration:650,easing:'cubic-bezier(.3,.7,.3,1)'});}catch(e){}}

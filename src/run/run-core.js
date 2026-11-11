@@ -288,7 +288,7 @@ function resolveShot(f, sl, shotIx, evs) {
   const sure = first && stat(f, 'firstShotSure', 0) > 0;
   const hit = sure || luck(f, 'you:' + sl, hitChance(f, sl, kin));
   f.shotsFired++; addXp(f, 'security', 1);
-  if (!hit) { evs.push(log(f, 'miss', { slot: sl })); if (kin && wstat(f, sl, 'w.refundMiss', 0)) f.ship.torpedoes += torpCost(f, sl) / (wstat(f, sl, 'w.shots', 1)); return false; }
+  if (!hit) { evs.push(log(f, 'miss', { slot: sl, kin })); if (kin && wstat(f, sl, 'w.refundMiss', 0)) f.ship.torpedoes += torpCost(f, sl) / (wstat(f, sl, 'w.shots', 1)); return false; }
   let raw = wstat(f, sl, 'w.dmg', 0) * weaponPowerMul(f) * stat(f, 'dmgAll', 1);
   raw *= rangeMod(f, sl, kin);
   if (!kin && w.held > 0 && wstat(f, sl, 'w.held', 0)) { raw *= 1 + wstat(f, sl, 'w.held', 0) / 100; evs.push(log(f, 'held', { slot: sl })); }
