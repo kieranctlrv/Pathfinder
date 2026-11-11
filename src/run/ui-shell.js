@@ -523,7 +523,7 @@ function r2PlanExtras(c,ix,w){
 function r2ArriveCard(word,sub,tone){
   /* playtest: not full screen; a green flash with the words inside the map and viewer square (Home, or Helm's map), else in the top strip */
   /* on the viewer, let the drop out of the fold play first */
-  if(!r2ArriveCard.now&&!REDUCED&&tone!=='red'){const hs=$('#hstars');if(hs&&!hs.hidden&&hs.offsetParent){setTimeout(()=>{r2ArriveCard.now=1;try{r2ArriveCard(word,sub,tone);}finally{r2ArriveCard.now=0;}},350);return;}}
+  if(!r2ArriveCard.now&&!REDUCED&&tone!=='red'){const hs=['#hstars','#view #stars'].map(q=>$(q)).find(c=>c&&!c.hidden&&c.offsetParent);if(hs){setTimeout(()=>{r2ArriveCard.now=1;try{r2ArriveCard(word,sub,tone);}finally{r2ArriveCard.now=0;}},350);return;}}
   const old=$('#arrive');if(old)old.remove();
   const cv=['#hmap','#hstars','#view #stars'].map(q=>$(q)).find(c=>c&&!c.hidden&&c.offsetParent),host=cv?cv.parentElement:$('#topbar');
   const a=el('div','arrive'+(cv?'':' strip'));a.id='arrive';a.setAttribute('role','status');

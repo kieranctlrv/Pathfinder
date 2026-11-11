@@ -404,7 +404,7 @@ function frame(ts){
   acc.wf+=dt;if(acc.wf>.05){drawWF(ts/1000);acc.wf=0;}
   acc.sa+=dt;if(acc.sa>.05){drawSA(ts/1000);acc.sa=0;}
   acc.vu+=dt;if(acc.vu>.14){vuTick(ts);acc.vu=0;}
-  if(curView==='helm'){if(R2.live)r2HelmDraw(dt);else if(S.helmMode==='map')drawMap($('#smap'));else drawStars(dt);}
+  if(curView==='helm'){if(S.helmMode==='map')drawMap($('#smap'));else drawStars(dt);}
   else if(curView==='science')drawRadar(dt);
   else if(curView==='home'&&curLayout!=='combat'){if(S.homeView==='view')drawStars(dt,$('#hstars'));else drawMap($('#hmap'));}
   try{drawCombatFx(dt);}catch(e){}

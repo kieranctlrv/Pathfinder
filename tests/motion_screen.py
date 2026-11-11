@@ -21,7 +21,7 @@ with sync_playwright() as p:
   if MODE in('map','helm'):
     pg.evaluate("()=>{const R=__R2.R;R.cards.forEach((c,i)=>{c.found=true;if(i)c.id=true;});__R2.render();}")
     sel='#hmap'
-    if MODE=='helm':pg.evaluate("()=>__R2.t.go('helm')");sel='#hl-cv';wait(600)
+    if MODE=='helm':pg.evaluate("()=>__R2.t.go('helm')");wait(300);pg.locator('[data-hm=map]').click();sel='#smap';wait(600)
     tag('map idle');wait(800)
     bx=pg.locator(sel).first.bounding_box()
     cx,cy=bx['x']+bx['width']/2,bx['y']+bx['height']/2
