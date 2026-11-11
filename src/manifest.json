@@ -40,6 +40,7 @@
       "src/run/ui-shell.js",
       "src/run/ui-space.js",
       "src/run/ui-scanart.js",
+      "src/run/ui-viewer.js",
       "src/run/ui-ship3d.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",

@@ -706,6 +706,7 @@ function r2FoldCard(ix){
   const pass0=R.sector*10+R.passage;
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff,noIntercept:true});
   if(r&&r.ok!==false&&c.p)R2.at={pass:pass0,p:c.p.slice()};
+  VW.at={pass:pass0,ix};
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
   R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;R2.holdOpen=null;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}

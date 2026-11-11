@@ -176,3 +176,13 @@ Each passage is still generated fresh, but the map no longer forgets: the engine
 ## History
 
 The source was split from Build 5 (Oct 8, 2026: loot rolls, risky options, shop, content hooks). The first commit's `dist/index.html` is byte-for-byte identical to that build.
+
+## Viewer: bow camera feed
+
+The home viewer is a camera feed from the Pathfinder's bow, shown on the bridge screen (`src/run/ui-viewer.js`, `r2View`).
+- Stars sit on a sphere around the ship; places show as small sprites in their real direction, unscanned ones as a flickering smudge.
+- Picking a destination pans the camera to it. Optical zoom steps (×1 to ×16) keep far targets readable, and the frame the target may fill grows as the fold closes the gap, so it always gets bigger on the way in.
+- Engaging and dropping out of the fold make the signal stutter. Fold streaks run from the centre.
+- On arrival the place fills the frame. In fights the camera tracks the enemy; with the Rearguard inbound the feed cuts to AFT CAM.
+- The bow dome and the front of the ring sit at the bottom of the frame. Overlay: camera tag, zoom, bearing, target brackets, fold readout, scanlines.
+- Each place keeps the model it was first shown with.

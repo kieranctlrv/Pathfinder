@@ -544,7 +544,9 @@ function drawViewerShip(x,W,H,dt){
 }
 
 function drawStars(dt,cv){
-  const c=cv||$('#stars');if(!c||c.hidden||!STARS)return;fit(c);
+  const c=cv||$('#stars');if(!c||c.hidden||!STARS)return;
+  if(R2.live&&typeof r2View==='function'){r2View(c,dt);return;}   /* in a Run the viewer is the bow camera feed (ui-viewer.js) */
+  fit(c);
   const x=c.getContext('2d'),W=c.width,H=c.height,cx=W/2,cy=H/2,d=c.dpr;
   x.fillStyle='#060B16';x.fillRect(0,0,W,H);
   const wm=viewerMask(W,H),sp=(S.warpEff>=.3?.05+.07*S.warpEff:.006)*(REDUCED?.25:1);
