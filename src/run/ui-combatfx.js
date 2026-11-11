@@ -17,7 +17,7 @@ function cfFront(wrap,f,v,D,fx,ep,fsz,wn){
   const c=el('canvas','cf-fx');c.setAttribute('aria-hidden','true');wrap.appendChild(c);CF.cv=c;
   const key=fx&&R2.busy?R2.feedN+'|'+(f.seed||'')+'|'+(v.turn||0):null;
   if(fx&&key&&(!CF.ev||CF.ev.key!==key))cfStart(key,f,v,D,fx,ep,fsz,wn);
-  else if(!fx&&!R2.busy)CF.ev=null;
+  else if(!fx&&!R2.busy&&!(CF.ev&&performance.now()/1000-CF.ev.t0<1.2))CF.ev=null;   /* never cut a shot still in flight */
 }
 /* stage units → buffer pixels */
 const cfB=p=>[p[0]/CF_U,p[1]/CF_U];

@@ -464,8 +464,9 @@ function r2Commit(){
 function r2Feed(){
   clearTimeout(R2.feedT);
   R2.feedN++;r2Render();
-  if(R2.feedN>=R2.feed.length){R2.busy=false;r2RoundCard();R2.feedT=setTimeout(()=>{if(!R2.busy)r2Render();},0);return;}
   const cur=R2.feed[R2.feedN-1];r2StepSnd(cur);
+  /* the last step gets its full beat too, so its shot plays before the round closes */
+  if(R2.feedN>=R2.feed.length){R2.feedT=setTimeout(()=>{if(!R2.busy)return;R2.busy=false;r2RoundCard();r2Render();},window.__FASTFEED__?0:((cur&&cur.ms)||480));return;}
   R2.feedT=setTimeout(r2Feed,window.__FASTFEED__?0:((cur&&cur.ms)||480));
 }
 function r2StepSnd(l){const x=l&&l.fx;if(!x)return;try{if(x.beam==='you')r2Snd(x.kin?'torp':'phaser');else if(x.beam==='foe')r2Snd(x.kin?'torp':'phaser');else if(x.hitYou)r2Snd('hullHit');}catch(e){}}
