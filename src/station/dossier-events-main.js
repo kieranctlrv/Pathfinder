@@ -406,6 +406,7 @@ function frame(ts){
   acc.vu+=dt;if(acc.vu>.14){vuTick(ts);acc.vu=0;}
   if(curView==='helm'){if(S.helmMode==='map')drawMap($('#smap'));else drawStars(dt);}
   else if(curView==='science'){if(R2.live)r2SciDraw(dt);else drawRadar(dt);}
+  else if(curView==='cargo'&&R2.live)r2HoldDraw(dt);
   else if(curView==='home'&&curLayout!=='combat'){if(S.homeView==='view')drawStars(dt,$('#hstars'));else drawMap($('#hmap'));}
   try{drawCombatFx(dt);}catch(e){}
   try{drawHeaderShip(dt);}catch(e){}

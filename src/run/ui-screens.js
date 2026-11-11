@@ -248,7 +248,7 @@ function r2HoldCards(hb,full){
     ln.appendChild(r2Btn(open?'HIDE':'MANAGE','lav',()=>{R2.holdOpen=!open;r2Render();},false,'sm'));
     hb.appendChild(ln);if(!open)return;}
   sh.hold.forEach((h,ix)=>{
-    const c=el('div','mcard on'+(full?'':' r2-holdc')),hd=el('h5');hd.textContent=r2PName(h);c.appendChild(hd);
+    const c=el('div','mcard on'+(full?'':' r2-holdc')),hd=el('h5');c.dataset.hix=ix;hd.textContent=r2PName(h);c.appendChild(hd);
     const pt=r2Part(h.part),m=el('p');m.textContent=r2U(R2_DEPT[r2PartDept(pt)]||'')+(pt&&pt.slot==='weapon'?' WEAPON':'');c.appendChild(m);
     r2PerkLines(h).forEach(t=>{const q=el('p');q.textContent=t[0];c.appendChild(q);});
     const row=r2Row();
@@ -286,6 +286,7 @@ R2V.cargo=root=>{
   r2HoldCards(hb,true);
   hb.appendChild(r2Note(R.phase==='fight'?'PARTS CANNOT BE FITTED DURING A FIGHT.':'FITTING A PART TAKES EFFECT AT ONCE. THE OLD PART IS LOST.'));
 };
+{const o=R2V.cargo;R2V.cargo=root=>{o(root);r2HoldView(root);};}   /* the hold camera (ui-hold.js) sits to the left */
 R2V.comms=root=>{
   const R=R2.R,m=r2NextMark();
   const p=r2P('KAEL REARGUARD','salmon'),b=r2Body(p);

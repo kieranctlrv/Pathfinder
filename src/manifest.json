@@ -43,6 +43,7 @@
       "src/run/ui-viewer.js",
       "src/run/ui-helm.js",
       "src/run/ui-science.js",
+      "src/run/ui-hold.js",
       "src/run/ui-ship3d.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",

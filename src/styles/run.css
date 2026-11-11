@@ -433,3 +433,12 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .sc-card p{margin:3px 0 0;color:var(--lav);font-size:calc(13px*var(--ts,1))}
 .sc-card .sc-dos{margin-top:4px;font-size:calc(13px*var(--ts,1))}
 @media (max-width:1000px){#view.sc{grid-template-columns:1fr!important}#view.sc .sc-rec .pb{height:50vh;min-height:260px}}
+
+/* ---- Cargo in a Run: the hold camera ---- */
+#view.cg{grid-template-columns:minmax(0,1fr) minmax(300px,380px)!important;grid-auto-rows:min-content;align-content:start}
+#view.cg .cg-cam{grid-column:1;grid-row:1/span 3}
+#view.cg .cg-cam{height:calc(100vh - 110px);min-height:420px}
+#view.cg>section:not(.cg-cam){grid-column:2}
+.mcard.hd-flash{animation:hdFlash .9s ease-out}
+@keyframes hdFlash{0%{box-shadow:0 0 0 2px var(--yellow)}100%{box-shadow:0 0 0 2px transparent}}
+@media (max-width:1000px){#view.cg{grid-template-columns:1fr!important}#view.cg .cg-cam{grid-row:auto}#view.cg>section:not(.cg-cam){grid-column:1}#view.cg .cg-cam .pb{height:45vh;min-height:240px}}
