@@ -166,12 +166,16 @@ function timeline(f, n) {      // the baseline order, repeated: who acts first, 
   for (let i = 0; i < n; i++) out.push(i % 2 === 0 ? a : b);
   return out;
 }
+/* per-arc screen regen each turn (also read by Tactical's readiness view) */
+function arcRegen(f) {
+  const regen = ARC_REGEN * stat(f, 'screenRegen', 1) * pw(f, 'shields', stat(f, 'satShields', 40)) * stat(f, 'shieldEff', 1);
+  return regen * (1 + (channelPower(f, 'sensors') >= 30 ? stat(f, 'regenIfSensors30', 0) / 100 : 0) + (channelPower(f, 'shields') >= 30 ? stat(f, 'regenIfShields30', 0) / 100 : 0));
+}
 function playerTurnStart(f) {
   f.turn++;
   // screens regenerate, recovery ticks, cooldowns, boosts, weapon recharge
   const base = ARC_CAP * stat(f, 'screenCap', 1);
-  let regen = ARC_REGEN * stat(f, 'screenRegen', 1) * pw(f, 'shields', stat(f, 'satShields', 40)) * stat(f, 'shieldEff', 1);
-  regen *= 1 + (channelPower(f, 'sensors') >= 30 ? stat(f, 'regenIfSensors30', 0) / 100 : 0) + (channelPower(f, 'shields') >= 30 ? stat(f, 'regenIfShields30', 0) / 100 : 0);
+  const regen = arcRegen(f);
   if (f.arcRegenBlock > 0) f.arcRegenBlock--;
   else ARCS.forEach(a => {
     if (f.arcs[a] <= 0 && f.arcBroken && f.arcBroken[a] > 0) { f.arcBroken[a]--; return; }
@@ -579,7 +583,7 @@ function view(f) {
   };
 }
 
-const api = { PART_XP, partLevel, partGain, rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
+const api = { PART_XP, partLevel, partGain, rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById, arcRegen, lanceRecharge, playerSpeed };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 

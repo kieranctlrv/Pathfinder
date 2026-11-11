@@ -163,12 +163,7 @@ function r2CombatHome(){
 }
 R2V.tactical=root=>{
   const R=R2.R,f=R.fight;
-  if(!f){
-    const p=r2P('NO HOSTILES','coral'),b=r2Body(p);
-    b.appendChild(r2Note('BATTLE STATIONS OPENS WHEN A FIGHT STARTS. NEXT INTERCEPT: '+(r2NextMark()!=null?'AT '+r2NextMark()+'% THREAT.':'NONE LEFT.')));
-    b.appendChild(r2KV([['SHIELD ARCS','FORE, PORT, AFT, STBD'],['WEAPON SLOTS',R.ship.unlocked.length+' UNLOCKED'],['TORPEDOES',Math.round(R.ship.torpedoes*10)/10]]));
-    root.appendChild(p);return;
-  }
+  if(!f){r2TacReady(root);return;}   /* readiness outside a fight (ui-tactical.js) */
   const v=RC.view(f),E=v.enemy;
   const title=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'INTERCEPT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
   root.style.gridTemplateColumns='minmax(0,1.62fr) minmax(330px,1fr)';root.classList.add('r2-tac');

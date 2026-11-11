@@ -442,3 +442,10 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .mcard.hd-flash{animation:hdFlash .9s ease-out}
 @keyframes hdFlash{0%{box-shadow:0 0 0 2px var(--yellow)}100%{box-shadow:0 0 0 2px transparent}}
 @media (max-width:1000px){#view.cg{grid-template-columns:1fr!important}#view.cg .cg-cam{grid-row:auto}#view.cg>section:not(.cg-cam){grid-column:1}#view.cg .cg-cam .pb{height:45vh;min-height:240px}}
+
+/* ---- Tactical in a Run, outside a fight: readiness ---- */
+#view.tr{grid-template-columns:minmax(0,1fr) minmax(300px,380px)!important;grid-auto-rows:min-content;align-content:start}
+#view.tr .tr-ship{grid-column:1;grid-row:1/span 3;height:calc(100vh - 110px);min-height:420px}
+#view.tr>section:not(.tr-ship){grid-column:2}
+#view.tr .tr-ship .pb{padding:0}
+@media (max-width:1000px){#view.tr{grid-template-columns:1fr!important}#view.tr .tr-ship{grid-row:auto;height:55vh;min-height:300px}#view.tr>section:not(.tr-ship){grid-column:1}}

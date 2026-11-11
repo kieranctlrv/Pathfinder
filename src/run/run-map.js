@@ -237,7 +237,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   R.fightStreak = (R.fightStreak || 0) + 1;
   const sc = scale(R, guardian, hunt, foe);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
-  R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
+  R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt, hull0: R.ship.hull };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
   if (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute')) R.fight.flags.fastRR = 1;   /* one more Overcharge */
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
@@ -263,6 +263,7 @@ function resolveFight(R) {
   const f = R.fight; if (!f || !f.over) return { ok: false, why: 'fight not over' };
   const sum = C.finish(f), meta = f.meta || {};
   R.ship = f.ship; R.officers = f.officers;
+  R.lastFight = { foe: f.enemyId, name: f.enemy.name || (D.ENEMIES[f.enemyId] || {}).name, result: f.over, turns: f.turn, dealt: Math.round(f.enemy.hullMax - Math.max(0, f.enemy.hull)), taken: Math.round(Math.max(0, (meta.hull0 != null ? meta.hull0 : R.ship.hull) - R.ship.hull)), shots: f.shotsFired || 0, hits: f.hitsTaken || 0, guardian: !!meta.guardian, hunt: meta.hunt, sector: R.sector, passage: R.passage };   /* Tactical's last-fight report */
   R.partUps = (R.partUps || []).concat(sum.partUps || []);
   if (f.over === 'won' && meta.guardian) R.partUps = R.partUps.concat(C.partGain(R.ship, null, 2, R.officers));
   if (f.over === 'lost' || R.ship.hull <= 0) { endRun(R, 'lost', 'THE PATHFINDER IS LOST'); return { ok: true, result: 'lost' }; }

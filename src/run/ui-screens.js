@@ -287,7 +287,8 @@ R2V.cargo=root=>{
   hb.appendChild(r2Note(R.phase==='fight'?'PARTS CANNOT BE FITTED DURING A FIGHT.':'FITTING A PART TAKES EFFECT AT ONCE. THE OLD PART IS LOST.'));
 };
 {const o=R2V.cargo;R2V.cargo=root=>{o(root);r2HoldView(root);};}   /* the hold camera (ui-hold.js) sits to the left */
-R2V.comms=root=>{
+/* the Rearguard: threat, intercept marks and what is coming (shown on Tactical) */
+function r2RearPanel(root){
   const R=R2.R,m=r2NextMark();
   const p=r2P('KAEL REARGUARD','salmon'),b=r2Body(p);
   const bar=el('div','r2-tbar');const i=el('i');i.style.width=clamp(R.threat,0,100)+'%';bar.appendChild(i);
@@ -295,8 +296,11 @@ R2V.comms=root=>{
   b.appendChild(bar);
   b.appendChild(r2KV([['THREAT',Math.round(R.threat)+'%'],['NEXT INTERCEPT',m!=null?'AT '+m+'%':'NONE LEFT'],['INTERCEPTS BEATEN',R.stats.hunts],['FOLDS THIS RUN',R.stats.folds]]));
   RM.MARKS.forEach((mk,ix)=>{const f=RD.ENEMIES[RM.HUNT_FOE[ix]];b.appendChild(r2Note('HUNT '+['I','II','III'][ix]+' AT '+mk+'%: '+(R.marks>ix?'TRIGGERED':(r2Stat('huntIntelType',0)>0?r2U(f.name):'FOE UNKNOWN. A SENSOR PART SHOWS IT'))));});
-  b.appendChild(r2Note('THREAT IS HOW CLOSE KAEL\'S REARGUARD IS. IT RISES WITH SHIP TIME: FOLDING SPENDS TIME, IDLING ON STATION A LITTLE. FIGHTS, COMMS AND OFFERS STOP THE CLOCK, AND SO DOES PAUSE. THE REARGUARD INTERCEPTS YOU AT EACH MARK. BEATING AN INTERCEPT DROPS THREAT BY 35.'));
+  b.appendChild(r2Note('THREAT RISES WITH SHIP TIME. THE REARGUARD INTERCEPTS YOU AT EACH MARK; BEATING ONE DROPS THREAT BY 35.'));
   root.appendChild(p);
+}
+R2V.comms=root=>{
+  const R=R2.R;
   const q=r2P('PRICES','peach'),qb=r2Body(q);
   qb.appendChild(r2KV([['REPAIR A PART',RM.repairCost(R)+' SALVAGE'],['SELL A PART','+'+(r2Stat('fullResale',0)?'5, 7 OR 9':'2, 3 OR 4')+' SALVAGE'],['GATE: HULL +50',(r2Stat('gateHullFree',0)?0:RM.repairCost(R))+' SALVAGE'],['GATE: +2 TORPEDOES','3 SALVAGE'],['GATE: +4 LUMITE','3 SALVAGE'],['GATE: RAISE A TIER','5 X CURRENT TIER'],['FOLD COST NOW',(Math.round(RM.foldCost(R)*100)/100)+' LUMITE']]));
   qb.appendChild(Object.assign(el('h4'),{textContent:'SHIP LOG'}));

@@ -1216,6 +1216,13 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .mcard.hd-flash{animation:hdFlash .9s ease-out}
 @keyframes hdFlash{0%{box-shadow:0 0 0 2px var(--yellow)}100%{box-shadow:0 0 0 2px transparent}}
 @media (max-width:1000px){#view.cg{grid-template-columns:1fr!important}#view.cg .cg-cam{grid-row:auto}#view.cg>section:not(.cg-cam){grid-column:1}#view.cg .cg-cam .pb{height:45vh;min-height:240px}}
+
+/* ---- Tactical in a Run, outside a fight: readiness ---- */
+#view.tr{grid-template-columns:minmax(0,1fr) minmax(300px,380px)!important;grid-auto-rows:min-content;align-content:start}
+#view.tr .tr-ship{grid-column:1;grid-row:1/span 3;height:calc(100vh - 110px);min-height:420px}
+#view.tr>section:not(.tr-ship){grid-column:2}
+#view.tr .tr-ship .pb{padding:0}
+@media (max-width:1000px){#view.tr{grid-template-columns:1fr!important}#view.tr .tr-ship{grid-row:auto;height:55vh;min-height:300px}#view.tr>section:not(.tr-ship){grid-column:1}}
 /* 16x16 pixel sprites (Sweetie-16), drawn by scratchpad mkicons.py */
 .pxi{display:inline-block;width:32px;height:32px;flex:none;background:center/100% 100% no-repeat;image-rendering:pixelated;vertical-align:middle}
 .pxi.i-hull{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAuklEQVR4XmNkgAIpGZ3/MDYx4NmTK4wgdWACpPnWjRMMC/acI0YvGLTlZIENYYLpAGlOcDHCawBM/tCeI3B1cANAgJALsMmzYLMS2QZkYOdig6EcwwCQZmwKcRmK4gVyAIYLQLbjsg0bwBoG2LyAC4C9AIpPULwSA0CuO7JhGTwhYYQBobSADsApEQZAKbJqyjScDkG3HQRQDAABbIbAAhXZ6TCAYQCyIcixgU0zVhcgewfZL7DcR3UAABiOUlkdipXhAAAAAElFTkSuQmCC)}
@@ -1949,12 +1956,16 @@ function timeline(f, n) {      // the baseline order, repeated: who acts first, 
   for (let i = 0; i < n; i++) out.push(i % 2 === 0 ? a : b);
   return out;
 }
+/* per-arc screen regen each turn (also read by Tactical's readiness view) */
+function arcRegen(f) {
+  const regen = ARC_REGEN * stat(f, 'screenRegen', 1) * pw(f, 'shields', stat(f, 'satShields', 40)) * stat(f, 'shieldEff', 1);
+  return regen * (1 + (channelPower(f, 'sensors') >= 30 ? stat(f, 'regenIfSensors30', 0) / 100 : 0) + (channelPower(f, 'shields') >= 30 ? stat(f, 'regenIfShields30', 0) / 100 : 0));
+}
 function playerTurnStart(f) {
   f.turn++;
   // screens regenerate, recovery ticks, cooldowns, boosts, weapon recharge
   const base = ARC_CAP * stat(f, 'screenCap', 1);
-  let regen = ARC_REGEN * stat(f, 'screenRegen', 1) * pw(f, 'shields', stat(f, 'satShields', 40)) * stat(f, 'shieldEff', 1);
-  regen *= 1 + (channelPower(f, 'sensors') >= 30 ? stat(f, 'regenIfSensors30', 0) / 100 : 0) + (channelPower(f, 'shields') >= 30 ? stat(f, 'regenIfShields30', 0) / 100 : 0);
+  const regen = arcRegen(f);
   if (f.arcRegenBlock > 0) f.arcRegenBlock--;
   else ARCS.forEach(a => {
     if (f.arcs[a] <= 0 && f.arcBroken && f.arcBroken[a] > 0) { f.arcBroken[a]--; return; }
@@ -2362,7 +2373,7 @@ function view(f) {
   };
 }
 
-const api = { PART_XP, partLevel, partGain, rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById };
+const api = { PART_XP, partLevel, partGain, rating, luck, weaponPowerMul, ARC_CAP, PIP_SIZE: PIP, hitChance, weaponReady, repairCost, once, rnd, ARCS, RANGES, XP_LEVELS, ORDERS, PIP, newShip, newOfficers, fitPart, slotsAvailable, start, act, order, legal, setPower, finish, view, stat, wstat, ceiling, timeline, channelPower, dodgeChance, partById, slotById, arcRegen, lanceRecharge, playerSpeed };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RunCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -2606,7 +2617,7 @@ function startFight(R, foe, guardian, hunt) {      /* red alert keeps your routi
   R.fightStreak = (R.fightStreak || 0) + 1;
   const sc = scale(R, guardian, hunt, foe);
   R.fight = C.start(R.ship, R.officers, foe, Math.floor(rnd(R) * 4294967295) + 1, R.power, sc);
-  R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt };
+  R.fight.meta = { guardian: !!guardian, hunt: hunt === undefined ? null : hunt, hull0: R.ship.hull };
   if (perk(R, 'calmCrew')) R.fight.flags.calmCrew = 1;
   if (role(R, 'fastReroute', 0) > 0 || stat(R, 'fastReroute', 0) > 0 || perk(R, 'fastReroute')) R.fight.flags.fastRR = 1;   /* one more Overcharge */
   R.stats.fights++; R.phase = 'fight'; emit(R, 'fight.start', { foe, guardian: !!guardian });
@@ -2632,6 +2643,7 @@ function resolveFight(R) {
   const f = R.fight; if (!f || !f.over) return { ok: false, why: 'fight not over' };
   const sum = C.finish(f), meta = f.meta || {};
   R.ship = f.ship; R.officers = f.officers;
+  R.lastFight = { foe: f.enemyId, name: f.enemy.name || (D.ENEMIES[f.enemyId] || {}).name, result: f.over, turns: f.turn, dealt: Math.round(f.enemy.hullMax - Math.max(0, f.enemy.hull)), taken: Math.round(Math.max(0, (meta.hull0 != null ? meta.hull0 : R.ship.hull) - R.ship.hull)), shots: f.shotsFired || 0, hits: f.hitsTaken || 0, guardian: !!meta.guardian, hunt: meta.hunt, sector: R.sector, passage: R.passage };   /* Tactical's last-fight report */
   R.partUps = (R.partUps || []).concat(sum.partUps || []);
   if (f.over === 'won' && meta.guardian) R.partUps = R.partUps.concat(C.partGain(R.ship, null, 2, R.officers));
   if (f.over === 'lost' || R.ship.hull <= 0) { endRun(R, 'lost', 'THE PATHFINDER IS LOST'); return { ok: true, result: 'lost' }; }
@@ -3590,7 +3602,7 @@ function go(name){
   $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.go===name));
   const home=$('#home'),view=$('#view');
   if(name==='home'){home.hidden=false;view.hidden=true;view.innerHTML='';}
-  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c','hl','sc','cg');
+  else{home.hidden=true;view.hidden=false;view.innerHTML='';view.style.gridTemplateColumns='';view.classList.remove('v3c','hl','sc','cg','tr');
     if(name==='comms'){S.unread=0;updateBadge();}
     VIEWS[name](view);}
   refreshHome();
@@ -9325,6 +9337,90 @@ function r2HoldDraw(dt){
   const vg=X.createRadialGradient(W/2,H/2,Math.min(W,H)*.4,W/2,H/2,Math.max(W,H)*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.4)');X.fillStyle=vg;X.fillRect(0,0,W,H);
   X.textBaseline='alphabetic';
 }
+/* ==== TACTICAL in a Run, outside a fight: readiness (the security post) ====
+   Left: the Pathfinder at battle stations. Four pixel shield arcs sized to the strength a fight would start with, regen
+   per turn from the current power, weapon mounts with damage and recharge, hull, torpedoes, dodge and speed. It reads a
+   throwaway fight built from the ship as it is now (nothing is changed), so moving power on Engineering shows here at once.
+   Right: the security post, the Rearguard (moved here from Comms) and a report on the last fight. No rule changes. */
+const TR={buf:null,key:'',f:null};
+const TR_ROWS=150;
+
+/* a throwaway fight from the ship as it is now: the numbers a real fight would start with */
+function trFight(){
+  const R=R2.R,k=JSON.stringify([R.power,R.ship.fitted,R.ship.unlocked,Math.round(R.ship.hull),R.ship.torpedoes,Object.keys(R.officers).map(d=>[R.officers[d].level,R.officers[d].alive])]);
+  if(k!==TR.key||!TR.f){TR.key=k;try{const cl=o=>JSON.parse(JSON.stringify(o));TR.f=RC.start(cl(R.ship),cl(R.officers),Object.keys(RD.ENEMIES)[0],1,cl(R.power));}catch(_){TR.f=null;}}
+  return TR.f;
+}
+
+function r2TacReady(root){
+  const R=R2.R;root.classList.add('tr');
+  const lp=r2P('BATTLE STATIONS · STANDBY','coral');lp.classList.add('tr-ship');lp.querySelector('.pb').innerHTML='<canvas id="tr-cv" class="fill"></canvas>';root.appendChild(lp);
+  const pp=r2P('SECURITY','coral'),pb=r2Body(pp),post=el('div');pb.appendChild(post);r2Post(post,'security',trSay(R));root.appendChild(pp);
+  r2RearPanel(root);
+  const lf=R.lastFight,q=r2P('LAST FIGHT','peach'),qb=r2Body(q);
+  if(!lf)qb.appendChild(r2Note('NO FIGHTS YET THIS RUN.'));
+  else{
+    const res={won:'WON',fled:'GOT AWAY',lost:'LOST'}[lf.result]||r2U(String(lf.result));
+    const h=el('h4');h.textContent=(lf.guardian?'GUARDIAN: ':lf.hunt!=null&&lf.hunt>=0?'INTERCEPT '+['I','II','III'][lf.hunt]+': ':'')+r2U(lf.name||'')+' · '+res;qb.appendChild(h);
+    qb.appendChild(r2KV([['WHERE','SECTOR '+lf.sector+' · PASSAGE '+lf.passage],['TURNS',lf.turns],['DAMAGE DEALT',lf.dealt],['HULL LOST',lf.taken],['SHOTS FIRED',lf.shots],['HITS TAKEN',lf.hits]]));
+  }
+  root.appendChild(q);
+}
+function trSay(R){
+  const sh=R.ship,m=r2NextMark();
+  if(sh.hull<sh.hullMax*.5)return 'Hull\'s under half. I\'d patch up before we pick a fight.';
+  if(sh.torpedoes<2)return 'We\'re nearly dry on torpedoes. Energy weapons only, mostly.';
+  if((R.power.shields||0)<15)return 'Shields are starved. The arcs will come back slowly.';
+  if(m!=null&&m-R.threat<8)return 'Rearguard\'s close. Expect company soon.';
+  return 'Weapons warm, arcs full. We\'re ready for them.';
+}
+
+/* ---- drawing (every frame while the readiness view is open) ---- */
+function r2TacDraw(dt){
+  const c=$('#tr-cv'),R=R2.R;if(!c||!R||R.fight||c.offsetParent===null)return;fit(c);
+  const f=trFight();if(!f)return;
+  const now=performance.now(),d=c.dpr||1,W=c.width,H=c.height,px=Math.max(2*d,H/TR_ROWS),LH=Math.max(60,Math.round(H/px)),LW=Math.max(80,Math.round(W/px)),k=W/LW;
+  if(!TR.buf)TR.buf=document.createElement('canvas');if(TR.buf.width!==LW||TR.buf.height!==LH){TR.buf.width=LW;TR.buf.height=LH;}
+  const x=TR.buf.getContext('2d');x.imageSmoothingEnabled=false;
+  const mood=SCA_SEC[R.sector]||SCA_SEC[1];x.fillStyle='rgb('+mood.bg.join(',')+')';x.fillRect(0,0,LW,LH);
+  if(!TR.stars){const rn=saRand(31);TR.stars=[];for(let i=0;i<180;i++)TR.stars.push([rn(),rn(),rn()]);}
+  TR.stars.forEach(s=>{x.fillStyle='rgba(220,228,255,'+(.12+s[2]*.4).toFixed(2)+')';x.fillRect(Math.floor(s[0]*LW),Math.floor(s[1]*LH),1,1);});
+  /* the four arcs: fore right, aft left, port top, starboard bottom; thickness from capacity, segments filled */
+  const nar=W/d<900,cx=Math.round(LW*(nar?.5:.4)),cy=Math.round(LH*(nar?.36:.46)),rx=Math.round(Math.min(LW*(nar?.3:.26),LH*(nar?.3:.42))),ry=Math.round(rx*.62);
+  const cap=RC.ARC_CAP*RC.stat(f,'screenCap',1),regen=RC.arcRegen(f),thick=clamp(Math.round(2+cap/RC.ARC_CAP*2),2,6);
+  const ARC={fore:0,stbd:Math.PI/2,aft:Math.PI,port:-Math.PI/2},seg=Math.max(3,Math.round(cap/9));
+  Object.keys(ARC).forEach(a=>{const a0=ARC[a],span=Math.PI*.42,pl=.8+.2*Math.sin(now/600+a0);
+    for(let s=0;s<seg;s++){const s0=a0-span/2+span*s/seg+.035,s1=a0-span/2+span*(s+1)/seg-.035;
+      for(let t=s0;t<s1;t+=.012)for(let r=0;r<thick;r++){const X=Math.round(cx+Math.cos(t)*(rx+r)),Y=Math.round(cy+Math.sin(t)*(ry+r*.62));x.fillStyle=r===0?'rgba(244,244,244,'+(.7*pl).toFixed(2)+')':'rgba(115,239,247,'+(.75*pl).toFixed(2)+')';x.fillRect(X,Y,1,1);}}});
+  /* up-scale, then the ship sprite and labels at full resolution */
+  const X=c.getContext('2d');X.imageSmoothingEnabled=false;X.drawImage(TR.buf,0,0,W,H);
+  let art=null;try{art=mdCanvas(r2ArtDef('pf'),now);}catch(_){}
+  const sw=rx*k*1.25;if(art){const sh=sw*art.height/art.width;X.drawImage(art,Math.round(cx*k-sw/2),Math.round(cy*k-sh/2),Math.round(sw),Math.round(sh));}
+  X.textBaseline='top';
+  const lab=(t,lx,ly,col,al)=>{X.font=cfont(11*d);const tw=X.measureText(t).width,tx=clamp(lx-tw/2,4*d,W-tw-4*d);X.fillStyle='rgba(4,7,14,.65)';X.fillRect(tx-3*d,ly-1*d,tw+6*d,14*d);X.globalAlpha=al==null?1:al;X.fillStyle=col;X.fillText(t,tx,ly);X.globalAlpha=1;};
+  const cyan='rgb('+spHex('cyan')+')',sv=Math.round(cap)+' · +'+fmt(regen)+'/TURN';
+  lab('FORE '+sv,(cx+rx+thick+2)*k+40*d,cy*k-6*d,cyan);lab('AFT '+sv,(cx-rx-thick-2)*k-40*d,cy*k-6*d,cyan);
+  lab('PORT '+sv,cx*k,(cy-ry-thick)*k-18*d,cyan);lab('STBD '+sv,cx*k,(cy+ry+thick)*k+4*d,cyan);
+  /* weapon mounts down the right-hand side, with a leader line to the hull */
+  /* the column sits as far right as its longest line allows */
+  const wtx=[];for(let i=0;i<4;i++){const sl='sec.w'+(i+1),ft=f.ship.fitted[sl];if(!ft){wtx.push((i+1)+'  '+(R.ship.unlocked.indexOf(sl)>=0?'EMPTY · FIT A WEAPON FROM THE HOLD':'LOCKED · BEAT THE SECTOR '+(i===2?1:2)+' GUARDIAN'));continue;}const kin=!!RC.wstat(f,sl,'w.kinetic',0);wtx.push((i+1)+'  '+r2PName(ft));wtx.push((kin?'KINETIC':'ENERGY')+' · 000 DMG × 2 · '+(kin?'RELOAD 1.5 TURNS':'RECHARGE 2 TURNS'));}
+  X.font=cfont(12*d);const mw=Math.max.apply(null,wtx.map(t=>X.measureText(t).width));
+  /* narrow screens: the mounts sit in a 2 by 2 grid under the ship instead of down the side */
+  const col0=Math.round(Math.max(W*.5,W-mw-16*d)),wy0=Math.round(H*.12),rowh=Math.max(46*d,H*.15),wpos=i=>nar?[14*d+(i%2)*W/2,H*.68+Math.floor(i/2)*40*d]:[col0,wy0+i*rowh];
+  for(let i=0;i<4;i++){const sl='sec.w'+(i+1),fit2=f.ship.fitted[sl],unl=R.ship.unlocked.indexOf(sl)>=0,[col0,y]=wpos(i);
+    if(!nar){const hx=cx*k+sw*(.18-.06*i),hy=cy*k+(i-1.5)*8*d;X.fillStyle='rgba(148,176,194,.35)';for(let t=0;t<1;t+=.02)X.fillRect(Math.round(hx+(col0-10*d-hx)*t),Math.round(hy+(y+7*d-hy)*t),1*d,1*d);}
+    X.font=cfont(12*d);
+    if(!fit2){X.fillStyle='rgba(148,176,194,.7)';X.fillText((i+1)+'  '+(unl?'EMPTY · FIT A WEAPON FROM THE HOLD':'LOCKED · BEAT THE SECTOR '+(i===2?1:2)+' GUARDIAN'),col0,y);continue;}
+    const p=r2Part(fit2.part),kin=!!RC.wstat(f,sl,'w.kinetic',0),dmg=RC.wstat(f,sl,'w.dmg',0)*RC.weaponPowerMul(f)*RC.stat(f,'dmgAll',1),shots=Math.max(1,RC.wstat(f,sl,'w.shots',1));
+    X.fillStyle=kin?'#ef7d57':'#73eff7';X.fillText((i+1)+'  '+r2PName(fit2),col0,y);
+    X.font=cfont(11*d);X.fillStyle='rgba(148,176,194,.9)';X.fillText((kin?'KINETIC':'ENERGY')+' · '+Math.round(dmg)+' DMG'+(shots>1?' × '+shots:'')+' · '+(kin?'RELOAD 1.5 TURNS':'RECHARGE '+RC.lanceRecharge(f,sl)+' TURNS'),col0,y+16*d);}
+  /* bottom line: hull, torpedoes, dodge, speed */
+  {const y=H-30*d,hp=R.ship.hull/R.ship.hullMax,bw=Math.min(W*.32,260*d);X.font=cfont(12*d);X.fillStyle='rgba(148,176,194,.9)';X.fillText('HULL',14*d,y);const bx=14*d+X.measureText('HULL ').width;
+   X.fillStyle='rgba(148,176,194,.15)';X.fillRect(bx,y+3*d,bw,8*d);X.fillStyle=hp<.5?'#ef7d57':'#a7f070';X.fillRect(bx,y+3*d,bw*clamp(hp,0,1),8*d);
+   X.fillStyle='rgba(244,244,244,.9)';X.fillText(Math.round(R.ship.hull)+' / '+R.ship.hullMax+'   TORPEDOES '+Math.floor(R.ship.torpedoes+1e-6)+'   DODGE '+Math.round(RC.dodgeChance(f))+'%   SPEED '+(Math.round(RC.playerSpeed(f)*10)/10),bx+bw+12*d,y);}
+  X.fillStyle='rgba(0,0,0,.1)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);
+  X.textBaseline='alphabetic';
+}
 /* ---- Run: the ship in 3D (Engineering > Structure). Same camera feel as the scan space: drag to turn, view presets, tap a system ---- */
 const E3={yaw:-0.75,pitch:0.38,hover:null,ptr:null,tw:null,mesh:null};
 const E3_DCOL={engineering:'orange',operations:'peach',science:'blue',security:'salmon',medical:'lav'};
@@ -9788,7 +9884,8 @@ R2V.cargo=root=>{
   hb.appendChild(r2Note(R.phase==='fight'?'PARTS CANNOT BE FITTED DURING A FIGHT.':'FITTING A PART TAKES EFFECT AT ONCE. THE OLD PART IS LOST.'));
 };
 {const o=R2V.cargo;R2V.cargo=root=>{o(root);r2HoldView(root);};}   /* the hold camera (ui-hold.js) sits to the left */
-R2V.comms=root=>{
+/* the Rearguard: threat, intercept marks and what is coming (shown on Tactical) */
+function r2RearPanel(root){
   const R=R2.R,m=r2NextMark();
   const p=r2P('KAEL REARGUARD','salmon'),b=r2Body(p);
   const bar=el('div','r2-tbar');const i=el('i');i.style.width=clamp(R.threat,0,100)+'%';bar.appendChild(i);
@@ -9796,8 +9893,11 @@ R2V.comms=root=>{
   b.appendChild(bar);
   b.appendChild(r2KV([['THREAT',Math.round(R.threat)+'%'],['NEXT INTERCEPT',m!=null?'AT '+m+'%':'NONE LEFT'],['INTERCEPTS BEATEN',R.stats.hunts],['FOLDS THIS RUN',R.stats.folds]]));
   RM.MARKS.forEach((mk,ix)=>{const f=RD.ENEMIES[RM.HUNT_FOE[ix]];b.appendChild(r2Note('HUNT '+['I','II','III'][ix]+' AT '+mk+'%: '+(R.marks>ix?'TRIGGERED':(r2Stat('huntIntelType',0)>0?r2U(f.name):'FOE UNKNOWN. A SENSOR PART SHOWS IT'))));});
-  b.appendChild(r2Note('THREAT IS HOW CLOSE KAEL\'S REARGUARD IS. IT RISES WITH SHIP TIME: FOLDING SPENDS TIME, IDLING ON STATION A LITTLE. FIGHTS, COMMS AND OFFERS STOP THE CLOCK, AND SO DOES PAUSE. THE REARGUARD INTERCEPTS YOU AT EACH MARK. BEATING AN INTERCEPT DROPS THREAT BY 35.'));
+  b.appendChild(r2Note('THREAT RISES WITH SHIP TIME. THE REARGUARD INTERCEPTS YOU AT EACH MARK; BEATING ONE DROPS THREAT BY 35.'));
   root.appendChild(p);
+}
+R2V.comms=root=>{
+  const R=R2.R;
   const q=r2P('PRICES','peach'),qb=r2Body(q);
   qb.appendChild(r2KV([['REPAIR A PART',RM.repairCost(R)+' SALVAGE'],['SELL A PART','+'+(r2Stat('fullResale',0)?'5, 7 OR 9':'2, 3 OR 4')+' SALVAGE'],['GATE: HULL +50',(r2Stat('gateHullFree',0)?0:RM.repairCost(R))+' SALVAGE'],['GATE: +2 TORPEDOES','3 SALVAGE'],['GATE: +4 LUMITE','3 SALVAGE'],['GATE: RAISE A TIER','5 X CURRENT TIER'],['FOLD COST NOW',(Math.round(RM.foldCost(R)*100)/100)+' LUMITE']]));
   qb.appendChild(Object.assign(el('h4'),{textContent:'SHIP LOG'}));
@@ -10001,12 +10101,7 @@ function r2CombatHome(){
 }
 R2V.tactical=root=>{
   const R=R2.R,f=R.fight;
-  if(!f){
-    const p=r2P('NO HOSTILES','coral'),b=r2Body(p);
-    b.appendChild(r2Note('BATTLE STATIONS OPENS WHEN A FIGHT STARTS. NEXT INTERCEPT: '+(r2NextMark()!=null?'AT '+r2NextMark()+'% THREAT.':'NONE LEFT.')));
-    b.appendChild(r2KV([['SHIELD ARCS','FORE, PORT, AFT, STBD'],['WEAPON SLOTS',R.ship.unlocked.length+' UNLOCKED'],['TORPEDOES',Math.round(R.ship.torpedoes*10)/10]]));
-    root.appendChild(p);return;
-  }
+  if(!f){r2TacReady(root);return;}   /* readiness outside a fight (ui-tactical.js) */
   const v=RC.view(f),E=v.enemy;
   const title=(f.meta&&f.meta.guardian?'GUARDIAN: ':f.meta&&f.meta.hunt!=null&&f.meta.hunt>=0?'INTERCEPT '+['I','II','III'][f.meta.hunt]+': ':'')+r2U(E.name);
   root.style.gridTemplateColumns='minmax(0,1.62fr) minmax(330px,1fr)';root.classList.add('r2-tac');
@@ -12199,6 +12294,7 @@ function frame(ts){
   if(curView==='helm'){if(S.helmMode==='map')drawMap($('#smap'));else drawStars(dt);}
   else if(curView==='science'){if(R2.live)r2SciDraw(dt);else drawRadar(dt);}
   else if(curView==='cargo'&&R2.live)r2HoldDraw(dt);
+  else if(curView==='tactical'&&R2.live)r2TacDraw(dt);
   else if(curView==='home'&&curLayout!=='combat'){if(S.homeView==='view')drawStars(dt,$('#hstars'));else drawMap($('#hmap'));}
   try{drawCombatFx(dt);}catch(e){}
   try{drawHeaderShip(dt);}catch(e){}
