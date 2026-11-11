@@ -272,17 +272,15 @@ function r2Stage(host,f,v,opt){
   }
   // effects for the step being shown
   if(fx){let g='';
-    if(fx.beam==='you'&&fx.slot){const wi=['sec.w1','sec.w2','sec.w3','sec.w4'].indexOf(fx.slot);if(wi>=0){const a=wn[wi],kin=fx.kin;
-      g+='<line class="r2-beam'+(fx.miss?' miss':'')+(kin?' kin':'')+'" x1="'+P(a[0])+'" y1="'+P(a[1])+'" x2="'+P(ep[0]+(fx.miss?40:0))+'" y2="'+P(ep[1]-(fx.miss?50:0))+'"/>';
-      if(!fx.miss)g+='<circle class="r2-boom" cx="'+P(ep[0])+'" cy="'+P(ep[1])+'" r="36"/>';}}
-    if(fx.beam==='foe'&&fx.arc){const tp=r2Pt(R2_ARCANG[fx.arc],rx,ry);g+='<line class="r2-beam foe'+(fx.kin?' kin':'')+'" x1="'+P(ep[0])+'" y1="'+P(ep[1])+'" x2="'+P(tp[0])+'" y2="'+P(tp[1])+'"/>';}
-    if(fx.glow&&fx.arc){const tp=r2Pt(R2_ARCANG[fx.arc],rx,ry);g+='<circle class="r2-boom you" cx="'+P(tp[0])+'" cy="'+P(tp[1])+'" r="34"/>';}
+    /* shots, beams and impacts are drawn by the pixel effects layer (ui-combatfx.js); numbers land with the shot */
+    const nd=fx.beam==='you'?(fx.kin?.5:.22):0;
     const base=fx.at==='foe'?[ep[0],ep[1]-86*fsz]:fx.at==='arc'&&fx.arc?(()=>{const t=r2Pt(R2_ARCANG[fx.arc],rx+30,ry+30);return [t[0],t[1]-10];})():[cx,cy-ry-40];
-    (fx.n||[]).forEach((t,i)=>{g+='<text class="r2-fl'+(/HULL/.test(t)?' hull':/MISS|EVADED|NO EFFECT/.test(t)?' miss':/BRACE/.test(t)?' br':'')+'" x="'+P(base[0])+'" y="'+P(base[1]-i*40)+'" text-anchor="middle">'+t+'</text>';});
+    (fx.n||[]).forEach((t,i)=>{g+='<text class="r2-fl'+(/HULL/.test(t)?' hull':/MISS|EVADED|NO EFFECT/.test(t)?' miss':/BRACE/.test(t)?' br':'')+'" x="'+P(base[0])+'" y="'+P(base[1]-i*40)+'" text-anchor="middle" style="animation-delay:'+nd+'s">'+t+'</text>';});
     fxg=g+fxg;
   }
   g+='</svg>';
   wrap.innerHTML=g;
+  cfBack(wrap);
   // ships: the Pathfinder in the middle, the enemy on its range ring
   const pct=(x,W)=>(x/W*100).toFixed(3)+'%';
   const pfW=380;
@@ -293,6 +291,7 @@ function r2Stage(host,f,v,opt){
     const was=R2.foeAt&&R2.foeAt.f===f.seed?R2.foeAt.r:null;
     if(was&&was!==D.range&&!REDUCED&&fe.animate){const o=r2FoePos(was);try{fe.animate([{left:pct(o[0]-fw/2,S0.W),top:pct(o[1]-fw*80/128/2,S0.H)},{left:fe.style.left,top:fe.style.top}],{duration:650,easing:'cubic-bezier(.3,.7,.3,1)'});}catch(e){}}
     R2.foeAt={f:f.seed,r:D.range};}
+  cfFront(wrap,f,v,D,fx,ep,fsz,wn);
   // the effects layer: hardpoints, beams, hits and numbers, above both ships
   {const ov=el('div','r2-fxl');ov.innerHTML='<svg viewBox="0 0 '+S0.W+' '+S0.H+'" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><radialGradient id="r2glow2"><stop offset="0" stop-color="rgba(79,209,197,.35)"/><stop offset="1" stop-color="rgba(79,209,197,0)"/></radialGradient></defs>'+fxg+'</svg>';wrap.appendChild(ov);}
   // enemy readout

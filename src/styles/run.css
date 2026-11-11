@@ -347,3 +347,7 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .tt-start:hover{background:#ffe08a}
 @keyframes ttp{50%{box-shadow:inset -6px -6px 0 #c77d2a,inset 6px 6px 0 #fff1c2,0 0 0 6px #ffcd75}}
 .tt-mute{position:absolute;right:16px;top:16px;height:36px;padding:0 12px;border:0;background:#333c57;color:#94b0c2;font:16px Silkscreen,monospace;box-shadow:inset -3px -3px 0 #1a1c2c;cursor:pointer}
+/* combat graphics: pixel backdrop under the ships, pixel effects above them */
+.r2-stage{background:#0b1024}
+.cf-bg,.cf-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;display:block}
+.r2-stage svg.r2sv{background:none}

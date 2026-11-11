@@ -135,6 +135,10 @@ The game now targets desktop (1280x720 up to 4K) and Steam Deck (1280x800); the 
 
 In a Run the campaign header, colour strips, sidebar plate and bottom resource bar are gone; one top strip carries hull, lumite, salvage, torpedoes and data as 16x16 sprites (`icons.css`), then where you are, threat, ship time, sound and pause. Star Trek wording is scrubbed from what players see (sublight, photon, the tea order, holodeck, antimatter, the Tideline plate, alien script keys and captain names). Storage keys still say `lcars-` so old saves load.
 
+## Combat graphics, part 1
+
+`src/run/ui-combatfx.js`: the combat stage gets a pixel backdrop (stars and a dithered nebula in the sector's colours) under the ships and a pixel effects layer above them, both a 320x180 buffer laid out like the stage SVG. Each played step becomes an effect: our energy weapons fire three cyan pulse bolts from the hardpoint; torpedoes arc with a smoke trail and burst (fireball, shockwave, shake); enemy lances are continuous beams (ragged red for the Wreckers, clean violet for the Cordon); broadsides are a ripple of six shells with muzzle flashes. Screen hits shimmer on the struck side, hull hits throw sparks and debris, a kill ends in a chain of explosions. Numbers land with the shot. Reduced motion drops the shake and thins the particles. `R2.t.cf(fx)` plays any effect on the current stage for testing.
+
 ## Title screen
 
 `src/station/title.js`: a 320x180 pixel star field (layers, Bayer-dithered nebula and planet), the Pathfinder (the combat sprite) flies in with its engine burning, PATHFINDER drops in letter by letter, then PRESS ANY KEY opens the menu. Music is an original 8-bar chiptune loop made with WebAudio (square lead, triangle bass, square arpeggio, noise drums), no audio files; it follows the sound setting and has its own mute. Browsers block sound until a click, so a START button comes first; set `TITLE_GATE=false` for the desktop build, where audio can start on its own.

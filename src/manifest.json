@@ -43,6 +43,7 @@
       "src/run/ui-ship3d.js",
       "src/run/ui-screens.js",
       "src/run/ui-combat.js",
+      "src/run/ui-combatfx.js",
       "src/run/ui-voices.js",
       "src/run/ui-crew.js",
       "src/station/title.js",
