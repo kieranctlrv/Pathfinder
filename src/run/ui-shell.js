@@ -525,7 +525,7 @@ function r2ArriveCard(word,sub,tone){
   const old=$('#arrive');if(old)old.remove();
   const cv=['#hmap','#hstars','#view #stars'].map(q=>$(q)).find(c=>c&&!c.hidden&&c.offsetParent),host=cv?cv.parentElement:$('#topbar');
   const a=el('div','arrive'+(cv?'':' strip'));a.id='arrive';a.setAttribute('role','status');
-  a.innerHTML='<div class="arr-in"><b></b><span></span></div>';a.querySelector('b').textContent=word;a.querySelector('span').textContent=sub||'';
+  a.innerHTML='<div class="arr-in"><b></b></div>';a.querySelector('b').textContent=word;   /* just the title (playtest) */
   a.addEventListener('click',()=>a.remove());if(getComputedStyle(host).position==='static')host.style.position='relative';host.appendChild(a);
   setTimeout(()=>{a.classList.add('out');setTimeout(()=>a.remove(),380);},REDUCED?900:1250);
 }
