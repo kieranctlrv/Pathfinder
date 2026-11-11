@@ -521,10 +521,12 @@ function r2PlanExtras(c,ix,w){
 }
 /* the arrival card: the whole screen dims and a big word blinks twice, then the next screen is already there */
 function r2ArriveCard(word,sub,tone){
+  /* playtest: not full screen; a green flash with the words inside the map and viewer square (Home, or Helm's map), else in the top strip */
   const old=$('#arrive');if(old)old.remove();
-  const a=el('div','arrive '+(tone||''));a.id='arrive';a.setAttribute('role','status');
+  const cv=['#hmap','#hstars','#view #stars'].map(q=>$(q)).find(c=>c&&!c.hidden&&c.offsetParent),host=cv?cv.parentElement:$('#topbar');
+  const a=el('div','arrive'+(cv?'':' strip'));a.id='arrive';a.setAttribute('role','status');
   a.innerHTML='<div class="arr-in"><b></b><span></span></div>';a.querySelector('b').textContent=word;a.querySelector('span').textContent=sub||'';
-  a.addEventListener('click',()=>a.remove());document.body.appendChild(a);
+  a.addEventListener('click',()=>a.remove());if(getComputedStyle(host).position==='static')host.style.position='relative';host.appendChild(a);
   setTimeout(()=>{a.classList.add('out');setTimeout(()=>a.remove(),380);},REDUCED?900:1250);
 }
 function r2Contacts(){
