@@ -135,6 +135,10 @@ The game now targets desktop (1280x720 up to 4K) and Steam Deck (1280x800); the 
 
 In a Run the campaign header, colour strips, sidebar plate and bottom resource bar are gone; one top strip carries hull, lumite, salvage, torpedoes and data as 16x16 sprites (`icons.css`), then where you are, threat, ship time, sound and pause. Star Trek wording is scrubbed from what players see (sublight, photon, the tea order, holodeck, antimatter, the Tideline plate, alien script keys and captain names). Storage keys still say `lcars-` so old saves load.
 
+## Combat graphics, part 2: enemy sprites
+
+Every enemy class now has its own silhouette, built as new archetypes in the hull kit (`art-models.js`), with three faction skins: **rust** for the Wreckers (Cutter and Raider keep the patched hull, smaller and larger), **cordon** for the Ninth Cordon (slate and white with a red stripe): Picket `dart` (small, swept wings), Lancer `spear` (a long spine with a glowing lance emitter in the nose), Screenship `hex` (a squat core inside a projector ring with six emitters), Ironclad `slab` (an armoured block with side plates and three turrets); and **warden** for Kael's flagship `flag` (long dark hull, gold trim, turrets and sponsons). The same models show in combat, the viewer and the map.
+
 ## Navigation pass
 
 - **The gate is a clean break:** entering a sector clears any pending intercept and resets threat to a small starting value (`SECTOR_START` 8 a sector); the Rearguard closes 30% faster each sector after the first (`SECTOR_THREAT`). With fewer late intercepts the difficulty dial moved to 1.08. Bot (200 seeds): fresh crew about 2%, fully trained about 36%.

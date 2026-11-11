@@ -182,13 +182,13 @@ R2V.tactical=root=>{
 const R2_SV={pitch:-1.15,sweep:12,frames:6,res:[128,80]};
 const R2_ARTDEF={
   pf:{kit:'hull',params:{arch:'ring',len:2.5,pods:2},skin:'concord'},
-  cutter:{kit:'hull',params:{arch:'patch',len:1.6,seed:2},skin:'wrecker'},
-  raider:{kit:'hull',params:{arch:'patch',len:2.0,seed:4},skin:'wrecker'},
-  picket:{kit:'hull',params:{arch:'wing'},skin:'lathe'},
-  lancer:{kit:'hull',params:{arch:'wing',len:2.1},skin:'lathe'},
-  screenship:{kit:'hull',params:{arch:'lens'},skin:'lathe'},
-  ironclad:{kit:'hull',params:{arch:'ring',len:2.3,pods:0},skin:'lathe'},
-  kael:{kit:'hull',params:{arch:'ring',len:2.8,pods:2},skin:'ashkar'}
+  cutter:{kit:'hull',params:{arch:'patch',len:1.35,seed:2},skin:'rust'},
+  raider:{kit:'hull',params:{arch:'patch',len:2.0,seed:4,scale:1.05},skin:'rust'},
+  picket:{kit:'hull',params:{arch:'dart'},skin:'cordon'},
+  lancer:{kit:'hull',params:{arch:'spear'},skin:'cordon'},
+  screenship:{kit:'hull',params:{arch:'hex'},skin:'cordon'},
+  ironclad:{kit:'hull',params:{arch:'slab'},skin:'cordon'},
+  kael:{kit:'hull',params:{arch:'flag'},skin:'warden'}
 };
 const R2_FOESZ={cutter:.72,picket:.78,raider:.9,lancer:.95,screenship:1,ironclad:1.12,kael:1.25};
 /* one enemy, one picture (playtest #4): the viewer uses the same model as the combat stage, seen from the side */

@@ -3810,7 +3810,10 @@ const SKINS={
  resort:{pri:'#E8C9A0',trim:'#FF8FA3',str:'#FFF1E0',glass:'#7FD8E8',rock:'#B98657',beacon:'#FF8FA3',engine:'#FFA63A',a1:'#FFF1E0',a2:'#FF8FA3',a3:'#7FD8E8',a4:'#E8C9A0',light:'#FFE08A'},
  industrial:{pri:'#6B5848',trim:'#E0B030',str:'#98A0AA',glass:'#6FA8DC',rock:'#8A5A3B',beacon:'#FF6B5E',engine:'#FFA63A',a1:'#E0B030',a2:'#98A0AA',a3:'#D2693C',a4:'#4A3A2E',light:'#FFB347'},
  rock:{pri:'#6B5848',trim:'#98A0AA',str:'#98A0AA',glass:'#6FA8DC',rock:'#8A5A3B',beacon:'#FF6B5E',engine:'#FFA63A',a1:'#7A675A',a2:'#4D4038',a3:'#A99888',a4:'#5B4636',light:'#FFB347'},
- slag:{pri:'#4D4038',trim:'#7A675A',str:'#6B7A88',glass:'#6FA8DC',rock:'#6E6A66',beacon:'#FF6B5E',engine:'#FFA63A',a1:'#7A675A',a2:'#4D4038',a3:'#A99888',a4:'#5A5F6A',light:'#FFB347'}
+ slag:{pri:'#4D4038',trim:'#7A675A',str:'#6B7A88',glass:'#6FA8DC',rock:'#6E6A66',beacon:'#FF6B5E',engine:'#FFA63A',a1:'#7A675A',a2:'#4D4038',a3:'#A99888',a4:'#5A5F6A',light:'#FFB347'},
+ cordon:{pri:'#AEB9CF',trim:'#B13E53',str:'#566C86',glass:'#73EFF7',rock:'#5A5F6A',beacon:'#73EFF7',engine:'#41A6F6',a1:'#7D8BA6',a2:'#333C57',a3:'#E4EAF4',a4:'#B13E53',light:'#73EFF7'},
+ warden:{pri:'#2A2E48',trim:'#FFCD75',str:'#4A4466',glass:'#F0506E',rock:'#3A3A50',beacon:'#FFCD75',engine:'#EF7D57',a1:'#3B3556',a2:'#C99A3E',a3:'#1A1C2C',a4:'#B13E53',light:'#FFCD75'},
+ rust:{pri:'#5C3A28',trim:'#EF7D57',str:'#7A6E62',glass:'#FFCD75',rock:'#5B4636',beacon:'#F0506E',engine:'#FF9F43',a1:'#A0522D',a2:'#6B7A6A',a3:'#3E4A36',a4:'#C89A6A',light:'#FF9F43'}
 };
 SKINS.jammer={pri:'#4A5468',trim:'#4FD1C5',str:'#8A97B0',glass:'#7FF0E0',rock:'#3A4254',beacon:'#7FF0E0',engine:'#4FD1C5',a1:'#566075',a2:'#2A3140',a3:'#4FD1C5',a4:'#8FA3C4',light:'#7FF0E0'};
 SKINS.shroud={pri:'#5A4670',trim:'#B56BE8',str:'#8A7898',glass:'#F0C8FF',rock:'#6C5A84',beacon:'#F0C8FF',engine:'#D58CFF',a1:'#8A7898',a2:'#A55BD6',a3:'#5A4670',a4:'#B56BE8',light:'#F0C8FF'};
@@ -3949,6 +3952,61 @@ function kHull(P){
       mrU(mCap(x,y,z,-L-.1,-.12,.12,-L-.35,-.12,.12,.12),6);mrU(mCap(x,y,z,-L-.1,.12,-.14,-L-.55,.12,-.14,.1),6);
       return cut(mrB,x,y,z)*sc;},
      win(m){return (mrM===0&&m[0]>L*.85&&Math.abs(m[1])<.2&&mH(Math.floor(m[2]*9),5)>.5)?200:0;}};
+  }
+  /* sprite pass: one silhouette per enemy class, so a ship reads at a glance */
+  if(A==='dart'){   /* Cordon Picket: small, swept, fast */
+    return {r:1.9,rx:2.4,rz:2.4,
+     map(x,y,z){mrB=1e9;
+      mrU(mEll(x,y,z,1.45,.22,.3),0);mrU(mCap(x,y,z,1.3,0,0,2.05,0,0,.05),1);mrU(mEll(x-.45,y-.17,z,.38,.12,.14),3);
+      [1,-1].forEach(sg=>{mrU(mCap(x,y,z,.35,0,sg*.18,-.95,-.05,sg*1.05,.1),7);mrU(mCap(x,y,z,-.95,-.05,sg*1.05,-1.2,-.05,sg*1.1,.07),1);});
+      mrU(mBox(x+.9,y-.3,z,.35,.16,.03),7);mrU(mCylX(x+1.5,y,z,.17,.12),2);mrU(mCylX(x+1.66,y,z,.12,.05),6);
+      return mrB;},
+     win(m){return (mrM===3)?220:0;}};
+  }
+  if(A==='spear'){   /* Cordon Lancer: a long spine with the lance emitter in its nose */
+    return {r:1.9,rx:3.0,rz:3.0,
+     map(x,y,z){mrB=1e9;
+      mrU(mCap(x,y,z,-2.3,0,0,2.3,0,0,.12),0);mrU(mEll(x-2.62,y,z,.38,.1,.1),5);mrU(mTorX(x-2.2,y,z,.2,.045),1);mrU(mTorX(x-1.95,y,z,.17,.04),1);
+      mrU(mBox(x+.25,y,z,.95,.21,.3),0);mrU(mBox(x+.25,y,z,.96,.04,.31),1);mrU(mEll(x-.45,y-.24,z,.42,.12,.16),3);
+      mrU(mBox(x+.75,y-.38,z,.55,.18,.03),7);
+      [1,-1].forEach(sg=>{mrU(mCap(x,y,z,-.1,0,sg*.3,-1.0,0,sg*.85,.07),1);mrU(mCylX(x+2.35,y,z-sg*.16,.12,.12),2);mrU(mCylX(x+2.5,y,z-sg*.16,.09,.05),6);});
+      return mrB;},
+     win(m){return (mrM===3)?220:0;}};
+  }
+  if(A==='slab'){   /* Ironclad: a heavy armoured block that shows its broadside */
+    return {r:1.9,rx:2.9,rz:2.9,
+     map(x,y,z){mrB=1e9;
+      mrU(mBox(x,y,z,2.0,.36,.55)-.04,0);mrU(mBox(x-2.05,y,z,.25,.26,.4)-.03,0);
+      for(let i=-2;i<=2;i++)[1,-1].forEach(sg=>{mrU(mBox(x-i*.72,y,z-sg*.6,.32,.28,.05),7);mrU(mS(x-i*.72,y-.05,z-sg*.66,.06),1);});
+      mrU(mBox(x,y-.4,z,1.9,.03,.08),1);
+      [-1.1,-.1,.8].forEach(c=>{mrU(mCyl(x-c,y-.5,z,.2,.08),2);mrU(mCap(x,y,z,c,.52,0,c+.62,.52,0,.045),2);});
+      mrU(mBox(x-1.4,y-.62,z,.3,.2,.2),2);mrU(mBox(x-1.48,y-.66,z,.2,.06,.21),3);
+      [-.3,0,.3].forEach(zz=>{mrU(mCylX(x+2.08,y,z-zz,.13,.1),2);mrU(mCylX(x+2.22,y,z-zz,.1,.05),6);});
+      return mrB;},
+     win(m){return (mrM===3)?200:0;}};
+  }
+  if(A==='hex'){   /* Screenship: a projector ring around a squat core */
+    return {r:1.9,rx:2.3,rz:2.3,
+     map(x,y,z){mrB=1e9;
+      mrU(mEll(x,y,z,1.15,.42,.62),0);mrU(mTorX(x,y,z,1.05,.08),3);mrU(mTorX(x,y,z,1.05,.03),1);
+      for(let k=0;k<6;k++){const a=k*Math.PI/3;mrU(mS(x,y-Math.cos(a)*1.05,z-Math.sin(a)*1.05,.13),5);}
+      mrU(mCap(x,y,z,.9,0,0,1.75,0,0,.09),2);mrU(mS(x-1.8,y,z,.12),5);mrU(mEll(x-.35,y-.36,z,.35,.12,.18),3);
+      [1,-1].forEach(sg=>{mrU(mCylX(x+1.2,y,z-sg*.25,.13,.12),2);mrU(mCylX(x+1.35,y,z-sg*.25,.1,.05),6);});
+      return mrB;},
+     win(m){return (mrM===3)?240:0;}};
+  }
+  if(A==='flag'){   /* Warden Kael's flagship: long, dark, gold-trimmed, turrets and sponsons */
+    return {r:1.9,rx:3.2,rz:3.2,
+     map(x,y,z){mrB=1e9;
+      mrU(mCap(x,y,z,-2.5,0,0,1.9,0,0,.3),0);mrU(mEll(x-2.15,y,z,.85,.25,.4),0);mrU(mCap(x,y,z,2.6,0,0,3.0,0,0,.06),1);
+      mrU(mBox(x-.2,y-.4,z,1.15,.16,.24),2);mrU(mBox(x+.55,y-.62,z,.4,.12,.18),2);mrU(mBox(x+.62,y-.66,z,.25,.05,.19),3);
+      mrU(mBox(x,y-.29,z,2.35,.025,.06),1);mrU(mBox(x,y+.27,z,2.2,.02,.05),1);
+      [-1.4,-.5,.9].forEach(c=>{mrU(mCyl(x-c,y-.36,z,.15,.07),2);mrU(mCap(x,y,z,c,.38,0,c+.5,.38,0,.035),2);});
+      [1,-1].forEach(sg=>{mrU(mCap(x,y,z,-.6,0,sg*.38,.9,0,sg*.52,.14),7);mrU(mCap(x,y,z,.9,0,sg*.52,1.3,0,sg*.55,.05),1);});
+      [-.24,0,.24].forEach(zz=>{mrU(mCylX(x+2.55,y,z-zz,.13,.12),2);mrU(mCylX(x+2.7,y,z-zz,.1,.05),6);});
+      mrU(mCap(x,y,z,-.55,.7,0,-.55,1.25,0,.02),2);mrU(mS(x+.55,y-1.28,z,.07),5);
+      return mrB;},
+     win(m){return (mrM===3)?230:(mrM===0&&Math.abs(m[1])<.08&&m[0]>-2&&m[0]<1.6&&mH(Math.floor(m[0]*6),Math.floor(m[2]*6))>.75?180:0);}};
   }
   /* drone */
   const sp=Math.max(3,P.spikes|0);
@@ -9434,13 +9492,13 @@ R2V.tactical=root=>{
 const R2_SV={pitch:-1.15,sweep:12,frames:6,res:[128,80]};
 const R2_ARTDEF={
   pf:{kit:'hull',params:{arch:'ring',len:2.5,pods:2},skin:'concord'},
-  cutter:{kit:'hull',params:{arch:'patch',len:1.6,seed:2},skin:'wrecker'},
-  raider:{kit:'hull',params:{arch:'patch',len:2.0,seed:4},skin:'wrecker'},
-  picket:{kit:'hull',params:{arch:'wing'},skin:'lathe'},
-  lancer:{kit:'hull',params:{arch:'wing',len:2.1},skin:'lathe'},
-  screenship:{kit:'hull',params:{arch:'lens'},skin:'lathe'},
-  ironclad:{kit:'hull',params:{arch:'ring',len:2.3,pods:0},skin:'lathe'},
-  kael:{kit:'hull',params:{arch:'ring',len:2.8,pods:2},skin:'ashkar'}
+  cutter:{kit:'hull',params:{arch:'patch',len:1.35,seed:2},skin:'rust'},
+  raider:{kit:'hull',params:{arch:'patch',len:2.0,seed:4,scale:1.05},skin:'rust'},
+  picket:{kit:'hull',params:{arch:'dart'},skin:'cordon'},
+  lancer:{kit:'hull',params:{arch:'spear'},skin:'cordon'},
+  screenship:{kit:'hull',params:{arch:'hex'},skin:'cordon'},
+  ironclad:{kit:'hull',params:{arch:'slab'},skin:'cordon'},
+  kael:{kit:'hull',params:{arch:'flag'},skin:'warden'}
 };
 const R2_FOESZ={cutter:.72,picket:.78,raider:.9,lancer:.95,screenship:1,ironclad:1.12,kael:1.25};
 /* one enemy, one picture (playtest #4): the viewer uses the same model as the combat stage, seen from the side */
