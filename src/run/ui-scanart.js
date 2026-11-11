@@ -152,7 +152,7 @@ function r2Space(c){
     return {ang,len:w*fore*.5,cx,cy};
   };
   X.imageSmoothingEnabled=false;X.drawImage(SCA.buf,0,0,W,H);
-  if(turning)drawShip(aim,.35);
+  if(turning&&SP.ptr&&SP.ptr.moved&&SP.drag==='helm')drawShip(aim,.35);   /* the planned-turn ghost only while you steer by dragging */
   {const sp=drawShip(SCA.disp,1);
    /* engine glow; a short streak while folding */
    if(sp){const ux=Math.cos(sp.ang),uy=Math.sin(sp.ang),ex=sp.cx-ux*sp.len,ey=sp.cy-uy*sp.len,n=S.engaged&&S.warpEff>=1?9:2;
