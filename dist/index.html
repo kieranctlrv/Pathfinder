@@ -1223,6 +1223,20 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 #view.tr>section:not(.tr-ship){grid-column:2}
 #view.tr .tr-ship .pb{padding:0}
 @media (max-width:1000px){#view.tr{grid-template-columns:1fr!important}#view.tr .tr-ship{grid-row:auto;height:55vh;min-height:300px}#view.tr>section:not(.tr-ship){grid-column:1}}
+
+/* scroll fix: the right-hand column of the two-column station screens scrolls inside the screen height instead of
+   growing past it (a refit gate's upgrade list was unreachable on Cargo) */
+#view.cg{grid-template-rows:minmax(0,1fr) auto;height:calc(100vh - 110px)}
+#view.cg .cg-cam{grid-row:1/3;height:auto}
+#view.cg>section:not(.cg-cam){min-height:0}
+#view.cg>section:not(.cg-cam) .pb{overflow-y:auto;min-height:0;scrollbar-width:thin}
+#view.tr{grid-template-rows:auto minmax(0,1fr) auto;height:calc(100vh - 110px)}
+#view.tr .tr-ship{height:auto}
+#view.tr>section:not(.tr-ship){min-height:0}
+#view.tr>section:not(.tr-ship) .pb{overflow-y:auto;min-height:0;scrollbar-width:thin}
+#view.sc,#view.hl{height:calc(100vh - 110px)}
+#view.sc .sc-side,#view.hl .hl-plan{max-height:none;min-height:0}
+@media (max-width:1000px){#view.cg,#view.tr,#view.sc,#view.hl{height:auto;grid-template-rows:none}}
 /* 16x16 pixel sprites (Sweetie-16), drawn by scratchpad mkicons.py */
 .pxi{display:inline-block;width:32px;height:32px;flex:none;background:center/100% 100% no-repeat;image-rendering:pixelated;vertical-align:middle}
 .pxi.i-hull{background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAuklEQVR4XmNkgAIpGZ3/MDYx4NmTK4wgdWACpPnWjRMMC/acI0YvGLTlZIENYYLpAGlOcDHCawBM/tCeI3B1cANAgJALsMmzYLMS2QZkYOdig6EcwwCQZmwKcRmK4gVyAIYLQLbjsg0bwBoG2LyAC4C9AIpPULwSA0CuO7JhGTwhYYQBobSADsApEQZAKbJqyjScDkG3HQRQDAABbIbAAhXZ6TCAYQCyIcixgU0zVhcgewfZL7DcR3UAABiOUlkdipXhAAAAAElFTkSuQmCC)}
