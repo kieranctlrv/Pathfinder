@@ -186,3 +186,7 @@ The home viewer is a camera feed from the Pathfinder's bow, shown on the bridge 
 - On arrival the place fills the frame. In fights the camera tracks the enemy; with the Rearguard inbound the feed cuts to AFT CAM.
 - The bow dome and the front of the ring sit at the bottom of the frame. Overlay: camera tag, zoom, bearing, target brackets, fold readout, scanlines.
 - Each place keeps the model it was first shown with.
+
+## Motion audit
+
+`python3 tests/motion.py [outdir]` plays a passage in the browser and samples the home viewer and map every frame through each transition (tab switches, pick, engage, spin-up, fold, drop-out, arrival). It scores each frame's change from the previous one and saves thumbnails around transitions and spikes, to catch snaps and one-frame flashes. Viewer fixes from the first run: the camera cuts to its heading with a short reconnect stutter when you come back from the map, the target is held through the Helm handoff with the lock frame on from engage to drop-out, and viewer models turn in 24 steps instead of 12.

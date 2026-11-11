@@ -357,7 +357,7 @@ function mdPump(ms){
 function mdFrame(c,tms){
   const n=c.frames.length;if(!n)return null;
   if(n<Math.min(c.N,4))return c.frames[0];
-  const step=Math.floor(tms/(c.sweep>=360?650:520));
+  const step=Math.floor(tms/(c.def.spin||(c.sweep>=360?650:520)));
   if(c.sweep>=360)return c.frames[step%n];
   const per=Math.max(1,n-1)*2,k=step%per;return c.frames[k<n?k:per-k];
 }
