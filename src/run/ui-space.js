@@ -3,7 +3,7 @@
    A passage is a small 3D volume around the ship. The sensors face the ship's nose; the player turns the ship to aim.
    Camera drag looks around; Helm drag plans a new facing (a ghost ship and cone). Scans run through RunMap.scan.
    Drawn straight onto the map canvas each frame: grid on the ship's plane, drop lines, blips, cones. No 3D library. */
-const SP={cone:(()=>{try{return localStorage.getItem('pf-cone')!=='0';}catch(_){return true;}})(),yaw:-0.6,pitch:0.72,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
+const SP={cone:(()=>{try{return localStorage.getItem('pf-cone')==='1';}catch(_){return false;}})(),yaw:-0.6,pitch:0.9,drag:'cam',mode:'sweep',aim:null,anim:null,ptr:null,inst:false};
 const SP_TCOL={contact:'salmon',guardian:'salmon',wreck:'orange',outpost:'blue',shop:'blue',anomaly:'lav',trace:'peri',gate:'yellow'};
 const SP_CLS={contact:'ENERGY SIGNATURE',guardian:'ENERGY SIGNATURE',outpost:'ENERGY SIGNATURE',shop:'ENERGY SIGNATURE',gate:'ENERGY SIGNATURE',wreck:'MASS READING',anomaly:'FAINT SIGNAL',trace:'FAINT SIGNAL'};
 const spUnit=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
@@ -13,27 +13,21 @@ function spAim(){return SP.aim||spNose();}
 function spBlipName(c){return SP_CLS[c.type]||'CONTACT';}
 /* where the ship is drawn: the centre, or partway along the fold line while under way */
 function spShipPos(){
-  const R=R2.R;if(!S.engaged||!S.dest||!/^c\d$/.test(S.dest.id))return R2.at&&R&&R2.at.pass===R.sector*10+R.passage?R2.at.p.slice():[0,0,0];   /* after arriving the ship stays where it stopped until the next passage */
+  const R=R2.R;if(!S.engaged||!S.dest||!/^c\d$/.test(S.dest.id)){const o=R&&R.origin,p=R&&R.pos;return o&&p?[p[0]-o[0],p[1]-o[1],p[2]-o[2]]:[0,0,0];}   /* after arriving the ship stays where it stopped (saved with the Run) until the next passage */
   const c=R.cards[+S.dest.id.slice(1)];if(!c||!c.p)return [0,0,0];
   const t=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);return c.p.map(x=>x*t);
 }
 /* zoom to fit (UI pass): the view frames what matters (ship, contacts, the cone's reach, the Rearguard); under way it frames ship and destination */
-function spFit(dt){
+/* map rework: one steady scale. The view keeps about 7.5 LY around the ship on screen (whatever the panel's shape),
+   the camera glides to follow the ship, and only the player zooms (wheel, + and -, 0 resets) */
+function spFit(dt,L){
   const R=R2.R;if(!R)return;
-  const ship=spShipPos(),dest=S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)?R.cards[+S.dest.id.slice(1)]:null;
-  let ctr=[0,0,0],rad=2;
-  if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
-  else{
-    const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
-    pts.push(spShipPos());{const tr=R.trail||[],o=R.origin||[0,0,0];if(tr.length>1){const t=tr[tr.length-2];pts.push([t[0]-o[0],t[1]-o[1],t[2]-o[2]]);}}if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
-    const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
-    ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
-    if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
-  }
-  const tz=clamp(6.5/rad,.45,2.2),k=Math.min(1,(dt||.016)*2.4);
+  const W=L?L.width:16,H=L?L.height:9,f0=Math.min(W*1.15,H*2.7)/24,base=Math.min(W,H)*.46/(f0*7.5),tz=base*(SP.zMul||1),ctr=spShipPos(),k=Math.min(1,(dt||.016)*3);
   if(!SP.ctr||SP.zoom==null){SP.ctr=ctr;SP.zoom=tz;return;}
-  SP.zoom+=(tz-SP.zoom)*k;SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
+  SP.zoom+=(tz-SP.zoom)*Math.min(1,(dt||.016)*8);SP.ctr=SP.ctr.map((v,i)=>v+(ctr[i]-v)*k);
 }
+function spZoom(m){SP.zMul=clamp((SP.zMul||1)*m,.45,2.6);}
+function spReset(){SP.zMul=1;SP.yaw=-0.6;SP.pitch=0.9;SP.camT=performance.now();}
 function spProj(c,p){
   const cy=Math.cos(SP.yaw),sy=Math.sin(SP.yaw),cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),C=SP.ctr||[0,0,0],px=p[0]-C[0],py=p[1]-C[1],pz=p[2]-C[2];
   const x=px*cy-py*sy,y=px*sy+py*cy,z=pz,y2=y*cp-z*sp,z2=y*sp+z*cp;
@@ -72,6 +66,11 @@ function spInstall(c){
     S.homeSel=best==null?null:'c'+best;SND.tap();r2Render();
   });
   c.addEventListener('click',e=>{if(R2.live){e.stopImmediatePropagation();}},true);   /* the Campaign's map click must not run in a Run */
+  /* map rework: hover shows a place's details, the wheel zooms, a double click engages */
+  c.addEventListener('pointermove',e=>{if(!R2.live||SP.ptr&&SP.ptr.moved)return;const r=c.getBoundingClientRect(),k=c.width/r.width;SP.mouse={c,x:(e.clientX-r.left)*k,y:(e.clientY-r.top)*k};});
+  c.addEventListener('pointerleave',()=>{if(SP.mouse&&SP.mouse.c===c)SP.mouse=null;});
+  c.addEventListener('wheel',e=>{if(!R2.live)return;e.preventDefault();spZoom(Math.exp(-e.deltaY*.0015));},{passive:false});
+  c.addEventListener('dblclick',e=>{if(!R2.live)return;const R=R2.R;if(R.phase!=='choose'||S.engaged||!S.homeSel)return;e.preventDefault();SND.tap();goTo(S.homeSel,true);r2Render();});
 }
 /* camera presets */
 /* the cone can be hidden; it still flashes while a scan runs */
@@ -85,13 +84,14 @@ function spCam(){
   b(SP.drag==='cam'?'DRAG: CAM':'DRAG: HELM','Dragging turns the camera, or steers the ship',SP.drag!=='cam',()=>{SP.drag=SP.drag==='cam'?'helm':'cam';});
   b('ALIGN','Point the ship where the camera looks',false,spAlign);
   [['BEHIND','behind'],['3/4','iso'],['TOP','top'],['SIDE','side']].forEach(([t,k])=>b(t,'Camera: '+t,false,()=>spView(k)));
+  b('−','Zoom out (-)',false,()=>spZoom(1/1.25));b('+','Zoom in (+)',false,()=>spZoom(1.25));b('RESET','Reset the view (0)',false,spReset);
   b(SP.cone?'CONE':'CONE OFF','Show or hide the scan cone',SP.cone,spConeToggle);
 }
 function spConeToggle(){SP.cone=!SP.cone;try{localStorage.setItem('pf-cone',SP.cone?'1':'0');}catch(_){}}
 function spView(k){
   SP.camT=performance.now();
   if(k==='behind'){const n=spNose();SP.yaw=Math.atan2(-n[0],-n[1]);SP.pitch=clamp(Math.asin(clamp(n[2],-1,1))+0.3,-1.45,1.45);}
-  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.72;}
+  else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.9;}
 }
 function spAlign(){const cp=Math.cos(SP.pitch),sp=Math.sin(SP.pitch),sy=Math.sin(SP.yaw),cy=Math.cos(SP.yaw);SP.aim=spUnit([-cp*sy,-cp*cy,sp]);spCtlKey='';r2HomeMap();}
 function spFace(ix){const c=R2.R.cards[ix];if(!c||!c.p)return;SP.aim=spUnit(c.p);spCtlKey='';r2HomeMap();}

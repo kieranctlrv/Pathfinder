@@ -462,6 +462,9 @@ function r2HomeMap(){
   }
 }
 /* navigation pass: once something is on the map, the bar under it lists the destinations */
+/* map zoom keys: + and - zoom, 0 resets the view (Home and Helm) */
+document.addEventListener('keydown',e=>{if(!R2.live||(curView!=='home'&&curView!=='helm')||e.ctrlKey||e.metaKey)return;const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;
+  if(e.key==='+'||e.key==='='){spZoom(1.2);e.preventDefault();}else if(e.key==='-'||e.key==='_'){spZoom(1/1.2);e.preventDefault();}else if(e.key==='0'&&!(R2.R&&R2.R.phase==='fight')){spReset();e.preventDefault();}});
 /* keys for the map bar: 1-9 pick a destination, Enter engages, Esc goes back to the list */
 document.addEventListener('keydown',e=>{
   const R=R2.R;if(!R||!R2.live||R.over||R.phase!=='choose'||curView!=='home'||S.engaged)return;
@@ -491,7 +494,7 @@ function r2DestCards(host){
     const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':'')+(c.old?' old':''));b.type='button';
     const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=c.old?'BEHIND YOU · DOUBLING BACK COSTS MORE':(r2CardTags(c)[0]||'').split('.')[0];
     b.innerHTML='<i></i><b></b><span></span><small></small>';
-    b.querySelector('i').textContent=n+1;b.querySelector('b').textContent=nm;
+    b.dataset.ix=i;b.querySelector('i').textContent=n+1;b.querySelector('b').textContent=nm;
     b.querySelector('span').textContent=fmt(d)+' LY · '+fmtEta(eta)+' · '+cost+' LUM';
     b.querySelector('small').textContent=short?'NOT ENOUGH LUMITE AT FOLD '+fmt(w):tag;
     b.addEventListener('mouseenter',()=>{SP.prev=i;});b.addEventListener('mouseleave',()=>{if(SP.prev===i)SP.prev=null;});

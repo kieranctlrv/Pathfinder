@@ -52,7 +52,7 @@ function r2Space(c){
   if(!SCA.buf){SCA.buf=document.createElement('canvas');}
   if(SCA.buf.width!==LW||SCA.buf.height!==LH){SCA.buf.width=LW;SCA.buf.height=LH;}
   const x=SCA.buf.getContext('2d'),L={width:LW,height:LH,dpr:1},P=p=>spProj(L,p),k=W/LW;
-  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;spFit(dt);
+  const mood=SCA_SEC[R.sector]||SCA_SEC[1],dt=Math.min(.1,(now-(SCA.lastT||now))/1000);SCA.lastT=now;spFit(dt,L);
   /* the sky: base, nebula, stars (they turn with the camera, so dragging feels like looking around) */
   x.fillStyle='rgb('+mood.bg.join(',')+')';x.fillRect(0,0,LW,LH);
   const F=LH*1.25,sky=v=>{const q=saRot(v);if(q[1]>-0.05)return null;return [LW/2+q[0]/-q[1]*F,LH/2-q[2]/-q[1]*F];};
@@ -63,8 +63,8 @@ function r2Space(c){
   const blue=spHex('blue'),sal=spHex('salmon'),peri=spHex('peri');
   for(let gx=-9;gx<=9;gx++)for(let gy=-9;gy<=9;gy++){const r=Math.hypot(gx,gy);if(r>9.5)continue;const p=P([gx,gy,0]),major=gx%3===0&&gy%3===0;x.fillStyle='rgba('+peri+','+((major?.8:.42)*(1-r/10.5)).toFixed(2)+')';x.fillRect(Math.round(p[0]),Math.round(p[1]),major?2:1,1);}
   /* range rings on the ship's plane at 2, 4 and 6 LY, so distance reads at a glance */
-  const rings=[];{const c0=spShipPos();[2,4,6].forEach(r=>{for(let i=0;i<60*r;i+=2){const t=i/(60*r)*Math.PI*2,q=P([c0[0]+Math.cos(t)*r,c0[1]+Math.sin(t)*r,0]);x.fillStyle='rgba('+peri+',.45)';x.fillRect(Math.round(q[0]),Math.round(q[1]),1,1);}
-    const lp=P([c0[0]+r*Math.cos(-SP.yaw-.3),c0[1]+r*Math.sin(-SP.yaw-.3),0]);rings.push({x:lp[0],y:lp[1],t:r+' LY'});});}
+  /* map rework: one faint ring at scan reach instead of three rulers; a scale bar in the corner does the measuring */
+  const rings=[];if(choose&&!S.engaged){const c0=spShipPos(),r=RM.scanReach(R,SP.mode),n=Math.round(40*r);for(let i=0;i<n;i+=3){const t=i/n*Math.PI*2,q=P([c0[0]+Math.cos(t)*r,c0[1]+Math.sin(t)*r,0]);x.fillStyle='rgba('+peri+',.28)';x.fillRect(Math.round(q[0]),Math.round(q[1]),1,1);}}
   /* dust drifting through the volume */
   SCA.dust.forEach(q=>{q[0]-=dt*.25;if(q[0]<-10)q[0]+=20;const p=P(q);x.fillStyle='rgba(200,210,240,'+(.12+.2*q[3]).toFixed(2)+')';x.fillRect(Math.round(p[0]),Math.round(p[1]),1,1);});
   /* the facing the ship shows: it turns smoothly toward where the nose really is, with thruster puffs while it swings */
@@ -74,7 +74,6 @@ function r2Space(c){
   const pk=!dcard&&R.phase==='choose'?(S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):SP.prev!=null?SP.prev:null):null,pc=pk!=null?R.cards[pk]:null;
   const face=pc&&pc.p?spUnit(pc.p.map((v,i)=>v-shipNow[i])):nose;
   /* chase cam: under way the camera eases in behind the ship, until you touch it */
-  if(S.engaged&&dcard&&!REDUCED&&now-(SP.camT||0)>4000){const ty=Math.atan2(-SCA.disp[0],-SCA.disp[1])+.75,tp=.55;   /* a three-quarter chase, so the ship shows its profile */let dy=ty-SP.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));const kk=Math.min(1,dt*.9);SP.yaw+=dy*kk;SP.pitch+=(tp-SP.pitch)*kk;}
   /* a new passage: dissolve through black instead of snapping */
   if(SCA.pass!==R.sector*10+R.passage){if(SCA.pass!=null){SCA.fadeT=now;SP.zoom=null;}SCA.pass=R.sector*10+R.passage;}
   {const a=spAng(SCA.disp,face);if(a>0.5){const t=Math.min(1,dt*3.2);SCA.disp=spUnit(SCA.disp.map((v,i)=>v+(face[i]-v)*t));if(Math.random()<0.6)SCA.puffs.push({p:spShipPos().map((v,i)=>v+(Math.random()-.5)*.5),t:0});}else SCA.disp=nose.slice();}
@@ -100,21 +99,23 @@ function r2Space(c){
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
+  const hv=[];
   /* the sector so far (navigation pass): the route flown, places visited and places passed by, and the Rearguard behind you */
   {const o=R.origin||[0,0,0],toL=w=>[w[0]-o[0],w[1]-o[1],w[2]-o[2]],tr=(R.trail||[]).map(toL);
-   for(let i=1;i<tr.length;i++){const a=P(tr[i-1]),b=P(tr[i]);const n=Math.max(2,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/3));for(let j=0;j<=n;j+=1){if(j%2)continue;const u=j/n;x.fillStyle='rgba(255,205,117,.6)';x.fillRect(Math.round(a[0]+(b[0]-a[0])*u),Math.round(a[1]+(b[1]-a[1])*u),1,1);}}
-   tr.forEach((t,i)=>{if(!i)return;const q=P(t);x.fillStyle='rgba(255,205,117,.55)';x.fillRect(Math.round(q[0])-1,Math.round(q[1])-1,3,3);});
+   for(let i=1;i<tr.length;i++)saLine(x,P(tr[i-1]),P(tr[i]),'rgba(255,205,117,.26)',1);
+   tr.forEach((t,i)=>{if(!i||i===tr.length-1)return;const q=P(t);x.fillStyle='rgba(255,205,117,.45)';x.fillRect(Math.round(q[0]),Math.round(q[1]),1,1);});
    (R.world||[]).forEach(nd=>{const l=toL(nd.w),q=P(l);if(q[0]<-20||q[1]<-20||q[0]>LW+20||q[1]>LH+20)return;const vis=nd.state==='visited';
      x.globalAlpha=vis?.45:.6;saIcon(x,SCA_ICON[nd.type]||SCA_ICON.wreck,Math.round(q[0]),Math.round(q[1]),vis?'rgb(120,130,150)':'rgb('+saRGB(nd.id?(SP_TCOL[nd.type]||'orange'):'lav').join(',')+')',vis?'#c0c8d8':'#ffffff');x.globalAlpha=1;
-     if(vis){x.fillStyle='rgba(255,205,117,.7)';x.fillRect(Math.round(q[0])+5,Math.round(q[1])-6,2,2);}});
+     if(vis){x.fillStyle='rgba(255,205,117,.7)';x.fillRect(Math.round(q[0])+5,Math.round(q[1])-6,2,2);}
+     hv.push({x:q[0],y:q[1],key:'w'+nd.w.join(','),t:r2U(nd.type)+(vis?' · VISITED':' · PASSED BY')+' · '+fmt(Math.hypot(l[0]-ship[0],l[1]-ship[1],l[2]-ship[2]))+' LY',col:'rgb(170,180,200)'});});
    /* the Rearguard, drawn behind you: the closer threat gets to the next intercept mark, the closer it sits */
    if(!R.intercept&&R.phase!=='fight'&&!R.over){const mk=RM.MARKS?RM.MARKS:[25,50,75],nx=mk.find((m,i)=>i>=(R.marks||0)&&m>R.threat),gap=nx!=null?nx-R.threat:Math.max(0,100-R.threat),dd=clamp(gap/25*8,.8,9),sp=spShipPos(),pv=tr.length>1?tr[tr.length-2]:null,bk=pv?spUnit([sp[0]-pv[0],sp[1]-pv[1],sp[2]-pv[2]]):null,gd=bk&&isFinite(bk[0])&&Math.hypot(sp[0]-pv[0],sp[1]-pv[1])>.3?bk:(R.gateDir||[1,0,0]),rp=[sp[0]-gd[0]*dd,sp[1]-gd[1]*dd,sp[2]-gd[2]*dd+.6],q=P(rp);
-     const blink=Math.floor(now/500)%2;x.fillStyle=blink?'#f0506e':'#b13e53';x.fillRect(Math.round(q[0])-2,Math.round(q[1])-1,5,3);x.fillRect(Math.round(q[0])-1,Math.round(q[1])-2,3,5);
-     SCA.rg={x:q[0],y:q[1],t:'REARGUARD · '+fmt(dd)+' LY'+(nx!=null?' · INTERCEPT AT '+nx+'%':'')};}else SCA.rg=null;}
+     const pu=(Math.sin(now/260)+1)/2;x.fillStyle='rgba(240,80,110,'+(.25+pu*.35).toFixed(2)+')';x.fillRect(Math.round(q[0])-2,Math.round(q[1])-2,5,5);x.fillStyle='#f0506e';x.fillRect(Math.round(q[0])-1,Math.round(q[1])-1,3,3);
+     hv.push({x:q[0],y:q[1],key:'rg',t:'REARGUARD · '+fmt(dd)+' LY'+(nx!=null?' · INTERCEPT AT '+nx+'%':''),col:'rgb('+spHex('salmon')+')'});}}
   const list=choose?R.cards.map((cc,ix)=>({cc,ix})).filter(o=>o.cc.p&&o.cc.found&&!pending.has(o.ix)&&(!S.engaged||o.ix===dest)):[],labels=[];
   list.sort((a,b)=>P(a.cc.p)[2]-P(b.cc.p)[2]).forEach(({cc,ix})=>{
     const q=P(cc.p),B=P([cc.p[0],cc.p[1],0]),col='rgb('+saRGB(cc.id?(SP_TCOL[cc.type]||'orange'):'lav').join(',')+')';
-    saLine(x,q,B,'rgba('+peri+',.5)',2);x.fillStyle='rgba('+peri+',.6)';x.fillRect(Math.round(B[0])-1,Math.round(B[1]),3,1);
+    saLine(x,q,B,'rgba('+peri+',.2)',2);x.fillStyle='rgba('+peri+',.35)';x.fillRect(Math.round(B[0]),Math.round(B[1]),1,1);
     const cx=Math.round(q[0]),cy=Math.round(q[1]);
     if(!cc.id){const on=Math.floor(now/450+ix)%2===0;x.fillStyle=on?col:'rgba(154,166,204,.5)';x.fillRect(cx-1,cy-1,3,3);const g=SCA_GLYPH[spBlipName(cc)];if(g)saIcon(x,g,cx,cy-5,col,col);}
     else if(cc.foe&&(cc.type==='contact'||cc.type==='guardian')){let art=null;try{art=mdCanvas(r2ArtDef(cc.foe),now);}catch(_){}
@@ -123,14 +124,15 @@ function r2Space(c){
     else saIcon(x,SCA_ICON[cc.type]||SCA_ICON.wreck,cx,cy,col,'#ffffff');
     if(shown.has(ix)){x.strokeStyle='rgba(220,255,250,.8)';x.strokeRect(cx-7.5,cy-7.5,15,15);}
     if(sel===ix||dest===ix){const b=Math.floor(now/300)%2?9:10;x.fillStyle='#ffd27a';[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{x.fillRect(cx+sx*b-(sx>0?2:0),cy+sy*b,3,1);x.fillRect(cx+sx*b,cy+sy*b-(sy>0?2:0),1,3);});}
-    labels.push({x:cx,y:cy,t:(cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc))+'  '+fmt(S.engaged&&ix===dest?Math.max(0,S.distLeft):cc.d)+' LY',col});
+    {const nm=cc.id?r2NodeName(cc,ix,R.cards):spBlipName(cc),dd=S.engaged&&ix===dest?Math.max(0,S.distLeft):cc.d,w2=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp());
+     hv.push({x:cx,y:cy,key:'c'+ix,ix,t:nm+' · '+fmt(dd)+' LY'+(S.engaged?'':' · '+fmtEta(dd/Math.max(.001,r2V(w2)))+' · '+r2FoldCost(cc,w2)+' LUM'),col,keep:sel===ix||dest===ix,short:nm+' '+fmt(dd)+' LY'});}
   });
   /* the Rearguard: a red arrow with a comet tail, closing from aft */
   if(R.intercept&&R.intercept.p&&!R.over){const q=P(R.intercept.p),pu=.5+.5*Math.sin(now/200),dx=O[0]-q[0],dy=O[1]-q[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l;
     for(let i=1;i<14;i++){x.fillStyle='rgba('+sal+','+(.5-i*.035).toFixed(2)+')';x.fillRect(Math.round(q[0]-ux*i*2),Math.round(q[1]-uy*i*2),2,2);}
     x.fillStyle='rgb('+sal+')';for(let i=0;i<5;i++)for(let j=-i;j<=i;j++)x.fillRect(Math.round(q[0]+ux*(4-i)-uy*j),Math.round(q[1]+uy*(4-i)+ux*j),1,1);
     x.globalAlpha=pu*.5;x.strokeStyle='rgb('+sal+')';x.strokeRect(Math.round(q[0])-8.5,Math.round(q[1])-8.5,17,17);x.globalAlpha=1;
-    labels.push({x:q[0],y:q[1],t:'REARGUARD · INBOUND',col:'rgb('+sal+')',bold:1});}
+    labels.push({x:q[0],y:q[1],t:'REARGUARD · INBOUND',col:'rgb('+sal+')',bold:1});hv.push({x:q[0],y:q[1],key:'ri',t:'REARGUARD · INBOUND · REACHES YOU ON YOUR NEXT SCAN OR FOLD',col:'rgb('+sal+')'});}
   /* fold trail while under way */
   /* thruster puffs */
   SCA.puffs=SCA.puffs.filter(f=>(f.t+=dt)<0.6);SCA.puffs.forEach(f=>{const q=P(f.p);x.fillStyle='rgba(220,230,255,'+(0.6-f.t).toFixed(2)+')';x.fillRect(Math.round(q[0]+(f.t*14)*(Math.random()-.5)),Math.round(q[1]+(f.t*14)*(Math.random()-.5)),1,1);});
@@ -159,10 +161,16 @@ function r2Space(c){
   const boxes=[];
   const lab=(px,py,t,col,bold)=>{const w=X.measureText(t).width;let lx=px*k+14*d,ly=clamp(py*k,14*d,H-30*d);if(lx+w>W-10*d)lx=px*k-14*d-w;lx=clamp(lx,10*d,W-10*d-w);for(let i=0;i<6&&boxes.some(b=>lx<b[0]+b[2]&&lx+w>b[0]&&Math.abs(ly-b[1])<16*d);i++)ly+=16*d;boxes.push([lx,ly,w]);
     X.fillStyle='rgba(4,7,14,.72)';X.fillRect(lx-4*d,ly-8*d,w+8*d,16*d);X.fillStyle=col;X.fillText(t,lx,ly);};
-  X.font=cfont(10*d);X.fillStyle='rgba('+peri+',.6)';rings.forEach(r=>{const rx=r.x*k,ry=r.y*k;if(rx>8*d&&rx<W-30*d&&ry>8*d&&ry<H-24*d)X.fillText(r.t,rx+3*d,ry);});X.font=cfont(13*d,1);
+  hv.push({x:O[0],y:O[1],key:'ship',t:'PATHFINDER'+(S.engaged?' · UNDER WAY · '+fmt(Math.max(0,S.distLeft))+' LY TO GO':''),col:'rgb('+spHex('peach')+')',r:12});
+  /* hover: the nearest thing under the pointer, within a few pixels */
+  let hov=null;if(SP.mouse&&SP.mouse.c===c){const mx=SP.mouse.x/k,my=SP.mouse.y/k;let bd=9;hv.forEach(h=>{const dd=Math.hypot(h.x-mx,h.y-my)*(h.r?.6:1);if(dd<bd){bd=dd;hov=h;}});}
+  c.style.cursor=hov&&hov.ix!=null&&choose&&!S.engaged?'pointer':SP.ptr&&SP.ptr.moved?'grabbing':'grab';
+  {const hk=hov&&hov.ix!=null?hov.ix:null;if(SCA.hovIx!==hk){SCA.hovIx=hk;$$('#mc-hint .dc').forEach(b=>b.classList.toggle('hot',+b.dataset.ix===hk));}}
   labels.forEach(l=>lab(l.x,l.y,l.t,l.col,l.bold));
-  if(SCA.rg)lab(SCA.rg.x,SCA.rg.y,SCA.rg.t,'rgb('+spHex('salmon')+')');
-  lab(O[0]-14,O[1]+Math.max(16,H*.06/k),'PATHFINDER','rgb('+spHex('peach')+')');
+  hv.forEach(h=>{if(h.keep&&h!==hov)lab(h.x,h.y,h.short,h.col);});
+  if(hov){X.font=cfont(13*d,1);lab(hov.x,hov.y,hov.t,hov.col,1);}
+  /* scale bar: two light years at the ship's depth */
+  {const f2=P(ship)[2]*k*2;if(f2>8*d&&f2<W*.45){const bx=W-14*d-f2,by=H-34*d;X.fillStyle='rgba(148,176,194,.75)';X.fillRect(bx,by,f2,1*d);X.fillRect(bx,by-4*d,1*d,9*d);X.fillRect(bx+f2-1*d,by-4*d,1*d,9*d);X.font=cfont(11*d);X.textAlign='right';X.fillText('2 LY',W-14*d,by-8*d);X.textAlign='left';X.font=cfont(13*d,1);}}
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing')){const g=P(R.gateDir.map(q=>q*9));lab(g[0],g[1],'GATE BEARING','rgb('+spHex('yellow')+')');}
   X.fillStyle='rgba(0,0,0,.10)';for(let yy=0;yy<H;yy+=3*d)X.fillRect(0,yy,W,1*d);
   const vg=X.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.45)');X.fillStyle=vg;X.fillRect(0,0,W,H);
