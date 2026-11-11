@@ -351,3 +351,44 @@ body.r2feed .ambient{height:calc(138px*var(--ts,1))}
 .r2-stage{background:#0b1024}
 .cf-bg,.cf-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;display:block}
 .r2-stage svg.r2sv{background:none}
+/* navigation pass: camera tools in the map corner */
+.hm-cam{position:absolute;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:70%;z-index:3}
+.hc-b{height:26px;padding:0 8px;border:0;background:rgba(26,28,44,.78);color:var(--lav);font-size:calc(13px*var(--ts,1));letter-spacing:.06em;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(148,176,194,.35)}
+.hc-b:hover{color:var(--chalk);background:rgba(51,60,87,.9)}
+.hc-b.on{color:var(--bg);background:var(--lav)}
+.hero-map{position:relative}
+/* destination cards under the map */
+.dc-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-bottom:6px}
+.dc{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;column-gap:8px;row-gap:2px;align-items:center;text-align:left;padding:6px 8px;border:0;background:var(--panel2,#333c57);color:var(--chalk);cursor:pointer;box-shadow:inset 4px 0 0 var(--orange);font-family:inherit}
+.dc.hostile{box-shadow:inset 4px 0 0 var(--salmon)}.dc.gate{box-shadow:inset 4px 0 0 var(--yellow)}
+.dc:hover,.dc:focus-visible{background:#3d4766;outline:2px solid var(--orange);outline-offset:-2px}
+.dc.short{opacity:.6}
+.dc i{grid-row:1/4;font-style:normal;width:22px;height:22px;display:grid;place-items:center;background:var(--bg);color:var(--orange);font-size:calc(15px*var(--ts,1))}
+.dc b{font-weight:400;font-size:calc(17px*var(--ts,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc span{color:var(--blue);font-size:calc(14px*var(--ts,1));white-space:nowrap}
+.dc small{color:var(--lav);font-size:calc(13px*var(--ts,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc.short small{color:var(--salmon)}
+.dc-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.dc-foot .btn.sm.on{box-shadow:inset 0 0 0 3px #fff}
+.dc-hint{margin-left:auto;color:var(--lav);font-size:calc(13px*var(--ts,1))}
+/* the course panel */
+.mc-x{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin-top:6px}
+.mc-x label{grid-column:1/-1;color:var(--lav);font-size:calc(14px*var(--ts,1))}.mc-x label b{color:var(--orange);font-weight:400}
+.mc-x input{width:100%}
+#mc-go{font-size:calc(15px*var(--ts,1))}
+/* the arrival card */
+.arrive{position:fixed;inset:0;z-index:150;display:grid;place-items:center;background:rgba(8,10,22,.82);cursor:pointer;animation:arrIn .18s ease-out}
+.arrive.out{opacity:0;transition:opacity .35s}
+.arr-in{display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 56px;background:var(--panel2,#333c57);box-shadow:0 0 0 6px var(--bg),0 0 0 12px var(--blue)}
+.arrive.red .arr-in{box-shadow:0 0 0 6px var(--bg),0 0 0 12px var(--salmon)}.arrive.gold .arr-in{box-shadow:0 0 0 6px var(--bg),0 0 0 12px var(--yellow)}
+.arr-in b{font-family:var(--fonth,inherit);font-size:clamp(40px,7vw,110px);line-height:1;color:var(--blue);letter-spacing:.08em;animation:arrBlink .5s steps(1,end) 2}
+.arrive.red .arr-in b{color:var(--salmon)}.arrive.gold .arr-in b{color:var(--yellow)}
+.arr-in span{font-size:clamp(18px,2vw,30px);color:var(--chalk);letter-spacing:.06em}
+@keyframes arrBlink{0%{opacity:1}50%{opacity:0}}
+@keyframes arrIn{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.arr-in b{animation:none}}
+/* transit route strip */
+.hm-route{position:relative;height:10px;margin:2px 0 8px;background:rgba(255,255,255,.08)}
+.hm-route i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,205,117,.25),var(--orange))}
+.hm-route b{position:absolute;top:-4px;width:6px;height:18px;margin-left:-3px;background:var(--chalk);box-shadow:0 0 0 2px var(--bg)}
+#hm-ff.on{box-shadow:inset 0 0 0 3px #fff}

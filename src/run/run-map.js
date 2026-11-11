@@ -19,7 +19,7 @@ const MARKS = [25, 50, 75], HUNT_FOE = ['picket', 'lancer', 'ironclad'];
 const GUARDIANS = { 1: 'raider', 2: 'lancer', 3: 'ironclad', 4: 'screenship', 5: 'kael' };
 /* ---- difficulty (step 7b): one curve and one dial. Enemies grow a little each passage; roles set how hard a fight is meant to be;
    traits change how a fight plays, by progress, not by luck. DIFFICULTY.dial scales everything (1 = standard) ---- */
-const DIFFICULTY = { dial: 1, hpPerPassage: 0.008, dmgPerPassage: 0.012,
+const DIFFICULTY = { dial: 1.05, hpPerPassage: 0.008, dmgPerPassage: 0.012,
   role: { contact: { hp: 1, dmg: 1 }, intercept: { hp: 1, dmg: 1 }, guardian: { hp: 1.2, dmg: 1.05 } },
   traitsAt: [[0, 0], [8, 1], [22, 2]],   /* [passages travelled, traits] for contacts and intercepts */
   guardianTraits: { 1: ['armoured'], 2: ['marksman'], 3: ['marksman'], 4: ['heavy', 'menders'], 5: [] },
@@ -30,7 +30,7 @@ const FOLD_THREAT = 8, HUNT_DROP = 35, FOLD_FUEL = 1;
 /* ---- time (core loop step 1): ship time is the cost; threat follows it ----
    Active time (folds, later scans) adds THREAT_PER_HOUR per ship-hour; idle time on station adds a fifth of that.
    Combat, comms, offers, events and the gate stop the clock (the UI only calls passTime when time runs). */
-const THREAT_PER_HOUR = 5, IDLE_THREAT = 0.2;   /* 5 per ship-hour: a passage's scans plus its fold land near the old 8 per fold */
+const THREAT_PER_HOUR = 5, IDLE_THREAT = 0.2, SECTOR_THREAT = 0.3, SECTOR_START = 8, SECTOR_CARRY = 0;   /* each sector after the first, the Rearguard closes 20% faster */   /* 5 per ship-hour: a passage's scans plus its fold land near the old 8 per fold */
 const DEFENCE = { propulsion: 20, shields: 60, sensors: 10, weapons: 10 };
 const CONTACTS = { 1: ['cutter', 'raider', 'picket'], 2: ['raider', 'picket', 'lancer', 'cutter'], 3: ['raider', 'lancer', 'ironclad', 'screenship'], 4: ['lancer', 'ironclad', 'screenship', 'raider'], 5: ['lancer', 'ironclad', 'screenship'] };
 const slotById = id => D.SLOTS.find(s => s.id === id), partById = id => D.PARTS.find(p => p.id === id);
@@ -450,6 +450,7 @@ function leaveGate(R) {
   if (stat(R, 'gateRefill', 0)) R.ship.lumite = stat(R, 'lumiteCap', 10);
   const frac = stat(R, 'gateHullHalf', 0) ? 0.5 : 0; if (frac && R.ship.hull < R.ship.hullMax * frac) R.ship.hull = Math.round(R.ship.hullMax * frac);
   R.sector++; R.passage = 0; R.cur = null; R.gateDir = null; R.flags['threatFold' + R.sector] = 0;
+  R.threat = Math.max(SECTOR_START * (R.sector - 1), R.threat * SECTOR_CARRY); R.marks = 0; R.intercept = null; R.resume = null;   /* playtest: the gate is a clean break; the Rearguard re-forms behind you and closes faster each sector */
   log(R, 'sector', { sector: R.sector }); emit(R, 'sector.gate', { sector: R.sector }); nextCards(R); return { ok: true, phase: 'choose' };
 }
 
@@ -488,7 +489,7 @@ function redAlertPower(R) {
 function passTime(R, minutes, idle) {
   if (R.over || !(minutes > 0)) return;
   R.shipMin = (R.shipMin || 0) + minutes;
-  R.threat = Math.min(100, R.threat + minutes / 60 * THREAT_PER_HOUR * (idle ? IDLE_THREAT : 1) * stat(R, 'foldThreat', 1));
+  R.threat = Math.min(100, R.threat + minutes / 60 * THREAT_PER_HOUR * (idle ? IDLE_THREAT : 1) * stat(R, 'foldThreat', 1) * (1 + SECTOR_THREAT * ((R.sector || 1) - 1)));
   checkMarks(R);
 }
 /* ---- intercepts (core loop step 5): a crossed threat mark sends the Rearguard. It shows as a fast blip aft,

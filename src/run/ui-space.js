@@ -13,7 +13,7 @@ function spAim(){return SP.aim||spNose();}
 function spBlipName(c){return SP_CLS[c.type]||'CONTACT';}
 /* where the ship is drawn: the centre, or partway along the fold line while under way */
 function spShipPos(){
-  const R=R2.R;if(!S.engaged||!S.dest||!/^c\d$/.test(S.dest.id))return [0,0,0];
+  const R=R2.R;if(!S.engaged||!S.dest||!/^c\d$/.test(S.dest.id))return R2.at&&R&&R2.at.pass===R.sector*10+R.passage?R2.at.p.slice():[0,0,0];   /* after arriving the ship stays where it stopped until the next passage */
   const c=R.cards[+S.dest.id.slice(1)];if(!c||!c.p)return [0,0,0];
   const t=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);return c.p.map(x=>x*t);
 }
@@ -25,7 +25,7 @@ function spFit(dt){
   if(dest&&dest.p){ctr=ship.map((v,i)=>(v+dest.p[i])/2);rad=Math.max(1.6,Math.hypot(dest.p[0]-ctr[0],dest.p[1]-ctr[1],dest.p[2]-ctr[2])*1.25);}
   else{
     const pts=R.cards.filter(c=>c.p&&c.found).map(c=>c.p);if(R.intercept&&R.intercept.p)pts.push(R.intercept.p);
-    pts.push([0,0,0]);if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
+    pts.push(spShipPos());if(R.phase==='choose'){const n=spAim(),rc=RM.scanReach(R,SP.mode);pts.push(n.map(v=>v*rc));}
     const lo=[0,1,2].map(i=>Math.min(...pts.map(p=>p[i]))),hi=[0,1,2].map(i=>Math.max(...pts.map(p=>p[i])));
     ctr=lo.map((v,i)=>(v+hi[i])/2);rad=Math.max(2.5,Math.hypot(hi[0]-lo[0],hi[1]-lo[1],hi[2]-lo[2])/2*1.15);
     if(R.phase==='choose'){const rc=RM.scanReach(R,SP.mode),tk=Math.tan(RM.SCAN_HALF[SP.mode]*Math.PI/180);rad=Math.max(rad,Math.hypot(rc/2,rc*tk/Math.hypot(1,tk))*1.2);}
@@ -61,7 +61,7 @@ function spInstall(c){
   c.addEventListener('pointermove',e=>{
     const p=SP.ptr;if(!R2.live||!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>4)p.moved=true;if(!p.moved)return;
     if(SP.drag==='helm'&&R2.R.phase==='choose'){const az=Math.atan2(p.aim[1],p.aim[0])-dx*0.01,el=clamp(Math.asin(clamp(p.aim[2],-1,1))-dy*0.01,-1.4,1.4);SP.aim=[Math.cos(el)*Math.cos(az),Math.cos(el)*Math.sin(az),Math.sin(el)];spCtlKey='';r2HomeMap();}
-    else{SP.yaw=p.yaw+dx*0.008;SP.pitch=clamp(p.pitch+dy*0.008,-1.45,1.45);}
+    else{SP.yaw=p.yaw+dx*0.008;SP.pitch=clamp(p.pitch+dy*0.008,-1.45,1.45);SP.camT=performance.now();}
   });
   c.addEventListener('pointerup',e=>{
     const p=SP.ptr;SP.ptr=null;if(!R2.live||!p||p.moved)return;
@@ -75,8 +75,21 @@ function spInstall(c){
 }
 /* camera presets */
 /* the cone can be hidden; it still flashes while a scan runs */
+/* the camera tools: a small cluster in the corner of the map (navigation pass) */
+function spCam(){
+  const box=$('.p-map .hero-map');if(!box)return;let c=$('#hm-cam',box);
+  if(!c){c=el('div','hm-cam');c.id='hm-cam';box.appendChild(c);}
+  const key=[SP.drag,SP.cone,$('#hmap')&&!$('#hmap').hidden].join('|');if(c.dataset.k===key)return;c.dataset.k=key;c.innerHTML='';
+  c.hidden=!($('#hmap')&&!$('#hmap').hidden);
+  const b=(t,tip,on,fn)=>{const x=el('button','hc-b'+(on?' on':''));x.type='button';x.textContent=t;x.title=tip;x.setAttribute('aria-label',tip);x.addEventListener('click',e=>{e.stopPropagation();SND.tap();fn();c.dataset.k='';spCam();});c.appendChild(x);};
+  b(SP.drag==='cam'?'DRAG: CAM':'DRAG: HELM','Dragging turns the camera, or steers the ship',SP.drag!=='cam',()=>{SP.drag=SP.drag==='cam'?'helm':'cam';});
+  b('ALIGN','Point the ship where the camera looks',false,spAlign);
+  [['BEHIND','behind'],['3/4','iso'],['TOP','top'],['SIDE','side']].forEach(([t,k])=>b(t,'Camera: '+t,false,()=>spView(k)));
+  b(SP.cone?'CONE':'CONE OFF','Show or hide the scan cone',SP.cone,spConeToggle);
+}
 function spConeToggle(){SP.cone=!SP.cone;try{localStorage.setItem('pf-cone',SP.cone?'1':'0');}catch(_){}}
 function spView(k){
+  SP.camT=performance.now();
   if(k==='behind'){const n=spNose();SP.yaw=Math.atan2(-n[0],-n[1]);SP.pitch=clamp(Math.asin(clamp(n[2],-1,1))+0.3,-1.45,1.45);}
   else if(k==='top'){SP.yaw=0;SP.pitch=1.5;}else if(k==='side'){SP.yaw=0;SP.pitch=0.05;}else{SP.yaw=-0.6;SP.pitch=0.72;}
 }
@@ -125,13 +138,8 @@ function spControls(host){
   if(host.dataset.sp===key)return;host.dataset.sp=key;host.innerHTML='';
   const row=(cls)=>{const d=el('div','sp-row'+(cls?' '+cls:''));host.appendChild(d);return d;};
   const btn=(r,t,on,fn,c)=>{const b=el('button','btn sm'+(on?' on':''));b.textContent=t;b.style.setProperty('--bc','var(--'+(c||'peri')+')');b.addEventListener('click',()=>{SND.tap();fn();spCtlKey='';host.dataset.sp='';r2HomeMap();});r.appendChild(b);return b;};
-  const r1=row();r1.appendChild(Object.assign(el('span','sp-l'),{textContent:'DRAG'}));
-  btn(r1,'CAMERA',SP.drag==='cam',()=>{SP.drag='cam';});btn(r1,'HELM',SP.drag==='helm',()=>{SP.drag='helm';});btn(r1,'ALIGN TO VIEW',false,spAlign,'lav');
-  r1.appendChild(Object.assign(el('span','sp-l sp-gap'),{textContent:'VIEW'}));
-  [['BEHIND','behind'],['3/4','iso'],['TOP','top'],['SIDE','side']].forEach(([t,k])=>btn(r1,t,false,()=>spView(k),'peri'));
   const r3=row();r3.appendChild(Object.assign(el('span','sp-l'),{textContent:'SCAN'}));
   btn(r3,'SWEEP',SP.mode==='sweep',()=>{SP.mode='sweep';});btn(r3,'FOCUS',SP.mode==='focus',()=>{SP.mode='focus';});
-  btn(r3,SP.cone?'CONE: ON':'CONE: OFF',SP.cone,spConeToggle,'lav');
   r3.appendChild(Object.assign(el('span','sp-v'),{textContent:'SENSORS '+Math.round(R.power.sensors)+'%  ·  REACH '+fmt(pv.reach)+' LY'}));
   const r4=row('sp-go');
   const go=el('button','btn sp-scan');go.style.setProperty('--bc','var(--blue)');

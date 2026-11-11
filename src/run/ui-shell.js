@@ -431,9 +431,11 @@ function r2HomeMap(){
   const trip=!!(choose&&S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)),mode=(trip&&(!sel||sel===S.dest.id))?'trip':(sel?'plan':'idle');
   $('#hm-title').textContent=trip?'UNDER WAY TO '+SYS[S.dest.id].name:'SECTOR '+R.sector+': '+r2U(r2Sec().name)+', PASSAGE '+Math.min(R.passage,7)+' OF 7';
   $('#mc-idle').hidden=mode!=='idle';$('#mc-plan').hidden=mode!=='plan';$('#mc-trip').hidden=mode!=='trip';
+  spCam();
   if(mode==='idle'){
     const hint=$('#mc-hint');
-    if(choose&&!S.engaged){hint.dataset.r2='';spControls(hint);}
+    if(choose&&!S.engaged&&R.cards.some(c=>c.found||!c.p)){hint.dataset.sp='';r2DestCards(hint);}
+    else if(choose&&!S.engaged){hint.dataset.r2='';hint.dataset.dc='';spControls(hint);}
     else{const t=choose?(S.dest?'COURSE SET FOR '+S.dest.name+'.':'TAP A CONTACT TO PLAN A FOLD.'):r2PhaseText();
     if(hint.dataset.r2!==t){hint.dataset.r2=t;hint.dataset.lg='';hint.dataset.sp='';hint.innerHTML=t;}}
   }else if(mode==='plan'){
@@ -444,14 +446,83 @@ function r2HomeMap(){
     r2CardTags(c).forEach(t=>rows.push([t.split(':')[0],t.indexOf(':')>0?t.slice(t.indexOf(':')+1).trim():'',/INTERCEPT MARK/.test(t)]));
     $('#mc-kv').innerHTML=rows.map(r=>r[1]===''?'<div><span>'+r[0]+'</span><b'+(r[2]?' class="bad"':'')+'>&nbsp;</b></div>':st(r[0],r[1],r[2])).join('');
     r2FuelPlan(sel,'#mc-fuel',true);
-    $('#mc-set').textContent=isCourse?'COURSE SET':'SET COURSE';$('#mc-set').disabled=isCourse;
-    $('#mc-go').textContent=S.engaged&&!isCourse?'CHANGE COURSE':'ENGAGE';$('#mc-go').disabled=short||(S.engaged&&isCourse);
+    $('#mc-set').hidden=true;
+    $('#mc-go').textContent=S.engaged&&!isCourse?'CHANGE COURSE':'ENGAGE · FOLD '+fmt(w)+' [ENTER]';$('#mc-go').disabled=short||(S.engaged&&isCourse);
+    r2PlanExtras(c,ix,w);
     {let fb=$('#mc-face');if(!fb){fb=el('button','btn sm');fb.id='mc-face';fb.style.setProperty('--bc','var(--lav)');fb.textContent='FACE IT';fb.addEventListener('click',()=>{SND.tap();if(S.homeSel)spFace(+S.homeSel.slice(1));});$('#mc-set').parentElement.appendChild(fb);}fb.hidden=!c.p||S.engaged||c.id;}
   }else{
     const ix=+S.dest.id.slice(1),c=R.cards[ix],v=r2V(S.warpEff),eta=v>0?S.distLeft/v:Infinity;
     $('#ht-kv').innerHTML=st('ARRIVING AT',r2NodeName(c,ix,R.cards))+st('DISTANCE LEFT',fmt(Math.max(0,S.distLeft))+' LY')+st('ETA',fmtEta(eta))+st('FOLD',fmt(S.warpEff)+' OF '+fmt(maxWarp()))+st('LUMITE ON ARRIVAL',(Math.round((R.ship.lumite-c.fuel)*10)/10)+' OF '+r2Stat('lumiteCap',10));
     const sl=$('#hm-sl');if(document.activeElement!==sl)sl.value=S.warpSet;sl.style.setProperty('--p',(S.warpSet/9.9*100)+'%');
+    let ff=$('#hm-ff');if(!ff){ff=el('button','btn sm');ff.id='hm-ff';ff.type='button';ff.textContent='HOLD F: ×4';ff.title='Hold to fast-forward the transit';ff.style.setProperty('--bc','var(--lav)');
+      const on=v=>e=>{e.preventDefault();R2.ff=v;ff.classList.toggle('on',v);};ff.addEventListener('pointerdown',on(true));['pointerup','pointerleave','pointercancel'].forEach(t=>ff.addEventListener(t,on(false)));$('#hm-dis').parentElement.appendChild(ff);}
+    ff.classList.toggle('on',!!R2.ff);
+    let rt=$('#hm-route');if(!rt){rt=el('div','hm-route');rt.id='hm-route';rt.innerHTML='<i></i><b></b>';$('#mc-trip').insertBefore(rt,$('#mc-trip').firstChild);}
+    const pr=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);rt.querySelector('i').style.width=(pr*100)+'%';rt.querySelector('b').style.left=(pr*100)+'%';
   }
+}
+/* navigation pass: once something is on the map, the bar under it lists the destinations */
+/* keys for the map bar: 1-9 pick a destination, Enter engages, Esc goes back to the list */
+document.addEventListener('keydown',e=>{
+  const R=R2.R;if(!R||!R2.live||R.over||R.phase!=='choose'||curView!=='home'||S.engaged)return;
+  const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(/^[1-9]$/.test(e.key)){const b=$$('#mc-hint .dc')[+e.key-1];if(b){e.preventDefault();b.click();}return;}
+  if(e.key==='Enter'&&S.homeSel){const g=$('#mc-go');if(g&&!g.disabled&&!$('#mc-plan').hidden){e.preventDefault();g.click();}return;}
+  if(e.key==='Escape'&&S.homeSel){e.preventDefault();S.homeSel=null;r2Render();}
+});
+/* passive sweep: under way, the sensors pick up anything that passes close to the route */
+function r2Passive(dt){
+  const R=R2.R;R2.pvT=(R2.pvT||0)+dt;if(R2.pvT<.8)return;R2.pvT=0;
+  const sp=spShipPos(),reach=Math.max(1.5,RM.scanReach(R,'sweep')*.35);
+  R.cards.forEach((c,i)=>{if(!c.p||c.found)return;const d=Math.hypot(c.p[0]-sp[0],c.p[1]-sp[1],c.p[2]-sp[2]);if(d>reach)return;
+    c.found=true;r2Vox({k:'sys',t:'PASSING: '+spBlipName(c)+', '+fmt(Math.hypot(c.p[0],c.p[1],c.p[2]))+' LY FROM THE START. PICKED UP ON THE WAY.'});r2Snd('scan');});
+}
+document.addEventListener('keydown',e=>{if((e.key==='f'||e.key==='F')&&!e.repeat&&R2.live&&S.engaged){const t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA')return;R2.ff=true;}});
+document.addEventListener('keyup',e=>{if(e.key==='f'||e.key==='F')R2.ff=false;});
+window.addEventListener('blur',()=>{R2.ff=false;});
+function r2DestCards(host){
+  const R=R2.R,w=S.warpSet>=1?S.warpSet:Math.min(6,maxWarp()),pv=RM.scanPreview(R,spAim(),SP.mode);
+  const list=R.cards.map((c,i)=>({c,i})).filter(o=>!o.c.p||o.c.found);
+  const key=list.map(o=>o.i+':'+(o.c.id?1:0)+':'+Math.round(distTo('c'+o.i)*10)).join(',')+'|'+fmt(w)+'|'+Math.round(R.ship.lumite*10)+'|'+pv.scanMin+'|'+!!SP.anim+'|'+(R.resume?1:0);
+  if(host.dataset.dc===key)return;host.dataset.dc=key;host.dataset.r2='';host.innerHTML='';
+  const row=el('div','dc-row');
+  list.forEach(({c,i},n)=>{
+    const d=distTo('c'+i),eta=d/Math.max(.001,r2V(w)),cost=r2FoldCost(c,w),short=R.ship.lumite+1e-9<cost,hostile=c.id!==false&&(c.type==='contact'||c.type==='guardian');
+    const b=el('button','dc'+(hostile&&c.id?' hostile':'')+(c.type==='gate'?' gate':'')+(short?' short':''));b.type='button';
+    const nm=c.p&&!c.id?spBlipName(c):r2NodeName(c,i,R.cards),tag=(r2CardTags(c)[0]||'').split('.')[0];
+    b.innerHTML='<i></i><b></b><span></span><small></small>';
+    b.querySelector('i').textContent=n+1;b.querySelector('b').textContent=nm;
+    b.querySelector('span').textContent=fmt(d)+' LY · '+fmtEta(eta)+' · '+cost+' LUM';
+    b.querySelector('small').textContent=short?'NOT ENOUGH LUMITE AT FOLD '+fmt(w):tag;
+    b.addEventListener('mouseenter',()=>{SP.prev=i;});b.addEventListener('mouseleave',()=>{if(SP.prev===i)SP.prev=null;});
+    b.addEventListener('focus',()=>{SP.prev=i;});b.addEventListener('blur',()=>{if(SP.prev===i)SP.prev=null;});
+    b.addEventListener('click',()=>{SND.tap();SP.prev=null;S.homeSel='c'+i;r2Render();});
+    row.appendChild(b);
+  });
+  host.appendChild(row);
+  const ft=el('div','dc-foot');
+  const sa=el('button','btn sm');sa.style.setProperty('--bc','var(--blue)');sa.textContent=SP.anim?'SCANNING...':'SCAN AGAIN · '+pv.scanMin+' MIN';sa.disabled=!!SP.anim;sa.addEventListener('click',()=>r2DoScan());ft.appendChild(sa);
+  ['sweep','focus'].forEach(m=>{const x=el('button','btn sm'+(SP.mode===m?' on':''));x.style.setProperty('--bc','var(--peri)');x.textContent=r2U(m);x.addEventListener('click',()=>{SND.tap();SP.mode=m;host.dataset.dc='';r2HomeMap();});ft.appendChild(x);});
+  ft.appendChild(Object.assign(el('span','dc-hint'),{textContent:'PICK A DESTINATION · 1-'+Math.min(9,list.length)+' ON THE KEYBOARD'}));
+  host.appendChild(ft);
+}
+/* the course panel: fold factor right there, and a way back to the list */
+function r2PlanExtras(c,ix,w){
+  const plan=$('#mc-plan');if(!plan)return;let x=$('#mc-x',plan);
+  if(!x){x=el('div','mc-x');x.id='mc-x';x.innerHTML='<label>FOLD FACTOR <b></b></label><input type="range" min="1" max="9.9" step="0.1" aria-label="Fold factor"><button class="btn sm" type="button">BACK TO THE LIST [ESC]</button>';plan.appendChild(x);
+    const sl=x.querySelector('input');sl.addEventListener('input',()=>{const v=setWarp(+sl.value);sl.value=v;r2HomeMap();});
+    x.querySelector('button').style.setProperty('--bc','var(--lav)');x.querySelector('button').addEventListener('click',()=>{SND.tap();S.homeSel=null;r2Render();});}
+  const sl=x.querySelector('input'),mw=Math.floor(maxWarp()*10)/10;sl.max=Math.max(1,mw);if(document.activeElement!==sl)sl.value=w;sl.style.setProperty('--p',((w-1)/Math.max(.1,mw-1)*100)+'%');
+  x.querySelector('b').textContent=fmt(w)+' OF '+fmt(mw)+' · FASTER COSTS MORE LUMITE';
+  x.hidden=!!S.engaged;
+}
+/* the arrival card: the whole screen dims and a big word blinks twice, then the next screen is already there */
+function r2ArriveCard(word,sub,tone){
+  const old=$('#arrive');if(old)old.remove();
+  const a=el('div','arrive '+(tone||''));a.id='arrive';a.setAttribute('role','status');
+  a.innerHTML='<div class="arr-in"><b></b><span></span></div>';a.querySelector('b').textContent=word;a.querySelector('span').textContent=sub||'';
+  a.addEventListener('click',()=>a.remove());document.body.appendChild(a);
+  setTimeout(()=>{a.classList.add('out');setTimeout(()=>a.remove(),380);},REDUCED?900:1250);
 }
 function r2Contacts(){
   const R=R2.R,host=$('#ct-list'),act=$('#ct-act');host.innerHTML='';act.innerHTML='';
@@ -569,8 +640,8 @@ function r2Preset(k){
   if(!r.ok){r2Snd('err');r2Say(r.why,true);}else{r2Snd('ok');r2Say('POWER REROUTED: '+name);}
   r2Save();r2Render();
 }
-const R2K=window.__R2K||8;
-const R2_TRANSIT=3; /* ship minutes per real second while folding */
+const R2K=window.__R2K||1.1;   /* navigation pass: transits run 20 to 30 real seconds on average (was 8: a few seconds) */
+const R2_TRANSIT=3*R2K/8; /* ship minutes per real second while folding: scaled so a fold costs the same ship time as before */
 /* the fold begins: a queued reroute lands now, and the fold factor is held to what propulsion allows */
 function r2BeginFold(){
   const R=R2.R,rr=R&&RM.applyPending(R);if(rr){r2Bridge();r2Say('REROUTE COMPLETE');}
@@ -591,8 +662,9 @@ function r2CanEngage(){
 function r2Travel(dt){
   const R=R2.R;if(!R||!R2.live)return;
   try{AMB.sync();}catch(e){} /* the drive hum follows fold speed (the Campaign does this in its sim tick, which is off in a Run) */
-  if(R.phase!=='choose'||R.over){if(S.warpEff||S.engaged){S.warpEff=0;S.engaged=false;}return;}
+  if(R.phase!=='choose'||R.over){S.engaged=false;if(S.warpEff>0){S.warpEff=Math.max(0,S.warpEff-dt*4);refreshHome();}return;}   /* the drive spins down instead of cutting out */
   if(R2.pause||document.hidden)return;
+  if(R2.ff&&S.engaged)dt*=4;   /* hold F (or the button) to fast-forward a transit */
   { const mw=Math.floor(maxWarp()*10)/10; if(S.warpSet>mw+.05){S.warpSet=mw;r2Say('FOLD LIMITED TO '+fmt(mw)+' BY PROPULSION POWER');} } /* fold follows propulsion power at once */
   const act=true;
   const moving=S.engaged||S.warpEff>.05;if(!moving)return;
@@ -602,7 +674,7 @@ function r2Travel(dt){
     const sd=SYS[S.dest.id];
     if(!sd){S.engaged=false;return;}
     S.distLeft-=r2V(S.warpEff)*dt;
-    RM.passTime(R,dt*R2_TRANSIT,false);r2Watch();
+    RM.passTime(R,dt*R2_TRANSIT,false);r2Watch();r2Passive(dt);
     const tt=clamp(1-S.distLeft/Math.max(.01,S.distTotal),0,1);
     S.pos={x:S.from.x+(sd.x-S.from.x)*tt,y:S.from.y+(sd.y-S.from.y)*tt};
     if(S.distLeft<=0){const ix=+S.dest.id.slice(1);S.engaged=false;S.pos={x:sd.x,y:sd.y};S.dest=null;S.distLeft=0;S.distTotal=0;r2FoldCard(ix);return;}
@@ -626,13 +698,19 @@ function r2FoldCard(ix){
   const R=R2.R;if(R.phase!=='choose')return false;
   const c=R.cards[ix];if(!c)return false;
   R2.msgs=[];const label=R2_TYPE[c.type];
+  const pass0=R.sector*10+R.passage;
   const r=RM.fold(R,ix,{factor:S.warpSet||S.warpEff,noIntercept:true});
+  if(r&&r.ok!==false&&c.p)R2.at={pass:pass0,p:c.p.slice()};
   if(!r||r.ok===false){r2Snd('err');r2Say(r&&r.why?r.why:'CANNOT FOLD',true);r2Render();return false;}
   R2.last=label;R2.course=null;S.homeSel=null;R2.encHide=false;R2.holdOpen=null;SP.aim=null;SP.anim=null;
   {const t=360+(R.shipMin||0),x=Math.floor(t%1440);r2Vox({k:'div',t:'PASSAGE '+Math.min(R.passage,7)+' · '+r2U(r2Sec().name)+' · '+pad(Math.floor(x/60),2)+':'+pad(x%60,2)});}
-  {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c);
+  {const cu=R.cur||{},m=R.fight&&R.fight.meta,E=R.fight?RC.view(R.fight).enemy:null,rows=r2CardTags(c).filter(t=>!/^UNIDENTIFIED/.test(t));
    if(m&&m.hunt!=null&&m.hunt>=0){r2VoxCard('INTERCEPT '+['I','II','III'][m.hunt]+': '+(E?E.name:'THE REARGUARD'),['KAEL\'S REARGUARD HAS CAUGHT UP. THREAT '+Math.round(R.threat)+'%.','THE FOLD TO '+label+' RESUMES AFTER THE FIGHT.'],'red');}
    else r2VoxCard('ARRIVED: '+(E?E.name+', '+label:label),rows,R.phase==='fight'?'red':'');
+   if(m&&m.hunt!=null&&m.hunt>=0)r2ArriveCard('INTERCEPT','THE REARGUARD HAS CAUGHT UP','red');
+   else if(R.phase==='fight')r2ArriveCard('CONTACT',E?r2U(E.name):label,'red');
+   else if(R.phase==='refit')r2ArriveCard('GATE REACHED','REFIT GATE · SECTOR '+R.sector,'gold');
+   else r2ArriveCard('ARRIVED',r2NodeName(c,ix,R.cards)===label?label:r2NodeName(c,ix,R.cards)+' · '+label,'');
    if(R.ship.lumite<2&&R.phase!=='refit')r2Say('LUMITE LOW: '+(Math.round(R.ship.lumite*10)/10)+' LEFT',true);
    if(!(R.ship.lumite<1.5&&r2Voice('lumiteLow')))r2Voice('arrive_'+c.type,{foe:E?E.name:(c.foe&&RD.ENEMIES[c.foe]?RD.ENEMIES[c.foe].name:'a warship')});}
   r2Snd('warpUp');
@@ -665,7 +743,7 @@ function r2Watch(quiet){
   const R=R2.R;if(!R||!R2.live)return;
   const I=R.intercept;
   if(I&&!I.warned){I.warned=true;const E=RD.ENEMIES[I.foe];
-    r2VoxCard('SECURITY: THE REARGUARD IS INBOUND',['A FAST ENERGY SIGNATURE IS CLOSING FROM AFT: '+(E?E.name:'KAEL\'S REARGUARD')+'.','THREAT '+Math.round(R.threat)+'%. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.','TIME TO GET READY: A REROUTE NOW LANDS AT THE FIRST ROUND.'],'red');
+    r2VoxCard('SECURITY: THE REARGUARD IS INBOUND',['A FAST ENERGY SIGNATURE IS CLOSING FROM AFT: '+(E?E.name:'KAEL\'S REARGUARD')+'.','THREAT '+Math.round(R.threat)+'%. IT REACHES YOU ON YOUR NEXT SCAN OR FOLD.','TIME TO GET READY: SET YOUR POWER NOW, OR ON YOUR FIRST TURN.'],'red');
     r2Voice('interceptWarn',{},{urgent:true});
     r2Snd('alert');r2Alert('yellow');r2Save();if(!quiet)r2Render();}
   if(I&&I.closer){I.closer=false;r2VoxCard('SECURITY: THEY HAVEN\'T FOUND US YET',['THE REARGUARD IS STILL CLOSING. IT REACHES YOU IN '+(I.grace+1)+' MORE ACTION'+(I.grace?'S':'')+'.'],'');r2Voice('interceptCloser',{},{urgent:true});}

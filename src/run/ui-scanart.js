@@ -70,7 +70,14 @@ function r2Space(c){
   /* the facing the ship shows: it turns smoothly toward where the nose really is, with thruster puffs while it swings */
   const dcard=S.engaged&&S.dest&&/^c\d$/.test(S.dest.id)?R.cards[+S.dest.id.slice(1)]:null,shipNow=spShipPos();
   const nose=dcard&&dcard.p?spUnit(dcard.p.map((v,i)=>v-shipNow[i])):spNose();if(!SCA.disp)SCA.disp=nose.slice();
-  {const a=spAng(SCA.disp,nose);if(a>0.5){const t=Math.min(1,dt*3.2);SCA.disp=spUnit(SCA.disp.map((v,i)=>v+(nose[i]-v)*t));if(Math.random()<0.6)SCA.puffs.push({p:spShipPos().map((v,i)=>v+(Math.random()-.5)*.5),t:0});}else SCA.disp=nose.slice();}
+  /* while you pick a destination the ship turns its nose toward it (just the picture: the scan heading stays put) */
+  const pk=!dcard&&R.phase==='choose'?(S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):SP.prev!=null?SP.prev:null):null,pc=pk!=null?R.cards[pk]:null;
+  const face=pc&&pc.p?spUnit(pc.p.map((v,i)=>v-shipNow[i])):nose;
+  /* chase cam: under way the camera eases in behind the ship, until you touch it */
+  if(S.engaged&&dcard&&!REDUCED&&now-(SP.camT||0)>4000){const ty=Math.atan2(-SCA.disp[0],-SCA.disp[1])+.75,tp=.55;   /* a three-quarter chase, so the ship shows its profile */let dy=ty-SP.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));const kk=Math.min(1,dt*.9);SP.yaw+=dy*kk;SP.pitch+=(tp-SP.pitch)*kk;}
+  /* a new passage: dissolve through black instead of snapping */
+  if(SCA.pass!==R.sector*10+R.passage){if(SCA.pass!=null){SCA.fadeT=now;SP.zoom=null;}SCA.pass=R.sector*10+R.passage;}
+  {const a=spAng(SCA.disp,face);if(a>0.5){const t=Math.min(1,dt*3.2);SCA.disp=spUnit(SCA.disp.map((v,i)=>v+(face[i]-v)*t));if(Math.random()<0.6)SCA.puffs.push({p:spShipPos().map((v,i)=>v+(Math.random()-.5)*.5),t:0});}else SCA.disp=nose.slice();}
   const aim=spAim(),turning=choose&&!SP.anim&&spAng(nose,aim)>1,ship=spShipPos(),O=P(ship);
   /* cones: dithered; the planned facing in salmon; a pulse rides out through the cone while scanning */
   const cone=(dir,mode,frac,rgb,a)=>{const ax=spUnit(dir),reach=RM.scanReach(R,mode)*frac,kk=Math.tan(RM.SCAN_HALF[mode]*Math.PI/180),u=Math.abs(ax[2])>0.5?[1,0,0]:[0,0,1];
@@ -89,7 +96,7 @@ function r2Space(c){
   /* gate bearing (Operations perk) */
   if(R.gateDir&&R.passage>=3&&R.passage<6&&RM.perk(R,'gateBearing'))saLine(x,O,P(R.gateDir.map(q=>q*9)),'rgba('+spHex('yellow')+',.7)',3);
   /* the course line to a planned or engaged destination */
-  const sel=S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):null,dest=S.dest&&/^c\d$/.test(S.dest.id)?+S.dest.id.slice(1):null;
+  const sel=S.homeSel&&/^c\d$/.test(S.homeSel)?+S.homeSel.slice(1):SP.prev!=null&&!S.engaged?SP.prev:null,dest=S.dest&&/^c\d$/.test(S.dest.id)?+S.dest.id.slice(1):null;
   if(choose&&(sel!=null||dest!=null)){const ix=dest!=null?dest:sel,cc=R.cards[ix];if(cc&&cc.p&&cc.found)saLine(x,O,P(cc.p),'rgba('+spHex('orange')+',.95)',2);}
   /* contacts: drop line to the floor, then an icon by type (hostiles use their combat sprite) */
   const shown=new Set(SP.anim?SP.anim.hits.slice(0,SP.anim.shown).map(h=>h.ix):[]),pending=new Set(SP.anim?SP.anim.hits.slice(SP.anim.shown).filter(h=>!h.identified).map(h=>h.ix):[]);
@@ -150,4 +157,5 @@ function r2Space(c){
   X.font=cfont(12*d);X.fillStyle='rgba(200,206,230,.75)';X.textBaseline='alphabetic';
   X.fillText('SECTOR '+R.sector+' · '+r2U(r2Sec().name)+' · PASSAGE '+Math.min(R.passage,7),12*d,H-12*d);
   if(!choose){X.textAlign='right';X.fillText(r2PhaseText(),W-12*d,H-12*d);X.textAlign='left';}
+  if(SCA.fadeT&&now-SCA.fadeT<650){const u=(now-SCA.fadeT)/650;X.fillStyle='rgba(8,10,22,'+(1-u).toFixed(3)+')';X.fillRect(0,0,W,H);}
 }
