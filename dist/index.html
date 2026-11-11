@@ -9773,8 +9773,12 @@ function r2Stage(host,f,v,opt){
   info.innerHTML='<h3></h3><small></small><div class="r2-bar"><span>HULL</span><div class="qb"><i></i></div><b></b></div><div class="r2-pp"><span>SCREEN</span><b class="sc"></b></div><div class="r2-pp"><span>ARMOUR</span><b class="ar"></b></div><div class="r2-it"></div>';
   info.querySelector('h3').textContent=r2U(E.name||def.name);info.querySelector('small').textContent=r2U(def.faction)+' · SPEED '+v.speed.enemy;
   if((E.traits||[]).length){const tr=el('div','r2-trt');E.traits.forEach(t=>{const b=el('span');b.textContent=r2U(t.name);b.title=t.t;tr.appendChild(b);const d=el('small');d.textContent=r2U(t.t);tr.appendChild(d);});info.appendChild(tr);}
-  info.querySelector('i').style.width=clamp(D.eh/E.hullMax*100,0,100)+'%';info.querySelector('.r2-bar b').textContent=Math.round(D.eh)+' / '+E.hullMax;
-  info.querySelector('.sc').textContent=sc;info.querySelector('.ar').textContent=ar;
+  const pips=n=>E.screenPipsMax?'◆'.repeat(Math.max(0,Math.min(n,E.screenPipsMax)))+'◇'.repeat(Math.max(0,E.screenPipsMax-Math.max(0,n))):'NONE';
+  const setHull=(eh,s)=>{info.querySelector('i').style.width=clamp(eh/E.hullMax*100,0,100)+'%';info.querySelector('.r2-bar b').textContent=Math.round(eh)+' / '+E.hullMax;info.querySelector('.sc').textContent=s;};
+  /* our shot is still in flight: the readout holds its old values until it lands */
+  {const cs=R2.busy&&R2.feedN>0?R2.feed[R2.feedN-1]:null,cx=cs&&cs.fx,left=cx&&cx.flashAt&&cx.d&&(cx.d.eh||cx.d.es)?cx.flashAt*1000-(performance.now()-(R2.stepT||0)):0;
+   if(left>30){const ph=Math.min(E.hullMax,D.eh+(cx.d.eh||0)),pes=D.es==null?es:Math.ceil((D.es+(cx.d.es||0))/RC.PIP);setHull(ph,pips(pes));setTimeout(()=>setHull(D.eh,sc),left);}
+   else setHull(D.eh,sc);}info.querySelector('.ar').textContent=ar;
   const it=info.querySelector('.r2-it');it.textContent='NEXT MOVE: '+intent;it.classList.toggle('known',!!E.intent);
   wrap.appendChild(info);
   // banner and perk callout for this step
@@ -9933,7 +9937,7 @@ function r2Commit(){
 }
 function r2Feed(){
   clearTimeout(R2.feedT);
-  R2.feedN++;r2Render();
+  R2.feedN++;R2.stepT=performance.now();r2Render();
   const cur=R2.feed[R2.feedN-1];r2StepSnd(cur);
   /* the last step gets its full beat too, so its shot plays before the round closes */
   if(R2.feedN>=R2.feed.length){R2.feedT=setTimeout(()=>{if(!R2.busy)return;R2.busy=false;r2RoundCard();r2Render();},window.__FASTFEED__?0:((cur&&cur.ms)||480));return;}
